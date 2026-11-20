@@ -418,6 +418,9 @@
 
   /* ---- 一覧タブ（GASクイック） ---- */
   #pane-list { overflow: hidden; }
+  .quick-move { margin-left: auto; display: flex; gap: 2px; flex-shrink: 0; }
+  .quick-move button { font-size: 10px; line-height: 1; padding: 1px 4px; border: 1px solid var(--border); border-radius: 2px; background: #fff; cursor: pointer; }
+  .quick-move button:disabled { opacity: .35; cursor: default; }
   .quick-item { display: flex; align-items: baseline; gap: 5px; white-space: nowrap; user-select: none; -webkit-user-select: none; }
   .quick-label { overflow: hidden; text-overflow: ellipsis; min-width: 0; }
   .quick-tag { flex-shrink: 0; font-size: 11px; padding: 0 4px; border-radius: 2px; background: #eef0f4; color: #374151; font-weight: 400; }
@@ -709,7 +712,8 @@
 
   var state = {
     activeTab: "list",
-    quick: { sheet: [], my: [], myId: "", myUrl: "", items: [], sel: -1, loaded: false, importMode: false },
+    quick: { sheet: [], my: [], myId: "", myUrl: "", items: [], sel: -1, loaded: false, importMode: false,
+             order: { sheet: [], my: [], shelf: [] } },
     busy: false,
     target: { id: "", name: "", kind: "sheet", url: "", sheet: "" },
     sheets: [],
@@ -2378,12 +2382,72 @@
     });
   }
 
-  function quickAllItems() {
-    var q = state.quick, out = [];
-    (q.sheet || []).forEach(function(f) { out.push({ src: "sheet", name: f.name, label: f.name, words: [], desc: "" }); });
-    (q.my || []).forEach(function(f) { out.push({ src: "my", name: f.name, label: f.name, words: f.words || [], desc: f.desc || "" }); });
-    return out.concat(quickShelfItems());
+  function quickOrdered(list, order) {
+    var pos = {};
+    (order || []).forEach(function(n, i) { pos[n] = i; });
+    return list.map(function(it, i) { return { it: it, i: i }; }).sort(function(a, b) {
+      // 覚えに無い物（新しく足した物）は、区切りの一番上に、コードの順で並べる
+      var pa = pos.hasOwnProperty(a.it.name) ? pos[a.it.name] : -100000 + a.i;
+      var pb = pos.hasOwnProperty(b.it.name) ? pos[b.it.name] : -100000 + b.i;
+      return pa - pb;
+    }).map(function(x) { return x.it; });
   }
+
+  function quickAllItems() {
+    var q = state.quick, sheet = [], my = [];
+    (q.sheet || []).forEach(function(f) { sheet.push({ src: "sheet", name: f.name, label: f.name, words: [], desc: "" }); });
+    (q.my || []).forEach(function(f) { my.push({ src: "my", name: f.name, label: f.name, words: f.words || [], desc: f.desc || "" }); });
+    return quickOrdered(sheet, q.order.sheet).concat(quickOrdered(my, q.order.my), quickOrdered(quickShelfItems(), q.order.shelf));
+  }
+
+  // ===== 並べ替え（区切りの中だけ） =====
+  var quickSaveTimer = {};
+  function quickMove(dir) {
+    var q = state.quick, items = q.items || [], it = items[q.sel];
+    if (!it || (els.askInput.value || "").trim()) return;
+    var j = q.sel + dir, other = items[j];
+    if (!other || other.src !== it.src) return;
+    var group = items.filter(function(x) { return x.src === it.src; }).map(function(x) { return x.name; });
+    var a = group.indexOf(it.name), b = group.indexOf(other.name);
+    group[a] = other.name; group[b] = it.name;
+    q.order[it.src] = group;
+    q.sel = j;
+    renderQuickList();
+    var row = els.quickList.querySelectorAll(".quick-item")[j];
+    if (row && row.scrollIntoView) row.scrollIntoView({ block: "nearest" });
+    if (it.src !== "sheet") quickRememberLocal();
+    clearTimeout(quickSaveTimer[it.src]);
+    quickSaveTimer[it.src] = setTimeout(function() {
+      callGas("comboQuickSaveOrder", { kind: it.src, names: group });
+    }, 700);
+  }
+
+  function quickMoveButtons(idx) {
+    var items = state.quick.items || [], it = items[idx];
+    var box = document.createElement("span");
+    box.className = "quick-move";
+    var filtering = !!(els.askInput.value || "").trim();
+    [["▲", -1], ["▼", 1]].forEach(function(d) {
+      var b = document.createElement("button");
+      b.type = "button";
+      b.textContent = d[0];
+      b.title = d[1] < 0 ? "上へ（Alt+↑）" : "下へ（Alt+↓）";
+      var nb = items[idx + d[1]];
+      b.disabled = filtering || !nb || nb.src !== it.src;
+      b.addEventListener("click", function(e) { e.stopPropagation(); quickMove(d[1]); });
+      b.addEventListener("dblclick", function(e) { e.stopPropagation(); });
+      box.appendChild(b);
+    });
+    return box;
+  }
+
+  document.addEventListener("keydown", function(e) {
+    if (state.activeTab !== "list" || !e.altKey || state.quick.sel < 0) return;
+    if (e.key === "ArrowUp" || e.key === "ArrowDown") {
+      e.preventDefault();
+      quickMove(e.key === "ArrowUp" ? -1 : 1);
+    }
+  });
 
   function quickNorm(t) { return String(t || "").toLowerCase().replace(/[\s　]+/g, ""); }
 
@@ -2457,6 +2521,7 @@
         quickMarkSel(idx);
         quickRunItem(it);
       });
+      if (state.quick.sel === idx) row.appendChild(quickMoveButtons(idx));
       els.quickList.appendChild(row);
     });
     var q = state.quick;
@@ -2469,7 +2534,12 @@
   // 選んだ印だけを付け替える（一覧を描き直すと、ダブルクリックの 2 回目が別の行に当たって撃てなくなる）
   function quickMarkSel(idx) {
     var rows = els.quickList.querySelectorAll(".quick-item");
-    for (var i = 0; i < rows.length; i++) rows[i].classList.toggle("selected", i === idx);
+    for (var i = 0; i < rows.length; i++) {
+      rows[i].classList.toggle("selected", i === idx);
+      var mv = rows[i].querySelector(".quick-move");
+      if (mv && i !== idx) mv.parentNode.removeChild(mv);
+      if (i === idx && !mv) rows[i].appendChild(quickMoveButtons(idx));
+    }
   }
 
   var QUICK_LS_KEY = "gasquick_list_v1";
@@ -2480,10 +2550,19 @@
         var c = JSON.parse(raw), q = state.quick;
         // シートのマクロはシートごとに違うので覚えから出さない（マイマクロはどのシートでも同じ）
         q.my = c.my || []; q.myId = c.myId || ""; q.myUrl = c.myUrl || "";
+        if (c.order) { q.order.my = c.order.my || []; q.order.shelf = c.order.shelf || []; }
       }
     } catch (e) {}
     state.quick.loaded = true;
     renderQuickList();
+  }
+
+  function quickRememberLocal() {
+    var q = state.quick;
+    try {
+      window.localStorage.setItem(QUICK_LS_KEY, JSON.stringify({ my: q.my || [], myId: q.myId || "", myUrl: q.myUrl || "",
+        order: { my: q.order.my || [], shelf: q.order.shelf || [] } }));
+    } catch (e) {}
   }
 
   function loadQuickList() {
@@ -2491,13 +2570,12 @@
       var q = state.quick;
       q.loaded = true;
       if (res && res.ok) {
-        try {
-          window.localStorage.setItem(QUICK_LS_KEY, JSON.stringify({ my: res.my || [], myId: res.myId || "", myUrl: res.myUrl || "" }));
-        } catch (e) {}
         q.sheet = res.sheet || [];
+        if (res.order) q.order = { sheet: res.order.sheet || [], my: res.order.my || [], shelf: res.order.shelf || [] };
         q.my = res.my || [];
         q.myId = res.myId || "";
         q.myUrl = res.myUrl || "";
+        quickRememberLocal();
         if (res.draft && !els.askInput.value) { els.askInput.value = res.draft; updatePreview(); }
         if (res.build && QUICK_SIDEBAR_BUILD && res.build !== QUICK_SIDEBAR_BUILD) { quickCheckBuild(true); }
         els.quickNote.textContent = res.addonNote ? res.addonNote : res.myError ? ("マイマクロを読めませんでした: " + res.myError)

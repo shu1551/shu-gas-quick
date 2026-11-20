@@ -65,6 +65,7 @@ function comboLearn(req) { return {lib}.comboLearn(req); }
 function comboQuickList(req) { return {lib}.comboQuickList(req, comboQuickSheetFns_()); }
 function comboQuickMake(req) { return {lib}.comboQuickMake(req); }
 function comboQuickBuild(req) { return {lib}.comboQuickBuild(req); }
+function comboQuickSaveOrder(req) { return {lib}.comboQuickSaveOrder(req); }
 function comboQuickReopen(req) { return {lib}.comboQuickReopen(req); }
 function comboQuickImport(req) {
   var f = globalThis[String((req || {}).name || '')];

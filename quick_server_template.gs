@@ -1696,6 +1696,37 @@ function comboQuickReopen(req) {
   }
 }
 
+// 一覧の並び（区切りごと）。マイマクロと棚はどのシートでも同じ、シートのマクロはシートごと
+function quickOrderKey_(kind) {
+  if (kind === 'sheet') {
+    var id = '';
+    try { id = SpreadsheetApp.getActive().getId(); } catch (e) {}
+    return 'QUICK_ORDER_sheet_' + id;
+  }
+  return 'QUICK_ORDER_' + (kind === 'my' ? 'my' : 'shelf');
+}
+
+function quickGetOrders_() {
+  var props = PropertiesService.getUserProperties(), out = {};
+  ['sheet', 'my', 'shelf'].forEach(function (k) {
+    try { out[k] = JSON.parse(props.getProperty(quickOrderKey_(k)) || '[]'); } catch (e) { out[k] = []; }
+  });
+  return out;
+}
+
+/** 区切りの中の並びを覚える（names＝上からの名前の並び）。 */
+function comboQuickSaveOrder(req) {
+  req = req || {};
+  var kind = req.kind === 'sheet' ? 'sheet' : (req.kind === 'my' ? 'my' : 'shelf');
+  var names = (req.names || []).map(String).slice(0, 400);
+  try {
+    PropertiesService.getUserProperties().setProperty(quickOrderKey_(kind), JSON.stringify(names));
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, error: String(e && e.message || e) };
+  }
+}
+
 function quickTakeDraft_() {
   try {
     var c = CacheService.getUserCache(), d = c.get(QUICK_DRAFT_KEY);
@@ -1782,6 +1813,16 @@ function quickMySource_(content) {
 }
 
 // 「function 名前(」を拾う。すぐ上の「// 棚: 言い方, 言い方」は頼みの語、「// 説明」は表示に使う。末尾 _ の関数は部品なので並べない
+// 新しいマクロはコードの先頭に足す（頭の手引きのコメントと、その下の空行のすぐ後）
+function quickInsertTop_(source, block) {
+  var lines = String(source || '').split('\n'), i = 0;
+  while (i < lines.length && /^\s*\/\//.test(lines[i])) i++;
+  while (i < lines.length && lines[i].trim() === '') i++;
+  var head = lines.slice(0, i).join('\n').replace(/\s*$/, '');
+  var rest = lines.slice(i).join('\n').replace(/^\s*/, '');
+  return (head ? head + '\n\n' : '') + String(block).replace(/\s*$/, '') + '\n' + (rest ? '\n' + rest : '');
+}
+
 function quickParseFns_(src) {
   var lines = String(src || '').split('\n'), out = [], words = [], desc = '';
   for (var i = 0; i < lines.length; i++) {
@@ -1806,7 +1847,7 @@ function comboQuickList(req, sheetFns) {
   var t0 = Date.now();
   if (!sheetFns) sheetFns = quickSheetFnsHere_();
   var res = { ok: true, sheet: (sheetFns || []).map(function (f) { return { name: f.name }; }), my: [], myId: '', myUrl: '',
-              build: QUICK_BUILD, draft: quickTakeDraft_() };
+              build: QUICK_BUILD, draft: quickTakeDraft_(), order: quickGetOrders_() };
   try {
     var id = quickMyFind_();
     if (id) {
@@ -1944,6 +1985,7 @@ function comboQuickMake(req) {
       '// 作り方: function 名前() { ... } を書く。すぐ上に「// 棚: 言い方, 言い方」と書くと、頼みの欄の言葉でも当たります。',
       '// 今のシートは SpreadsheetApp.getActive() で取れます。名前の末尾が _ の関数は部品として一覧に出しません。',
       '// エディタの Gemini に頼むときは「GASクイックのマイマクロとして、〜する関数を作って」と言えば、この決まりで書いてくれます。',
+      '// 新しいマクロは、この手引きのすぐ下（先頭）に足します。一覧でも、新しい物は一番上に出ます。',
       '',
       '// 選んでいる範囲を太字にする（もう一度押すと太字を外す）',
       '// 棚: 太字にする, 選んだ所を太字, 太字を外す',
@@ -1991,8 +2033,8 @@ function comboQuickImport(req, src) {
     var file = (content.files || []).filter(function (f) { return f.type === 'server_js'; })[0];
     var sheetName = '';
     try { sheetName = SpreadsheetApp.getActive().getName(); } catch (e2) {}
-    file.source = String(file.source || '').replace(/\s*$/, '\n') + '\n// ' + sheetName + ' から取り込み（' +
-      Utilities.formatDate(new Date(), 'Asia/Tokyo', 'yyyy/MM/dd') + '）\n' + String(src).replace(/\s*$/, '') + '\n';
+    file.source = quickInsertTop_(file.source, '// ' + sheetName + ' から取り込み（' +
+      Utilities.formatDate(new Date(), 'Asia/Tokyo', 'yyyy/MM/dd') + '）\n' + String(src).replace(/\s*$/, ''));
     quickDrive_('patch', 'https://www.googleapis.com/upload/drive/v3/files/' + made.myId + '?uploadType=media', JSON.stringify(content), QUICK_SCRIPT_JSON);
     return { ok: true, myId: made.myId, myUrl: made.myUrl, text: name + ' をマイマクロに入れました（どのシートでも使えます）' };
   } catch (e) {

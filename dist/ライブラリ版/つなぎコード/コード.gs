@@ -31,6 +31,7 @@ function comboLearn(req) { return shuquickengine.comboLearn(req); }
 function comboQuickList(req) { return shuquickengine.comboQuickList(req, comboQuickSheetFns_()); }
 function comboQuickMake(req) { return shuquickengine.comboQuickMake(req); }
 function comboQuickBuild(req) { return shuquickengine.comboQuickBuild(req); }
+function comboQuickSaveOrder(req) { return shuquickengine.comboQuickSaveOrder(req); }
 function comboQuickReopen(req) { return shuquickengine.comboQuickReopen(req); }
 function comboQuickImport(req) {
   var f = globalThis[String((req || {}).name || '')];
