@@ -1,0 +1,5 @@
+.quick_state.json
+作業_*/
+__pycache__/
+*.pyc
+*.bak
