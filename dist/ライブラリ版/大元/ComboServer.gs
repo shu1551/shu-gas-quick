@@ -3,8 +3,6 @@ var COMBO_MINI_SHELVES = [{"name":"api","t":"棚に無い設定を API で撃つ
 var COMBO_PROP_TARGET = 'COMBO_TARGET_SS_ID';
 var COMBO_PROP_CONFIG = 'COMBO_CONFIG';
 var COMBO_PROP_FAST_UNDO = 'COMBO_FAST_UNDO';
-var COMBO_PROP_PB_QUEUE = 'COMBO_POSTBOX_Q';
-var COMBO_PROP_PB_DONE = 'COMBO_POSTBOX_DONE';
 var COMBO_TBL_CACHE_PREFIX = 'COMBO_TBL_';
 var COMBO_TBL_CACHE_TTL = 21600;
 function onOpen(e) {
@@ -228,7 +226,6 @@ table: table,
 selection: selInfo.selection,
 scope: comboParseScope_(selInfo.selection),
 config: comboGetConfig(),
-postboxPendingCount: comboPostboxPoll().count,
 gasMs: Date.now() - t0
 };
 } catch (err) {
@@ -245,19 +242,14 @@ try {
 req = req || {};
 var ss = comboOpenSs_(req);
 var selInfo = comboGetSelectionInfo_(ss, req);
-var postboxDone = comboPopPostboxDone_(ss.getId());
-var out = {
+return {
 ok: true,
 sheet: selInfo.sheet,
 selection: selInfo.selection,
 scope: comboParseScope_(selInfo.selection),
-postboxDone: postboxDone,
+oauthToken: comboGetOAuthToken_(),
 gasMs: Date.now() - t0
 };
-if (req.checkPostbox) {
-out.postboxPending = comboPostboxPoll().count;
-}
-return out;
 } catch (err) {
 return {
 ok: false,
@@ -871,119 +863,6 @@ return errOut;
 _TBL_CACHE = null;
 }
 }
-function comboStripJsonFence_(text) {
-var t = String(text || '').trim();
-var m = t.match(/^```[\w-]*[ \t]*\r?\n([\s\S]*?)\r?\n?[ \t]*```\s*$/);
-if (m) t = m[1].trim();
-if ((t.charAt(0) === '{' && t.charAt(t.length - 1) === '}') || (t.charAt(0) === '[' && t.charAt(t.length - 1) === ']')) {
-return t;
-}
-var m2 = t.match(/(\{[\s\S]*\}|\[[\s\S]*\])/);
-return m2 ? m2[1] : t;
-}
-function comboBuildAiPrompts_(ask, ssName, sheetName, selection, table, sheets) {
-var sys = [
-'あなたは Google スプレッドシートを操作するアシスタントです。',
-'必ず有効な JSON オブジェクト 1 個だけを返してください（説明文や ``` などの装飾は一切付けない）。',
-'・操作を実行するとき: {"action":"ops","ops":[{"shelf":"棚名","引数":値}],"note":"短い日本語要約"}',
-'・返事や確認だけを返すとき: {"action":"reply","message":"日本語の返事"}',
-'ルール: 棚名・引数名は利用可能な棚一覧に載っている正確な名前と型を使うこと。'
-].join('\n');
-var lines = ['【現在の対象状態】', 'ブック: ' + ssName + ' / シート: ' + sheetName];
-if (sheets && sheets.length) lines.push('全シート: ' + sheets.join('、'));
-if (selection) lines.push('選択中のセル範囲: ' + selection + '（「ここ」「選択範囲」等の対象）');
-if (table) {
-lines.push('表: 見出し ' + table.header_row + '行目・' + table.first_col + '〜' + table.last_col + '列・明細 ' + table.data + '行目' + (table.total_row ? '・合計行 ' + table.total_row : ''));
-lines.push('列: ' + (table.columns || []).map(function (c) { return c.col + '=' + c.name + (c.number ? '(数値)' : ''); }).join('、'));
-}
-lines.push('\n【関連する棚候補】');
-if (typeof ComboPlanner !== 'undefined' && typeof ComboPlanner.ask === 'function') {
-lines.push(String(ComboPlanner.ask(ask, 'sheet') || '').slice(0, 1600));
-}
-lines.push('\n【主要シート棚一覧】');
-var aiShelves = (typeof COMBO_CATALOG_DATA !== 'undefined' && COMBO_CATALOG_DATA.shelves)
-? COMBO_CATALOG_DATA.shelves
-: (Array.isArray(COMBO_MINI_SHELVES) ? COMBO_MINI_SHELVES : null);
-if (aiShelves) {
-var sheetShelves = aiShelves.filter(function (s) { return s.kind === 'sheet' || s.shared || !s.kind; });
-sheetShelves.slice(0, 50).forEach(function (s) {
-lines.push('- ' + s.name + ': ' + (s.title || s.t || '') + ' | ' + (s.args_raw || s.a || 'なし'));
-});
-} else if (typeof CATALOG !== 'undefined') {
-Object.keys(CATALOG).filter(function (k) { return CATALOG[k] && CATALOG[k].kind === 'sheet'; }).slice(0, 50).forEach(function (k) {
-lines.push('- ' + k);
-});
-}
-lines.push('\n【ユーザーの依頼】\n' + ask);
-lines.push('\nJSON 1個だけを返してください。');
-return { system: sys, user: lines.join('\n') };
-}
-function comboResolveApiKey_(cfg) {
-if (!cfg) return '';
-if (cfg.aiMode === 'api_gemini') return String(cfg.geminiKey || cfg.apiKey || '').trim();
-if (cfg.aiMode === 'api_claude') return String(cfg.claudeKey || cfg.apiKey || '').trim();
-return String(cfg.apiKey || '').trim();
-}
-function comboCallAiApi_(cfg, ask, ss, curSheet, selection, table, sheets) {
-var apiKey = comboResolveApiKey_(cfg);
-if (!apiKey) throw new Error('APIキーが設定されていません');
-var prompts = comboBuildAiPrompts_(ask, ss.getName(), curSheet, selection, table, sheets);
-var rawText = '';
-if (cfg.aiMode === 'api_gemini') {
-var gModel = String(cfg.aiModel || 'gemini-4-hydrogen-low').trim();
-if (!gModel || gModel === 'sonnet' || gModel === 'haiku') gModel = 'gemini-4-hydrogen-low';
-var gUrl = 'https://generativelanguage.googleapis.com/v1beta/models/' + encodeURIComponent(gModel) + ':generateContent?key=' + encodeURIComponent(apiKey);
-var gResp = UrlFetchApp.fetch(gUrl, {
-method: 'post',
-contentType: 'application/json',
-muteHttpExceptions: true,
-payload: JSON.stringify({
-systemInstruction: { parts: [{ text: prompts.system }] },
-contents: [{ role: 'user', parts: [{ text: prompts.user }] }],
-generationConfig: { temperature: 0, responseMimeType: 'application/json' }
-})
-});
-var gCode = gResp.getResponseCode();
-var gBody = gResp.getContentText();
-if (gCode < 200 || gCode >= 300) {
-throw new Error('Gemini API エラー (' + gCode + '): ' + gBody.slice(0, 200));
-}
-var gJson = JSON.parse(gBody);
-rawText = (((((gJson.candidates || [])[0] || {}).content || {}).parts || [])[0] || {}).text || '';
-} else if (cfg.aiMode === 'api_claude') {
-var cModel = String(cfg.aiModel || 'claude-3-5-haiku-latest').trim();
-if (cModel === 'haiku') cModel = 'claude-3-5-haiku-latest';
-else if (cModel === 'sonnet') cModel = 'claude-3-5-sonnet-latest';
-var cResp = UrlFetchApp.fetch('https://api.anthropic.com/v1/messages', {
-method: 'post',
-contentType: 'application/json',
-muteHttpExceptions: true,
-headers: {
-'x-api-key': apiKey,
-'anthropic-version': '2023-06-01'
-},
-payload: JSON.stringify({
-model: cModel,
-max_tokens: 1024,
-system: prompts.system,
-messages: [{ role: 'user', content: prompts.user }]
-})
-});
-var cCode = cResp.getResponseCode();
-var cBody = cResp.getContentText();
-if (cCode < 200 || cCode >= 300) {
-throw new Error('Claude API エラー (' + cCode + '): ' + cBody.slice(0, 200));
-}
-var cJson = JSON.parse(cBody);
-rawText = (((cJson.content || [])[0] || {}).text) || '';
-} else {
-throw new Error('未対応の AI モード: ' + cfg.aiMode);
-}
-var parsed = JSON.parse(comboStripJsonFence_(rawText));
-if (Array.isArray(parsed)) return { action: 'ops', ops: parsed, note: '' };
-if (parsed && parsed.shelf && !parsed.ops) return { action: 'ops', ops: [parsed], note: '' };
-return parsed;
-}
 var COMBO_PROP_LEARNED = 'COMBO_LEARNED';
 function comboGetLearned(req) {
 var map = {};
@@ -1117,7 +996,6 @@ hitRes.text = '[棚ヒット] ' + comboFormatOpsShort_(plan.ops) + '\n' + hitRes
 hitRes.gasMs = Date.now() - t0;
 return hitRes;
 }
-if (!req.aiAuto) {
 return {
 ok: false,
 unfired: true,
@@ -1126,75 +1004,10 @@ text: comboRenderUnfired_(plan),
 gasMs: Date.now() - t0
 };
 }
-} else if (!req.aiAuto) {
 return {
 ok: false,
 unfired: true,
 text: '撃っていません: 棚にもマクロにも当たらない指示です（言い方を変えるか、一覧から選んでください）',
-gasMs: Date.now() - t0
-};
-}
-var cfg = comboGetRawConfig_();
-var hasApiKey = (cfg.aiMode === 'api_gemini' || cfg.aiMode === 'api_claude') && !!comboResolveApiKey_(cfg);
-if (hasApiKey) {
-try {
-var aiRes = comboCallAiApi_(cfg, askText, ss, curSheet, selection, table, sheets);
-if (aiRes && aiRes.action === 'reply') {
-return {
-ok: true,
-source: 'ai_reply',
-text: '[AI返答]\n' + (aiRes.message || '(返答なし)'),
-gasMs: Date.now() - t0
-};
-}
-if (aiRes && Array.isArray(aiRes.ops) && aiRes.ops.length) {
-var execRes = comboRunOps({
-ops: aiRes.ops,
-ok: !!req.ok,
-backup: !!req.backup,
-fastUndo: req.fastUndo,
-sheet: curSheet,
-selection: selection,
-table: table,
-sheets: sheets,
-targetId: ssId,
-_ss: ss,
-_ssName: ssName,
-_cached: cached
-});
-var noteHead = '[AI解釈]' + (aiRes.note ? ' ' + aiRes.note : '');
-execRes.source = 'ai_api';
-execRes.text = noteHead + '\n' + execRes.text;
-execRes.gasMs = Date.now() - t0;
-return execRes;
-}
-return { ok: false, error: 'AI が実行可能な ops を返しませんでした', text: 'エラー: AI が実行可能な ops を返しませんでした', gasMs: Date.now() - t0 };
-} catch (errAi) {
-return {
-ok: false,
-error: String(errAi && errAi.message || errAi),
-text: 'AI解釈エラー: ' + String(errAi && errAi.message || errAi),
-gasMs: Date.now() - t0
-};
-}
-}
-var reqId = comboPostboxEnqueue_({
-ssId: ss.getId(),
-ssName: ss.getName(),
-sheet: curSheet,
-selection: selection,
-ask: askText,
-ok: !!req.ok,
-backup: !!req.backup,
-aiModel: cfg.aiModel || 'sonnet',
-table: table,
-sheets: sheets
-});
-return {
-ok: true,
-pendingPostbox: true,
-reqId: reqId,
-text: '[郵便受け] 依頼を送信しました（ID: ' + reqId + '）。\nPC側の待機プロセス (gas_ws_combo.py watch) が自動実行します。',
 gasMs: Date.now() - t0
 };
 }
@@ -1270,166 +1083,26 @@ gasMs: Date.now() - t0
 }
 }
 function comboGetRawConfig_() {
-var def = {
-aiMode: 'postbox',
-aiModel: 'sonnet',
-apiKey: '',
-geminiKey: '',
-claudeKey: '',
-backupDefault: false
-};
+var def = { backupDefault: false };
 try {
 var raw = PropertiesService.getUserProperties().getProperty(COMBO_PROP_CONFIG);
 if (!raw) return def;
 var parsed = JSON.parse(raw);
-if (parsed && typeof parsed === 'object') {
-Object.keys(def).forEach(function (k) {
-if (parsed[k] !== undefined) def[k] = parsed[k];
-});
+if (parsed && typeof parsed === 'object' && parsed.backupDefault !== undefined) {
+def.backupDefault = !!parsed.backupDefault;
 }
 } catch (e) {}
 return def;
 }
-function comboSanitizeConfig_(raw) {
-return {
-aiMode: raw.aiMode || 'postbox',
-aiModel: raw.aiModel || 'sonnet',
-backupDefault: !!raw.backupDefault,
-hasApiKey: !!comboResolveApiKey_(raw),
-hasGeminiKey: !!(raw.geminiKey || (raw.aiMode === 'api_gemini' && raw.apiKey)),
-hasClaudeKey: !!(raw.claudeKey || (raw.aiMode === 'api_claude' && raw.apiKey))
-};
-}
 function comboGetConfig() {
-return comboSanitizeConfig_(comboGetRawConfig_());
+return comboGetRawConfig_();
 }
 function comboSaveConfig(cfg) {
 cfg = cfg || {};
 var cur = comboGetRawConfig_();
-['aiMode', 'aiModel', 'apiKey', 'geminiKey', 'claudeKey', 'backupDefault'].forEach(function (k) {
-if (cfg[k] !== undefined) cur[k] = cfg[k];
-});
-cur.backupDefault = !!cur.backupDefault;
+if (cfg.backupDefault !== undefined) cur.backupDefault = !!cfg.backupDefault;
 PropertiesService.getUserProperties().setProperty(COMBO_PROP_CONFIG, JSON.stringify(cur));
-return { ok: true, config: comboSanitizeConfig_(cur) };
-}
-function comboPostboxEnqueue_(item) {
-var p = PropertiesService.getScriptProperties();
-var q = [];
-try {
-var raw = p.getProperty(COMBO_PROP_PB_QUEUE);
-if (raw) q = JSON.parse(raw) || [];
-} catch (e) { q = []; }
-var reqId = 'pb_' + Date.now() + '_' + Math.floor(Math.random() * 10000);
-item.reqId = reqId;
-item.ts = Date.now();
-q.push(item);
-if (q.length > 20) q = q.slice(q.length - 20);
-p.setProperty(COMBO_PROP_PB_QUEUE, JSON.stringify(q));
-return reqId;
-}
-function comboPushPostboxDone_(doneItem) {
-var p = PropertiesService.getScriptProperties();
-var list = [];
-try {
-var raw = p.getProperty(COMBO_PROP_PB_DONE);
-if (raw) list = JSON.parse(raw) || [];
-} catch (e) { list = []; }
-list.push(doneItem);
-if (list.length > 20) list = list.slice(list.length - 20);
-p.setProperty(COMBO_PROP_PB_DONE, JSON.stringify(list));
-}
-function comboPopPostboxDone_(ssId) {
-var p = PropertiesService.getScriptProperties();
-var raw = p.getProperty(COMBO_PROP_PB_DONE);
-if (!raw) return [];
-var list = [];
-try { list = JSON.parse(raw) || []; } catch (e) { return []; }
-if (!list.length) return [];
-var hit = [], keep = [];
-list.forEach(function (it) {
-if (!ssId || !it.ssId || it.ssId === ssId) hit.push(it);
-else keep.push(it);
-});
-if (hit.length) {
-if (keep.length) p.setProperty(COMBO_PROP_PB_DONE, JSON.stringify(keep));
-else p.deleteProperty(COMBO_PROP_PB_DONE);
-}
-return hit;
-}
-function comboPostboxPoll() {
-var p = PropertiesService.getScriptProperties();
-var q = [];
-try {
-var raw = p.getProperty(COMBO_PROP_PB_QUEUE);
-if (raw) q = JSON.parse(raw) || [];
-} catch (e) { q = []; }
-var now = Date.now(), fresh = q.filter(function (it) { return it && it.ts && now - it.ts < 5 * 60 * 1000; });
-if (fresh.length !== q.length) {
-if (fresh.length) p.setProperty(COMBO_PROP_PB_QUEUE, JSON.stringify(fresh));
-else p.deleteProperty(COMBO_PROP_PB_QUEUE);
-}
-return { ok: true, queue: fresh, count: fresh.length, dropped: q.length - fresh.length };
-}
-function comboPostboxDeliver(resPayload) {
-var t0 = Date.now();
-resPayload = resPayload || {};
-var reqId = String(resPayload.reqId || '').trim();
-if (!reqId) return { ok: false, error: 'reqId がありません' };
-var p = PropertiesService.getScriptProperties();
-var q = [];
-try {
-var raw = p.getProperty(COMBO_PROP_PB_QUEUE);
-if (raw) q = JSON.parse(raw) || [];
-} catch (e) { q = []; }
-var orig = null;
-var rest = [];
-q.forEach(function (it) {
-if (it && it.reqId === reqId && !orig) orig = it;
-else rest.push(it);
-});
-p.setProperty(COMBO_PROP_PB_QUEUE, JSON.stringify(rest));
-var action = resPayload.action || (Array.isArray(resPayload.ops) ? 'ops' : 'reply');
-if (action === 'ops' && Array.isArray(resPayload.ops) && resPayload.ops.length) {
-var execRes = comboRunOps({
-ops: resPayload.ops,
-ok: orig ? !!orig.ok : !!resPayload.ok,
-backup: orig ? !!orig.backup : !!resPayload.backup,
-sheet: orig ? orig.sheet : (resPayload.sheet || ''),
-selection: orig ? orig.selection : (resPayload.selection || ''),
-table: orig ? orig.table : undefined,
-targetId: orig ? orig.ssId : (resPayload.ssId || '')
-});
-var noteHead = '[AI解釈(郵便受け)]' + (resPayload.note ? ' ' + resPayload.note : '');
-execRes.text = noteHead + '\n' + execRes.text;
-execRes.reqId = reqId;
-comboPushPostboxDone_({
-reqId: reqId,
-ssId: orig ? orig.ssId : '',
-ask: orig ? orig.ask : '',
-ok: execRes.ok,
-ops: resPayload.ops,
-note: resPayload.note || '',
-text: execRes.text,
-target: execRes.target,
-table: execRes.table,
-sheets: execRes.sheets,
-gasMs: execRes.gasMs || (Date.now() - t0)
-});
-return execRes;
-}
-var msgText = action === 'error'
-? ('[AIエラー(郵便受け)] ' + (resPayload.error || '失敗'))
-: ('[AI返答(郵便受け)]\n' + (resPayload.message || '(返答なし)'));
-comboPushPostboxDone_({
-reqId: reqId,
-ssId: orig ? orig.ssId : '',
-ask: orig ? orig.ask : '',
-ok: action !== 'error',
-text: msgText,
-gasMs: Date.now() - t0
-});
-return { ok: true, delivered: true, reqId: reqId, text: msgText, gasMs: Date.now() - t0 };
+return { ok: true, config: cur };
 }
 function comboPing() {
 return { ok: true, ts: Date.now() };
@@ -1448,10 +1121,10 @@ return comboSetTestTarget((req && (req.targetId || req.ssId)) || '');
 };
 }
 var QUICK_MY_TITLE = 'GASクイック マイマクロ';
-var QUICK_BUILD = 'd9f165b8a5';
+var QUICK_BUILD = 'b3ffcc5c8d';
 var QUICK_DRAFT_KEY = 'QUICK_DRAFT';
 function comboQuickBuild() {
-return { ok: true, build: QUICK_BUILD };
+return { ok: true, build: QUICK_BUILD, oauthToken: comboGetOAuthToken_() };
 }
 function comboQuickReopen(req) {
 req = req || {};
@@ -1496,48 +1169,140 @@ if (d) c.remove(QUICK_DRAFT_KEY);
 return d || '';
 } catch (e) { return ''; }
 }
-var QUICK_LIB_FNS = ["ArgError", "Blocked", "a1_", "actDo_", "actUndo_", "activeDriveList_", "activeFiles_", "activeFolders_", "apiColor_", "apiDefaultSheet_", "apiDig_", "apiGrid_", "apiScan_", "apiSheetId_", "apiSheetNames_", "apiWalk_", "backupDoc_", "backupSheetsLite_", "backupSheets_", "batchRetry_", "bkBook_", "bkLap_", "bkTabName_", "byId_", "call_", "capList_", "captureSide_", "chg_", "clearBody_", "colIndexOf_", "colLetter_", "colNum_", "colRuns_", "colWidths_", "comboBuildAiPrompts_", "comboCacheGet_", "comboCacheInvalidate_", "comboCachePut_", "comboCallAiApi_", "comboComputeTitleA1_", "comboDecodeCellVal_", "comboEncodeCellVal_", "comboFastUndoRestore_", "comboFastUndoSave_", "comboFind", "comboFormatDoText_", "comboFormatLookText_", "comboFormatOpsShort_", "comboGetConfig", "comboGetLearned", "comboGetOAuthToken_", "comboGetRawConfig_", "comboGetSelectionInfo_", "comboInit", "comboKeepsShape_", "comboLearn", "comboLook", "comboMenuUndo", "comboOpenSs_", "comboParseScope_", "comboPing", "comboPollSelection", "comboPopPostboxDone_", "comboPostboxDeliver", "comboPostboxEnqueue_", "comboPostboxPoll", "comboPushPostboxDone_", "comboQuickAfter", "comboQuickBuild", "comboQuickImport", "comboQuickList", "comboQuickMake", "comboQuickReopen", "comboQuickRun", "comboQuickSaveOrder", "comboQuickSnap", "comboRenderUnfired_", "comboResolveApiKey_", "comboRunAsk", "comboRunOps", "comboSanitizeConfig_", "comboSaveConfig", "comboSetTestTarget", "comboStripJsonFence_", "comboTblCacheKey_", "comboUndo", "copyBody_", "countFolderChildren_", "createComboSidebarHtml", "dataRange_", "digest_", "discardBackup_", "docBkIds_", "docBkSlotDoc_", "docStructure_", "errReport_", "errScanNeeded_", "errScan_", "extractDriveId_", "filterChanged_", "findTable_", "fingerDoc_", "fingerOnly_", "fingerSheet_", "folderLabel_", "getJson_", "gridA1_", "guardDelete_", "guardOverwrite_", "guardWide_", "headerNames_", "hexColor_", "hiddenRuns_", "isAncestorFolder_", "isBlank_", "isNoCol_", "isNoop_", "isNumberCol_", "json_", "lap_", "ledgerBrief_", "ledgerSave_", "ledger_", "liteTouch_", "loadSide_", "lookSide_", "mimeLabel_", "msOut_", "needTable_", "need_", "normJson_", "note_", "numRuns_", "onOpen", "openTarget_", "packDim_", "packRects_", "packSide_", "pickSlot_", "props_", "pruneTabs_", "q_", "qs_", "quickDrive_", "quickDropBackup_", "quickGetOrders_", "quickInsertTop_", "quickMyContent_", "quickMyFind_", "quickMyListCached_", "quickMySource_", "quickMyUrl_", "quickOrderKey_", "quickParseFns_", "quickRestoreSheetCopy_", "quickSheetFnsHere_", "quickSkip_", "quickTakeDraft_", "quickUndoNote_", "resetNew_", "resolveDriveItem_", "resolveFolder_", "restoreAll_", "restoreChartApp_", "restoreDoc_", "restoreFilter_", "restoreSheet_", "restoreSide_", "rgb_", "runDo_", "sameFinger_", "sameTable_", "saveSide_", "setJson_", "sheetCtx_", "sheetOf_", "shiftFormula_", "showGasComboSidebar", "sideFields_", "sideItems_", "stripId_", "stripSide_", "summarizeOps_", "tableOfSheet_", "tableOut_", "tgt_", "tidyNumText_", "tidyRangeLegacy_", "tidyRange_", "titleRange_", "touchedSheets_", "touchesItem_", "validationLabel_", "wideRange_", "wideRowCount_", "wlen_", "wrapDriveObj_"];
+var QUICK_LIB_FNS = ["ArgError", "Blocked", "a1_", "actDo_", "actUndo_", "activeDriveList_", "activeFiles_", "activeFolders_", "apiColor_", "apiDefaultSheet_", "apiDig_", "apiGrid_", "apiScan_", "apiSheetId_", "apiSheetNames_", "apiWalk_", "backupDoc_", "backupSheetsLite_", "backupSheets_", "batchRetry_", "bkBook_", "bkLap_", "bkTabName_", "byId_", "call_", "capList_", "captureSide_", "chg_", "clearBody_", "colIndexOf_", "colLetter_", "colNum_", "colRuns_", "colWidths_", "comboCacheGet_", "comboCacheInvalidate_", "comboCachePut_", "comboComputeTitleA1_", "comboDecodeCellVal_", "comboEncodeCellVal_", "comboFastUndoRestore_", "comboFastUndoSave_", "comboFind", "comboFormatDoText_", "comboFormatLookText_", "comboFormatOpsShort_", "comboGetConfig", "comboGetLearned", "comboGetOAuthToken_", "comboGetRawConfig_", "comboGetSelectionInfo_", "comboInit", "comboKeepsShape_", "comboLearn", "comboLook", "comboMenuUndo", "comboOpenSs_", "comboParseScope_", "comboPing", "comboPollSelection", "comboQuickAfter", "comboQuickBuild", "comboQuickImport", "comboQuickList", "comboQuickMake", "comboQuickReopen", "comboQuickRun", "comboQuickSaveOrder", "comboQuickSnap", "comboRenderUnfired_", "comboRunAsk", "comboRunOps", "comboSaveConfig", "comboSetTestTarget", "comboTblCacheKey_", "comboUndo", "copyBody_", "countFolderChildren_", "createComboSidebarHtml", "dataRange_", "digest_", "discardBackup_", "docBkIds_", "docBkSlotDoc_", "docStructure_", "errReport_", "errScanNeeded_", "errScan_", "extractDriveId_", "filterChanged_", "findTable_", "fingerDoc_", "fingerOnly_", "fingerSheet_", "folderLabel_", "getJson_", "gridA1_", "guardDelete_", "guardOverwrite_", "guardWide_", "headerNames_", "hexColor_", "hiddenRuns_", "isAncestorFolder_", "isBlank_", "isNoCol_", "isNoop_", "isNumberCol_", "json_", "lap_", "ledgerBrief_", "ledgerSave_", "ledger_", "liteTouch_", "loadSide_", "lookSide_", "mimeLabel_", "msOut_", "needTable_", "need_", "normJson_", "note_", "numRuns_", "onOpen", "openTarget_", "packDim_", "packRects_", "packSide_", "pickSlot_", "props_", "pruneTabs_", "q_", "qs_", "quickDrive_", "quickDropBackup_", "quickFindHelperRefs_", "quickFnBodyMeta_", "quickGetOrders_", "quickInsertTop_", "quickMyContent_", "quickMyFind_", "quickMyInvalidate_", "quickMyListCached_", "quickMySourceCached_", "quickMySource_", "quickMyStamp_", "quickMyUrl_", "quickOrderKey_", "quickParseFns_", "quickRestoreSheetCopy_", "quickSheetFnsHere_", "quickSkip_", "quickTakeDraft_", "quickUndoNote_", "resetNew_", "resolveDriveItem_", "resolveFolder_", "restoreAll_", "restoreChartApp_", "restoreDoc_", "restoreFilter_", "restoreSheet_", "restoreSide_", "rgb_", "runDo_", "sameFinger_", "sameTable_", "saveSide_", "setJson_", "sheetCtx_", "sheetOf_", "shiftFormula_", "showGasComboSidebar", "sideFields_", "sideItems_", "stripId_", "stripSide_", "summarizeOps_", "tableOfSheet_", "tableOut_", "tgt_", "tidyNumText_", "tidyRangeLegacy_", "tidyRange_", "titleRange_", "touchedSheets_", "touchesItem_", "validationLabel_", "wideRange_", "wideRowCount_", "wlen_", "wrapDriveObj_"];
 function quickSkip_(k) {
 return /_$/.test(k) || /^(combo|__gm|onOpen$|onEdit$|onInstall$|onSelectionChange$|onChange$|onFormSubmit$|doGet$|doPost$|showGasComboSidebar$|createComboSidebarHtml$)/.test(k);
+}
+function quickFnBodyMeta_(fn) {
+var desc = '', words = [], steps = [];
+try {
+var s = String(fn || '');
+var idx = s.indexOf('{');
+if (idx < 0) return { desc: '', words: [], steps: [] };
+var lines = s.slice(idx + 1).split('\n');
+for (var i = 0; i < lines.length; i++) {
+var ln = lines[i].trim();
+if (!ln) continue;
+var mw = ln.match(/^\/\/\s*棚\s*[:：]\s*(.+)$/);
+if (mw) {
+words = mw[1].split(/[,、，]/).map(function (w) { return w.trim(); }).filter(String);
+continue;
+}
+var ms = ln.match(/^\/\/\s*手順\s*[:：]\s*(.+)$/);
+if (ms) {
+steps = steps.concat(ms[1].split(/[\/／]/).map(function (st) { return st.trim(); }).filter(String));
+continue;
+}
+var mc = ln.match(/^\/\/\s*(.+)$/);
+if (mc) {
+if (!desc) desc = mc[1].trim();
+continue;
+}
+break;
+}
+} catch (e) {}
+return { desc: desc, words: words, steps: steps };
 }
 function quickSheetFnsHere_() {
 var skip = {}, g = globalThis, out = [];
 (QUICK_LIB_FNS || []).forEach(function (n) { skip[n] = 1; });
 Object.keys(g).forEach(function (k) {
-if (typeof g[k] === 'function' && !skip[k] && !quickSkip_(k)) out.push({ name: k });
+if (typeof g[k] === 'function' && !skip[k] && !quickSkip_(k)) {
+var meta = quickFnBodyMeta_(g[k]);
+out.push({ name: k, desc: meta.desc, words: meta.words, steps: meta.steps });
+}
 });
 return out;
 }
 var QUICK_SCRIPT_JSON = 'application/vnd.google-apps.script+json';
 var QUICK_MY_ID_KEY = 'QUICK_MY_ID';
-function quickMyFind_() {
+function quickMyFind_(wantMeta) {
 var props = PropertiesService.getUserProperties();
 var known = props.getProperty(QUICK_MY_ID_KEY);
 if (known) {
 try {
 var f = DriveApp.getFileById(known);
-if (!f.isTrashed() && f.getName() === QUICK_MY_TITLE) return known;
+if (!f.isTrashed() && f.getName() === QUICK_MY_TITLE) {
+return wantMeta ? { id: known, stamp: String(f.getLastUpdated().getTime()) } : known;
+}
 } catch (e) {}
 props.deleteProperty(QUICK_MY_ID_KEY);
 }
 var q = DriveApp.searchFiles("title = '" + QUICK_MY_TITLE + "' and mimeType = 'application/vnd.google-apps.script' and trashed = false");
-var id = q.hasNext() ? q.next().getId() : '';
-if (id) props.setProperty(QUICK_MY_ID_KEY, id);
-return id;
+if (q.hasNext()) {
+var nf = q.next();
+var id = nf.getId();
+props.setProperty(QUICK_MY_ID_KEY, id);
+return wantMeta ? { id: id, stamp: String(nf.getLastUpdated().getTime()) } : id;
 }
-function quickMyListCached_(id) {
+return wantMeta ? { id: '', stamp: '' } : '';
+}
+function quickMyStamp_(id) {
+try { return String(DriveApp.getFileById(id).getLastUpdated().getTime()); } catch (e) { return ''; }
+}
+function quickMyInvalidate_(id) {
+if (!id) return;
+try {
+var cache = CacheService.getUserCache();
+cache.remove('QUICK_MY_LIST_' + id);
+cache.remove('QUICK_MY_SRC_' + id);
+} catch (e) {}
+}
+function quickMySourceCached_(id, optStamp, fastMode) {
+var cache = CacheService.getUserCache(), key = 'QUICK_MY_SRC_' + id;
+var raw = cache.get(key);
+var readCached = function (c) {
+if (!c) return null;
+if (c.__gz) {
+return Utilities.ungzip(Utilities.newBlob(Utilities.base64Decode(c.__gz), 'application/x-gzip')).getDataAsString('utf-8');
+}
+return typeof c.src === 'string' ? c.src : null;
+};
+if (fastMode && raw) {
+try {
+var cf = JSON.parse(raw);
+if (cf && cf.cachedAt && (Date.now() - cf.cachedAt < 60000) && (!optStamp || cf.stamp === optStamp)) {
+var fastSrc = readCached(cf);
+if (fastSrc !== null) return fastSrc;
+}
+} catch (eF) {}
+}
+var stamp = optStamp !== undefined ? optStamp : quickMyStamp_(id);
+if (raw && stamp) {
+try {
+var c = JSON.parse(raw);
+if (c && c.stamp === stamp) {
+var hitSrc = readCached(c);
+if (hitSrc !== null) return hitSrc;
+}
+} catch (e2) {}
+}
+var src = quickMySource_(quickMyContent_(id));
+if (stamp) {
+try {
+var nowTs = Date.now();
+var payload = JSON.stringify({ stamp: stamp, cachedAt: nowTs, src: src });
+if (payload.length > 50000) {
+var gz = Utilities.base64Encode(Utilities.gzip(Utilities.newBlob(src, 'text/plain')).getBytes());
+payload = JSON.stringify({ stamp: stamp, cachedAt: nowTs, __gz: gz });
+}
+if (payload.length < 95000) cache.put(key, payload, 21600);
+} catch (e3) {}
+}
+return src;
+}
+function quickMyListCached_(id, optStamp) {
 var cache = CacheService.getUserCache(), key = 'QUICK_MY_LIST_' + id;
-var stamp = '';
-try { stamp = String(DriveApp.getFileById(id).getLastUpdated().getTime()); } catch (e) {}
+var stamp = optStamp !== undefined ? optStamp : quickMyStamp_(id);
 var raw = cache.get(key);
 if (raw && stamp) {
 try {
 var c = JSON.parse(raw);
-if (c.stamp === stamp) return c.list;
+if (c.stamp === stamp && c.v === 2) return c.list;
 } catch (e2) {}
 }
-var list = quickParseFns_(quickMySource_(quickMyContent_(id)));
-if (stamp) { try { cache.put(key, JSON.stringify({ stamp: stamp, list: list }), 21600); } catch (e3) {} }
+var list = quickParseFns_(quickMySourceCached_(id, stamp));
+if (stamp) { try { cache.put(key, JSON.stringify({ v: 2, stamp: stamp, list: list }), 21600); } catch (e3) {} }
 return list;
 }
 function quickMyUrl_(id) {
@@ -1570,33 +1335,47 @@ var rest = lines.slice(i).join('\n').replace(/^\s*/, '');
 return (head ? head + '\n\n' : '') + String(block).replace(/\s*$/, '') + '\n' + (rest ? '\n' + rest : '');
 }
 function quickParseFns_(src) {
-var lines = String(src || '').split('\n'), out = [], words = [], desc = '';
+var lines = String(src || '').split('\n'), out = [], words = [], desc = '', steps = [];
 for (var i = 0; i < lines.length; i++) {
 var ln = lines[i].trim();
 var mw = ln.match(/^\/\/\s*棚\s*[:：]\s*(.+)$/);
 if (mw) { words = mw[1].split(/[,、，]/).map(function (s) { return s.trim(); }).filter(String); continue; }
-var mf = ln.match(/^function\s+([^\s(]+)\s*\(/);
+var ms = ln.match(/^\/\/\s*手順\s*[:：]\s*(.+)$/);
+if (ms) { steps = steps.concat(ms[1].split(/[\/／]/).map(function (s) { return s.trim(); }).filter(String)); continue; }
+var top = !/^\s/.test(lines[i]);
+var mf = top && (ln.match(/^(?:async\s+)?function\s+([^\s(]+)\s*\(/) ||
+ln.match(/^(?:const|let|var)\s+([^\s=]+)\s*=\s*(?:async\s+)?(?:function\s*\(|\([^)]*\)\s*=>|[\w$]+\s*=>)/));
 if (mf) {
-if (!/_$/.test(mf[1])) out.push({ name: mf[1], words: words, desc: desc });
-words = []; desc = '';
+if (!/_$/.test(mf[1])) out.push({ name: mf[1], words: words, desc: desc, steps: steps });
+words = []; desc = ''; steps = [];
 continue;
 }
 var mc = ln.match(/^\/\/\s*(.+)$/);
 if (mc) { desc = mc[1].trim(); continue; }
-if (ln) { words = []; desc = ''; }
+if (ln) { words = []; desc = ''; steps = []; }
 }
 return out;
 }
 function comboQuickList(req, sheetFns) {
 var t0 = Date.now();
+req = req || {};
 if (!sheetFns) sheetFns = quickSheetFnsHere_();
-var res = { ok: true, sheet: (sheetFns || []).map(function (f) { return { name: f.name }; }), my: [], myId: '', myUrl: '',
-build: QUICK_BUILD, draft: quickTakeDraft_(), order: quickGetOrders_() };
+var res = { ok: true, sheet: (sheetFns || []).map(function (f) {
+if (f.head && (!f.desc || !Array.isArray(f.steps))) {
+var hm = quickFnBodyMeta_(f.head);
+if (!f.desc) f.desc = hm.desc;
+if (!Array.isArray(f.words) || !f.words.length) f.words = hm.words;
+if (!Array.isArray(f.steps) || !f.steps.length) f.steps = hm.steps;
+}
+return { name: f.name, desc: f.desc || '', words: Array.isArray(f.words) ? f.words : [], steps: Array.isArray(f.steps) ? f.steps : [] };
+}), my: [], myId: '', myUrl: '', myStamp: '',
+oauthToken: comboGetOAuthToken_(), build: QUICK_BUILD, draft: quickTakeDraft_(), order: quickGetOrders_() };
 try {
-var id = quickMyFind_();
-if (id) {
-res.myId = id; res.myUrl = quickMyUrl_(id);
-res.my = quickMyListCached_(id);
+var meta = quickMyFind_(true);
+if (meta && meta.id) {
+if (req.force) quickMyInvalidate_(meta.id);
+res.myId = meta.id; res.myUrl = quickMyUrl_(meta.id); res.myStamp = meta.stamp || '';
+res.my = quickMyListCached_(meta.id, meta.stamp || undefined);
 }
 } catch (e) {
 res.myError = String(e && e.message || e);
@@ -1660,7 +1439,8 @@ return { ok: true, fast: true, undone: 'fast', what: snap.what, target: target,
 text: '対象: ' + target.name + ' › ' + target.sheet + '\n戻した: シート全体（' + snap.what + ' の前）に戻しました',
 gasMs: Date.now() - t0 };
 }
-function quickUndoNote_(snapped) {
+function quickUndoNote_(snapped, backupOn) {
+if (backupOn === false) return '（控えなし・backup=OFF）';
 return snapped ? '' : '（控えを取れませんでした。取り消しは Ctrl+Z で）';
 }
 function comboQuickAfter() {
@@ -1670,16 +1450,23 @@ function comboQuickRun(req) {
 var t0 = Date.now();
 req = req || {};
 var name = String(req.name || '');
+var backupOn = req.backup === undefined ? true : !!req.backup;
 if (req.src === 'sheet') {
 var f = globalThis[name];
 if (typeof f !== 'function' || quickSkip_(name) || (QUICK_LIB_FNS || []).indexOf(name) >= 0) {
 return { ok: false, error: 'このシートに「' + name + '」がありません（一覧を更新してください）' };
 }
 try {
-var snappedS = comboQuickSnap(name);
+var snappedS = false;
+if (backupOn) {
+snappedS = comboQuickSnap(name);
+} else {
+try { CacheService.getScriptCache().remove(COMBO_PROP_FAST_UNDO); } catch (eDelS) {}
+try { PropertiesService.getScriptProperties().deleteProperty(COMBO_PROP_FAST_UNDO); } catch (eDelSP) {}
+}
 var rs = f();
 comboQuickAfter();
-return { ok: true, text: name + ' を実行しました' + (rs !== undefined && rs !== null && rs !== '' ? '（' + String(rs).slice(0, 200) + '）' : '') + quickUndoNote_(snappedS), gasMs: Date.now() - t0 };
+return { ok: true, text: name + ' を実行しました' + (rs !== undefined && rs !== null && rs !== '' && typeof rs.then !== 'function' ? '（' + String(rs).slice(0, 200) + '）' : '') + quickUndoNote_(snappedS, backupOn), gasMs: Date.now() - t0 };
 } catch (eS) {
 return { ok: false, error: name + ' でエラー: ' + String(eS && eS.message || eS), gasMs: Date.now() - t0 };
 }
@@ -1687,14 +1474,24 @@ return { ok: false, error: name + ' でエラー: ' + String(eS && eS.message ||
 try {
 var id = req.myId || quickMyFind_();
 if (!id) return { ok: false, error: 'マイマクロがまだありません。一覧の「マイマクロを作る」を押してください' };
-var src = quickMySource_(quickMyContent_(id));
+var src = quickMySourceCached_(id, req.myStamp || undefined, true);
 var names = quickParseFns_(src).map(function (f) { return f.name; });
+if (names.indexOf(name) < 0) {
+src = quickMySourceCached_(id);
+names = quickParseFns_(src).map(function (f) { return f.name; });
+}
 if (names.indexOf(name) < 0) return { ok: false, error: 'マイマクロに「' + name + '」が見つかりません（一覧を更新してください）' };
 var mod = new Function(src + '\nreturn {' + JSON.stringify(name) + ': ' + name + '};')();
-var snapped = comboQuickSnap(name);
+var snapped = false;
+if (backupOn) {
+snapped = comboQuickSnap(name);
+} else {
+try { CacheService.getScriptCache().remove(COMBO_PROP_FAST_UNDO); } catch (eDelM) {}
+try { PropertiesService.getScriptProperties().deleteProperty(COMBO_PROP_FAST_UNDO); } catch (eDelMP) {}
+}
 var r = mod[name]();
 comboQuickAfter();
-return { ok: true, text: name + ' を実行しました' + (r !== undefined && r !== null && r !== '' ? '（' + String(r).slice(0, 200) + '）' : '') + quickUndoNote_(snapped), gasMs: Date.now() - t0 };
+return { ok: true, text: name + ' を実行しました' + (r !== undefined && r !== null && r !== '' && typeof r.then !== 'function' ? '（' + String(r).slice(0, 200) + '）' : '') + quickUndoNote_(snapped, backupOn), gasMs: Date.now() - t0 };
 } catch (e) {
 return { ok: false, error: name + ' でエラー: ' + String(e && e.message || e), gasMs: Date.now() - t0 };
 }
@@ -1707,6 +1504,7 @@ var guide = [
 '// GASクイック マイマクロ',
 '// ここに置いた関数は、どのシートでも GASクイックの一覧に並び、選んで実行できます。',
 '// 作り方: function 名前() { ... } を書く。すぐ上に「// 棚: 言い方, 言い方」と書くと、頼みの欄の言葉でも当たります。',
+'// 棚の言葉を「// 手順: 見出しを黄色に / 太字にして」と書くと、GAS を動かさず 0.5 秒でまとめて撃てます。',
 '// 今のシートは SpreadsheetApp.getActive() で取れます。名前の末尾が _ の関数は部品として一覧に出しません。',
 '// エディタの Gemini に頼むときは「GASクイックのマイマクロとして、〜する関数を作って」と言えば、この決まりで書いてくれます。',
 '// 新しいマクロは、この手引きのすぐ下（先頭）に足します。一覧でも、新しい物は一番上に出ます。',
@@ -1736,6 +1534,34 @@ return { ok: true, myId: made.id, myUrl: quickMyUrl_(made.id), created: true, te
 return { ok: false, error: 'マイマクロを作れませんでした: ' + String(e && e.message || e) };
 }
 }
+function quickFindHelperRefs_(src, selfName, existingAll) {
+var cleaned = String(src || '')
+.replace(/\/\*[\s\S]*?\*\//g, '')
+.replace(/\/\/[^\n]*/g, '');
+var defined = {};
+if (selfName) defined[selfName] = 1;
+var markDefined = function (code) {
+var s = String(code || '');
+var reDef = /(?:^|[\n;{}])\s*(?:async\s+)?function\s+([^\s(]+)\s*\(|(?:^|[\n;{}])\s*(?:var|let|const)\s+([^\s=]+)\s*=/g;
+var m;
+while ((m = reDef.exec(s)) !== null) {
+var nm = m[1] || m[2];
+if (nm) defined[nm] = 1;
+}
+};
+markDefined(cleaned);
+markDefined(existingAll);
+var reCall = /(^|[^\w$.\u3040-\u30ff\u4e00-\u9faf])([A-Za-z$\u3040-\u30ff\u4e00-\u9faf][\w$\u3040-\u30ff\u4e00-\u9faf]*_)\s*\(/g;
+var seen = {}, out = [], mc;
+while ((mc = reCall.exec(cleaned)) !== null) {
+var fnName = mc[2];
+if (!defined[fnName] && !seen[fnName]) {
+seen[fnName] = 1;
+out.push(fnName);
+}
+}
+return out;
+}
 function comboQuickImport(req, src) {
 req = req || {};
 var name = String(req.name || '');
@@ -1758,7 +1584,12 @@ try { sheetName = SpreadsheetApp.getActive().getName(); } catch (e2) {}
 file.source = quickInsertTop_(file.source, '// ' + sheetName + ' から取り込み（' +
 Utilities.formatDate(new Date(), 'Asia/Tokyo', 'yyyy/MM/dd') + '）\n' + String(src).replace(/\s*$/, ''));
 quickDrive_('patch', 'https://www.googleapis.com/upload/drive/v3/files/' + made.myId + '?uploadType=media', JSON.stringify(content), QUICK_SCRIPT_JSON);
-return { ok: true, myId: made.myId, myUrl: made.myUrl, text: name + ' をマイマクロに入れました（どのシートでも使えます）' };
+quickMyInvalidate_(made.myId);
+var deps = quickFindHelperRefs_(src, name, all);
+var note = deps.length
+? '（注意: 部品 ' + deps.slice(0, 5).join('・') + (deps.length > 5 ? ' ほか ' + (deps.length - 5) + ' 件' : '') + ' を呼んでいます。必要なら一緒にマイマクロへ写してください）'
+: '（どのシートでも使えます）';
+return { ok: true, myId: made.myId, myUrl: made.myUrl, text: name + ' をマイマクロに入れました' + note };
 } catch (e) {
 return { ok: false, error: name + ' を写せませんでした: ' + String(e && e.message || e) };
 }

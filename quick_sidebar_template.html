@@ -21,7 +21,7 @@
     --ok: #15803d;
     --err: #b91c1c;
     --warn: #92400e;
-    --font-ui: "Meiryo", "Yu Gothic UI", "BIZ UDPGothic", sans-serif;
+    --font-ui: "BIZ UDPGothic", "Meiryo", "Yu Gothic UI", sans-serif;
     --font-mono: "BIZ UDGothic", "Meiryo", "Consolas", monospace;
   }
 
@@ -37,8 +37,10 @@
     overflow: hidden;
     background: var(--bg);
     color: #000000;
+    text-shadow: 0 0 0.25px #000000;
     font-family: var(--font-ui);
     font-size: 13.5px;
+    font-weight: 500;
     line-height: 1.35;
   }
 
@@ -49,7 +51,7 @@
   }
 
   ::placeholder {
-    color: #333333;
+    color: #111111;
     opacity: 1;
   }
 
@@ -58,7 +60,7 @@
     flex-direction: column;
     width: 100%;
     height: 100vh;
-    padding: 6px;
+    padding: 3px;
     gap: 5px;
     overflow: hidden;
   }
@@ -67,12 +69,12 @@
   .btn {
     border: 1px solid var(--border);
     background: var(--btn-bg);
-    color: #333333;
+    color: #000000;
     border-radius: 3px;
     padding: 4px 6px;
     cursor: pointer;
     font-size: 11.2px;
-    font-weight: 600;
+    font-weight: 500;
     line-height: 1.25;
     text-align: center;
     white-space: nowrap;
@@ -95,6 +97,7 @@
     background: var(--accent);
     border-color: var(--accent-hover);
     color: #ffffff;
+    text-shadow: none;
     font-weight: 700;
   }
   .btn-primary:hover:not(:disabled) {
@@ -107,7 +110,7 @@
     font-weight: 700;
     background: var(--accent-soft);
     border-color: #7aa7e8;
-    color: #333333;
+    color: #000000;
     margin-bottom: 5px;
   }
   .btn-hero:hover:not(:disabled) {
@@ -248,11 +251,11 @@
   .tab-btn {
     border: 1px solid var(--border);
     border-bottom: 1px solid var(--border);
-    background: #e4e7ec;
+    background: #f4f5f7;
     border-radius: 3px 3px 0 0;
     padding: 2px 2px; line-height: 1.2;
     font-size: 11.2px;
-    font-weight: 600;
+    font-weight: 500;
     color: #000000;
     cursor: pointer;
     text-align: center;
@@ -301,7 +304,7 @@
   .quick-grid .btn {
     padding: 5px 2px;
     font-size: 11.2px;
-    color: #333333;
+    color: #000000;
   }
   .auto-status-box {
     display: flex;
@@ -347,9 +350,10 @@
     border: 1px solid var(--border-soft);
     background: #fafafa;
     border-radius: 2px;
-    padding: 5px;
+    padding: 4px;
     color: #000000;
-    font-family: var(--font-mono);
+    font-family: var(--font-ui);
+    font-weight: 500;
     font-size: 12.5px;
     line-height: 1.4;
   }
@@ -423,12 +427,13 @@
   .quick-move button:disabled { opacity: .35; cursor: default; }
   .quick-item { display: flex; align-items: baseline; gap: 5px; white-space: nowrap; user-select: none; -webkit-user-select: none; }
   .quick-label { overflow: hidden; text-overflow: ellipsis; min-width: 0; }
-  .quick-tag { flex-shrink: 0; font-size: 11px; padding: 0 4px; border-radius: 2px; background: #eef0f4; color: #374151; font-weight: 400; }
+  .quick-tag { flex-shrink: 0; font-size: 11px; padding: 0 4px; border-radius: 2px; background: #eef0f4; color: #000000; font-weight: 500; }
   .quick-tag.t-sheet { background: #fef3c7; color: #78350f; }
   .quick-tag.t-my { background: #dcfce7; color: #14532d; }
   .quick-tag.t-shelf { background: #e0e7ff; color: #312e81; }
-  .quick-desc { font-size: 11px; color: #6b7280; font-weight: 400; }
-  .quick-note { font-size: 11px; color: #6b7280; margin-top: 4px; }
+  .quick-bolt { flex-shrink: 0; font-size: 11px; color: #d97706; }
+  .quick-desc { font-size: 11px; color: #000000; font-weight: 500; }
+  .quick-note { font-size: 11px; color: #000000; margin-top: 4px; }
 
   /* ---- 設定タブ ---- */
   .conf-group {
@@ -482,8 +487,8 @@
   .bottom-bar .btn {
     padding: 5px 2px;
     font-size: 10.7px;
-    font-weight: 700;
-    color: #333333;
+    font-weight: 500;
+    color: #000000;
   }
 </style>
 </head>
@@ -502,7 +507,6 @@
   <div class="option-row">
     <label class="chk-label"><input type="checkbox" id="chkOk">確認なし</label>
     <label class="chk-label"><input type="checkbox" id="chkBackup">控え</label>
-    <label class="chk-label" style="display:none"><input type="checkbox" id="chkAiAuto">AI自動</label>
     <label class="chk-label"><input type="checkbox" id="chkSync" checked>連動</label>
     <span id="statusLabel" class="status-label">表示中: 自動</span>
   </div>
@@ -518,8 +522,8 @@
   <!-- 5タブ -->
   <div class="tabs-wrap">
     <div class="tab-bar" role="tablist">
-      <button class="tab-btn active" type="button" data-tab="list">一覧</button>
-      <button class="tab-btn" type="button" data-tab="auto">自動</button>
+      <button class="tab-btn active" type="button" data-tab="auto">自動</button>
+      <button class="tab-btn" type="button" data-tab="list">一覧</button>
       <button class="tab-btn" type="button" data-tab="chat">会話</button>
       <button class="tab-btn" type="button" data-tab="hist">履歴</button>
       <button class="tab-btn" type="button" data-tab="trace">経過</button>
@@ -528,7 +532,7 @@
 
     <div class="tab-body">
       <!-- 一覧タブ（GASクイック: このシートのマクロ・マイマクロ・棚） -->
-      <div id="pane-list" class="tab-pane active">
+      <div id="pane-list" class="tab-pane">
         <div id="quickList" class="hist-list">
           <div class="log-empty">読込中…</div>
         </div>
@@ -542,7 +546,7 @@
       </div>
 
       <!-- 自動タブ -->
-      <div id="pane-auto" class="tab-pane">
+      <div id="pane-auto" class="tab-pane active">
         <!-- Sheetモード -->
         <div id="autoSheetPanel">
           <button id="btnSeiri" class="btn btn-hero" type="button">【一発整形】データ整理 ＋ 表を整える</button>
@@ -626,35 +630,6 @@
         <div class="conf-group">
           <div id="settingsInfoLabel" class="conf-note">対象: 未読込</div>
         </div>
-        <div style="display:none">
-        <div class="conf-group">
-          <label class="conf-label" for="cfgAiMode">AI連携方式</label>
-          <select id="cfgAiMode" class="conf-control">
-            <option value="postbox">郵便受け (CLI連携)</option>
-            <option value="api_gemini">Gemini API (鍵)</option>
-            <option value="api_claude">Claude API (鍵)</option>
-          </select>
-        </div>
-        <div class="conf-group">
-          <label class="conf-label" for="cfgAiModel">AIモデル</label>
-          <select id="cfgAiModel" class="conf-control">
-            <option value="sonnet">ソネット (sonnet)</option>
-            <option value="haiku">ハイク (haiku)</option>
-            <option value="gemini-4-hydrogen-low">ハイド君 Low (gemini-4-hydrogen-low)</option>
-            <option value="gemini-4-hydrogen-medium">ハイド君 Medium (gemini-4-hydrogen-medium)</option>
-            <option value="gemini-4-hydrogen-high">ハイド君 High (gemini-4-hydrogen-high)</option>
-          </select>
-        </div>
-        <div class="conf-group">
-          <label class="conf-label" for="cfgApiKey">APIキー</label>
-          <input id="cfgApiKey" class="conf-control" type="password" placeholder="APIキーを入力（変更時のみ）" autocomplete="off">
-        </div>
-        <div class="conf-actions">
-          <button id="btnSaveConfig" class="btn btn-primary" type="button">設定を保存</button>
-          <button id="btnCheckPostbox" class="btn" type="button">郵便受け確認</button>
-        </div>
-        <div id="postboxStatusLabel" class="conf-note" style="margin-top:6px;">郵便受け: 待機中</div>
-        </div>
       </div>
     </div>
   </div>
@@ -711,7 +686,7 @@
   };
 
   var state = {
-    activeTab: "list",
+    activeTab: "auto",
     quick: { sheet: [], my: [], myId: "", myUrl: "", items: [], sel: -1, loaded: false, importMode: false,
              order: { sheet: [], my: [], shelf: [] } },
     busy: false,
@@ -723,19 +698,11 @@
     heading: "",
     scope: {},
     config: {
-      aiMode: "postbox",
-      aiModel: "sonnet",
-      hasApiKey: false,
-      hasGeminiKey: false,
-      hasClaudeKey: false,
       backupDefault: false
     },
     history: [],
     histIdx: -1,
     selectedHistIdx: -1,
-    pollTimer: null,
-    polling: false,
-    pendingPostboxIds: {},
     oauthToken: "",
     sheetIdMap: {},
     sheetSnapshot: {},
@@ -748,7 +715,6 @@
     btnClear: document.getElementById("btnClear"),
     chkOk: document.getElementById("chkOk"),
     chkBackup: document.getElementById("chkBackup"),
-    chkAiAuto: document.getElementById("chkAiAuto"),
     chkSync: document.getElementById("chkSync"),
     statusLabel: document.getElementById("statusLabel"),
     targetNameLabel: document.getElementById("targetNameLabel"),
@@ -773,12 +739,6 @@
     traceLog: document.getElementById("traceLog"),
     settingsSheetSelect: document.getElementById("settingsSheetSelect"),
     settingsInfoLabel: document.getElementById("settingsInfoLabel"),
-    cfgAiMode: document.getElementById("cfgAiMode"),
-    cfgAiModel: document.getElementById("cfgAiModel"),
-    cfgApiKey: document.getElementById("cfgApiKey"),
-    btnSaveConfig: document.getElementById("btnSaveConfig"),
-    btnCheckPostbox: document.getElementById("btnCheckPostbox"),
-    postboxStatusLabel: document.getElementById("postboxStatusLabel"),
     btnNewTalk: document.getElementById("btnNewTalk"),
     btnUndo: document.getElementById("btnUndo"),
     btnReload: document.getElementById("btnReload"),
@@ -1063,8 +1023,7 @@
       } else {
         reason = "棚に該当なし";
       }
-      var suffix = els.chkAiAuto.checked ? "（実行時はAIが解釈して実行）" : "";
-      els.previewLabel.textContent = "未確定: " + reason + suffix;
+      els.previewLabel.textContent = "未確定: " + reason;
       els.previewLabel.classList.add("preview-miss");
     }
     return p;
@@ -1114,6 +1073,7 @@
     }
     if (typeof res.oauthToken === "string" && res.oauthToken) {
       state.oauthToken = res.oauthToken;
+      state.oauthTokenAt = Date.now();
     }
     if (Array.isArray(res.sheetInfos)) {
       for (var si = 0; si < res.sheetInfos.length; si++) {
@@ -1140,37 +1100,10 @@
   function applyConfig(raw) {
     var cfg = (raw && raw.config) ? raw.config : raw;
     if (!cfg || typeof cfg !== "object") return;
-    if (cfg.aiMode) state.config.aiMode = cfg.aiMode;
-    if (cfg.aiModel) state.config.aiModel = cfg.aiModel;
     var bkp = ("backupDefault" in cfg) ? cfg.backupDefault : cfg.backup;
     if (typeof bkp === "boolean") {
       state.config.backupDefault = bkp;
       els.chkBackup.checked = bkp;
-    }
-    if ("hasApiKey" in cfg) state.config.hasApiKey = !!cfg.hasApiKey;
-    if ("apiKey" in cfg && cfg.apiKey) state.config.hasApiKey = true;
-    if ("hasGeminiKey" in cfg) state.config.hasGeminiKey = !!cfg.hasGeminiKey;
-    if ("hasClaudeKey" in cfg) state.config.hasClaudeKey = !!cfg.hasClaudeKey;
-
-    if (els.cfgAiMode.querySelector('option[value="' + state.config.aiMode + '"]')) {
-      els.cfgAiMode.value = state.config.aiMode;
-    }
-    if (els.cfgAiModel.querySelector('option[value="' + state.config.aiModel + '"]')) {
-      els.cfgAiModel.value = state.config.aiModel;
-    }
-    updateApiKeyPlaceholder();
-  }
-
-  function updateApiKeyPlaceholder() {
-    var mode = els.cfgAiMode.value;
-    if (mode === "api_gemini" && (state.config.hasGeminiKey || state.config.hasApiKey)) {
-      els.cfgApiKey.placeholder = "Geminiキー設定済み（変更時のみ入力）";
-    } else if (mode === "api_claude" && (state.config.hasClaudeKey || state.config.hasApiKey)) {
-      els.cfgApiKey.placeholder = "Claudeキー設定済み（変更時のみ入力）";
-    } else if (mode === "postbox") {
-      els.cfgApiKey.placeholder = "郵便受けモードではAPIキー不要";
-    } else {
-      els.cfgApiKey.placeholder = "APIキーを入力";
     }
   }
 
@@ -1327,7 +1260,7 @@
     return "";
   }
 
-  function prefetchSheetSnapshot(sheetName) {
+  function prefetchSheetSnapshot(sheetName, retried) {
     if (!state.oauthToken || !state.target.id || !sheetName || typeof fetch !== "function") return;
     var qName = "'" + String(sheetName).replace(/'/g, "''") + "'!A1:Z30";
     var url = "https://sheets.googleapis.com/v4/spreadsheets/" + encodeURIComponent(state.target.id) +
@@ -1337,7 +1270,14 @@
       method: "GET",
       headers: { "Authorization": "Bearer " + state.oauthToken }
     })
-      .then(function(r) { if (!r.ok) throw new Error("Sheets API HTTP " + r.status); return r.json(); })
+      .then(function(r) {
+        if (!r.ok) {
+          var e = new Error("Sheets API HTTP " + r.status);
+          e.status = r.status;
+          throw e;
+        }
+        return r.json();
+      })
       .then(function(data) {
         if (!data || !Array.isArray(data.sheets) || !data.sheets[0]) return;
         var shObj = data.sheets[0];
@@ -1374,7 +1314,23 @@
         };
         state.prefetchError = "";
       })
-      .catch(function(err) { state.prefetchError = String((err && err.message) || err || "写しを取れません"); });
+      .catch(function(err) {
+        if (err && err.status === 401 && !retried && hasGasBridge()) {
+          callGas("comboQuickBuild", {}, function(rb) {
+            if (rb && rb.oauthToken) {
+              state.oauthToken = rb.oauthToken;
+              state.oauthTokenAt = Date.now();
+              prefetchSheetSnapshot(sheetName, true);
+            } else {
+              state.prefetchError = String((err && err.message) || err || "写しを取れません");
+            }
+          }, function() {
+            state.prefetchError = String((err && err.message) || err || "写しを取れません");
+          });
+          return;
+        }
+        state.prefetchError = String((err && err.message) || err || "写しを取れません");
+      });
   }
 
   // 写しの範囲（A1:Z30）の中のエラーのセル { "A1": "#REF!" }
@@ -2042,13 +1998,14 @@
         for (var m = 0; m < snapshotMutators.length; m++) snapshotMutators[m](resJson);
       },
       restoreSnapshot: function() {
-        for (var u = 0; u < undoSnapshotMutators.length; u++) undoSnapshotMutators[u]();
+        for (var u = undoSnapshotMutators.length - 1; u >= 0; u--) undoSnapshotMutators[u]();
       }
     };
   }
 
-  function tryDirectSheetsApi(ops, label, isFromAsk, fallbackFn) {
+  function tryDirectSheetsApi(ops, label, isFromAsk, fallbackFn, retried, opts) {
     if (typeof fetch !== "function") return false;
+    var switchChat = !(opts && opts.switchToChat === false);
     var sheetName = state.curSheet || (state.target && state.target.sheet) || "";
     var plan = buildDirectBatchUpdate(ops, sheetName);
     if (!plan) {
@@ -2065,7 +2022,7 @@
       return true;
     }
     setBusy(true, "実行中…");
-    switchTab("chat");
+    if (switchChat) switchTab("chat");
 
     var t0 = performance.now();
     var url = "https://sheets.googleapis.com/v4/spreadsheets/" + encodeURIComponent(state.target.id) + ":batchUpdate";
@@ -2078,7 +2035,11 @@
       body: JSON.stringify({ requests: plan.requests })
     })
       .then(function(res) {
-        if (!res.ok) throw new Error("HTTP " + res.status);
+        if (!res.ok) {
+          var e = new Error("HTTP " + res.status);
+          e.status = res.status;
+          throw e;
+        }
         return res.json();
       })
       .then(function(resJson) {
@@ -2102,25 +2063,50 @@
         lines.push("控えなし（backup=OFF）");
         checkNewErrorsAfterDirect(sheetName, ops, function(news) {
           if (news.length) lines.push("⚠ 新しいエラー: " + news.slice(0, 5).join("・") + (news.length > 5 ? " ほか " + (news.length - 5) + " 件" : "") + "（直前を取り消すで戻せます）");
-          recordExecution(true, label, lines.join("\n"), wallMs, 0, true, true);
+          recordExecution(true, label, lines.join("\n"), wallMs, 0, switchChat, true);
         });
+        if (!switchChat) {
+          var noteHead = (plan.changed && plan.changed.length)
+            ? (label + ": " + plan.changed.slice(0, 3).join(" / ") + (plan.changed.length > 3 ? " …" : ""))
+            : (label + " を実行しました");
+          els.quickNote.textContent = noteHead + "（" + (Math.max(0, wallMs / 1000)).toFixed(2) + "s・直接API）";
+        }
+        if (state.oauthTokenAt && (Date.now() - state.oauthTokenAt > 3000000)) {
+          setTimeout(function() { quickCheckBuild(true); }, 0);
+        }
       })
-      .catch(function() {
+      .catch(function(err) {
+        if (err && err.status === 401 && !retried && hasGasBridge()) {
+          callGas("comboQuickBuild", {}, function(rb) {
+            setBusy(false);
+            if (rb && rb.oauthToken) {
+              state.oauthToken = rb.oauthToken;
+              state.oauthTokenAt = Date.now();
+              tryDirectSheetsApi(ops, label, isFromAsk, fallbackFn, true, opts);
+            } else if (fallbackFn) {
+              fallbackFn();
+            }
+          }, function() {
+            setBusy(false);
+            if (fallbackFn) fallbackFn();
+          });
+          return;
+        }
         setBusy(false);
         if (fallbackFn) fallbackFn();
       });
     return true;
   }
 
-  function tryDirectUndo(fallbackFn) {
-    if (typeof fetch !== "function" || !state.oauthToken || !state.target.id || !state.directUndoStack.length) {
+  function tryDirectUndo(fallbackFn, retried, retryItem) {
+    if (typeof fetch !== "function" || !state.oauthToken || !state.target.id || (!retryItem && !state.directUndoStack.length)) {
       return false;
     }
     if (state.busy) {
       appendLog(els.chatLog, "is-err", "⚠ 別の処理を実行中です", "完了までお待ちください。");
       return true;
     }
-    var item = state.directUndoStack.pop();
+    var item = retryItem || state.directUndoStack.pop();
     setBusy(true, "取り消し中…");
     switchTab("chat");
 
@@ -2135,7 +2121,11 @@
       body: JSON.stringify({ requests: item.requests })
     })
       .then(function(res) {
-        if (!res.ok) throw new Error("HTTP " + res.status);
+        if (!res.ok) {
+          var e = new Error("HTTP " + res.status);
+          e.status = res.status;
+          throw e;
+        }
         return res.json();
       })
       .then(function() {
@@ -2148,39 +2138,27 @@
         ].join("\n");
         recordExecution(true, "直前を取り消す", body, wallMs, 0, true, true);
       })
-      .catch(function() {
+      .catch(function(err) {
+        if (err && err.status === 401 && !retried && hasGasBridge()) {
+          callGas("comboQuickBuild", {}, function(rb) {
+            setBusy(false);
+            if (rb && rb.oauthToken) {
+              state.oauthToken = rb.oauthToken;
+              state.oauthTokenAt = Date.now();
+              tryDirectUndo(fallbackFn, true, item);
+            } else if (fallbackFn) {
+              fallbackFn();
+            }
+          }, function() {
+            setBusy(false);
+            if (fallbackFn) fallbackFn();
+          });
+          return;
+        }
         setBusy(false);
         if (fallbackFn) fallbackFn();
       });
     return true;
-  }
-
-  function handlePostboxDone(doneItems) {
-    if (!doneItems) return;
-    var items = Array.isArray(doneItems) ? doneItems : [doneItems];
-    var handled = 0;
-    for (var i = 0; i < items.length; i++) {
-      var it = items[i];
-      if (!it || typeof it !== "object") continue;
-      handled++;
-      if (it.reqId) delete state.pendingPostboxIds[it.reqId];
-      var ok = it.ok !== false;
-      var label = it.ask || it.label || "郵便受けAI実行";
-      var body = it.text || it.error || "";
-      var gasMs = (typeof it.gasMs === "number") ? it.gasMs : undefined;
-      appendLog(
-        els.chatLog,
-        ok ? "is-ok" : "is-err",
-        "[" + (ok ? "✓" : "✗") + " 郵便受け] " + label,
-        body + (gasMs !== undefined ? "\n(GAS " + (gasMs / 1000).toFixed(2) + "s)" : "")
-      );
-      if (it.table !== undefined) state.table = it.table;
-    }
-    if (handled > 0) {
-      updateInfoLabel();
-      updatePreview();
-      els.postboxStatusLabel.textContent = "郵便受け: 完了結果 " + handled + "件を受信しました";
-    }
   }
 
   // ---- アクション実行 ----
@@ -2200,7 +2178,7 @@
       function(res) {
         var wallMs = performance.now() - t0;
         setBusy(false);
-        setTimeout(function() { quickCheckBuild(true); }, 0);
+        setTimeout(function() { quickCheckBuild(false); }, 0);
 
         if (!res || res.ok === false) {
           var errMsg = (res && (res.text || res.error)) || "実行に失敗しました";
@@ -2211,19 +2189,8 @@
           return;
         }
 
-        if (opts.onSuccess) opts.onSuccess(res);
+        if (opts.onSuccess) opts.onSuccess(res, wallMs);
         applyServerState(res);
-
-        if (res.pendingPostbox) {
-          if (res.reqId) state.pendingPostboxIds[res.reqId] = true;
-          els.postboxStatusLabel.textContent = "郵便受け: 待機中 (ID: " + (res.reqId || "-") + ")";
-          var pText = res.text || "郵便受けに依頼を置きました。PC側の watch が処理するまで待機します。";
-          appendLog(els.chatLog, "is-info", "[郵便受け待機] " + opts.label, pText + "\n(" + formatTiming(wallMs, res.gasMs) + ")");
-          appendLog(els.traceLog, "is-info", "[… " + opts.label + "] " + formatTiming(wallMs, res.gasMs), "");
-          kickWatcher();
-          schedulePoll(1200);
-          return;
-        }
 
         if (!opts.silentSuccess) {
           recordExecution(true, opts.label, res.text || "完了", wallMs, res.gasMs, switchChat);
@@ -2249,8 +2216,7 @@
       statusText: "読込中…",
       switchToChat: false,
       silentSuccess: !!silent,
-      onSuccess: function(res) {
-        if (res.postboxDone) handlePostboxDone(res.postboxDone);
+      onSuccess: function() {
         loadLearned();
       }
     });
@@ -2300,21 +2266,18 @@
     var liveSelPrompt = !state.liveSelDone && !!(els.chkSync.checked && hasSelectionPronoun(txt));
     var planRes = updatePreview();
     var fireOps = (!liveSelPrompt && planRes && planRes.fire && Array.isArray(planRes.ops) && planRes.ops.length) ? planRes.ops : null;
-    var aiAuto = !!els.chkAiAuto.checked;
 
     els.askInput.value = "";
     updatePreview();
 
-    // 近い候補があれば、AI自動でも先に［はい］を出す（郵便受けの受け手がいなくても止まらない。［いいえ］なら AI へ回す）
     var suggestOps = (!fireOps && !liveSelPrompt && planRes && Array.isArray(planRes.suggest) && planRes.suggest.length) ? planRes.suggest : null;
 
-    var statusText = (!fireOps && aiAuto) ? "AI解釈・実行中…" : "実行中…";
+    var statusText = "実行中…";
     var payload = {
       ask: txt,
       ops: fireOps,
       ok: !!els.chkOk.checked,
       backup: !!els.chkBackup.checked,
-      aiAuto: aiAuto,
       assumeActive: true,
       targetId: state.target.id || "",
       targetName: state.target.name || "",
@@ -2326,9 +2289,7 @@
       payload.selection = els.chkSync.checked ? (state.selection || "") : "";
     }
     if (suggestOps) {
-      offerSuggest(txt, suggestOps, aiAuto ? function() {
-        runServerAction({ fnName: "comboRunAsk", payload: payload, label: txt, statusText: statusText, switchToChat: true });
-      } : null);
+      offerSuggest(txt, suggestOps, null);
       return;
     }
     if (fireOps && !liveSelPrompt && !els.chkBackup.checked) {
@@ -2361,9 +2322,13 @@
   function quickCheckBuild(force) {
     if (!QUICK_SIDEBAR_BUILD || !hasGasBridge()) return;
     var now = Date.now();
-    if (!force && now - quickBuildAt < 4000) return;
+    if (!force && now - quickBuildAt < 60000) return;
     quickBuildAt = now;
     callGas("comboQuickBuild", {}, function(res) {
+      if (res && res.ok && res.oauthToken) {
+        state.oauthToken = res.oauthToken;
+        state.oauthTokenAt = Date.now();
+      }
       if (res && res.ok && res.build && res.build !== QUICK_SIDEBAR_BUILD && !state.busy) {
         els.quickNote.textContent = "新しい版に入れ替えています…";
         callGas("comboQuickReopen", { draft: els.askInput.value || "" });
@@ -2378,7 +2343,9 @@
     var shelves = (typeof COMBO_CATALOG_DATA !== "undefined" && COMBO_CATALOG_DATA.shelves) || [];
     return shelves.filter(function(sh) { return sh.searchable !== false && sh.kind !== "doc"; }).map(function(sh) {
       var needArgs = (sh.args || []).some(function(a) { return a.req; });
-      return { src: "shelf", name: sh.name, label: sh.title || sh.name, words: sh.words || [], desc: "", needArgs: needArgs };
+      var ex = (Array.isArray(sh.examples) && sh.examples.length && Array.isArray(sh.examples[0]) && sh.examples[0][0])
+        ? String(sh.examples[0][0]) : "";
+      return { src: "shelf", name: sh.name, label: sh.title || sh.name, words: sh.words || [], desc: "", example: ex, needArgs: needArgs };
     });
   }
 
@@ -2395,9 +2362,20 @@
 
   function quickAllItems() {
     var q = state.quick, sheet = [], my = [];
-    (q.sheet || []).forEach(function(f) { sheet.push({ src: "sheet", name: f.name, label: f.name, words: [], desc: "" }); });
-    (q.my || []).forEach(function(f) { my.push({ src: "my", name: f.name, label: f.name, words: f.words || [], desc: f.desc || "" }); });
+    (q.sheet || []).forEach(function(f) { sheet.push({ src: "sheet", name: f.name, label: f.name, words: f.words || [], desc: f.desc || "", steps: Array.isArray(f.steps) ? f.steps : [] }); });
+    (q.my || []).forEach(function(f) { my.push({ src: "my", name: f.name, label: f.name, words: f.words || [], desc: f.desc || "", steps: Array.isArray(f.steps) ? f.steps : [] }); });
     return quickOrdered(sheet, q.order.sheet).concat(quickOrdered(my, q.order.my), quickOrdered(quickShelfItems(), q.order.shelf));
+  }
+
+  function quickItemTip(it) {
+    if (!it) return "";
+    if (it.steps && it.steps.length) {
+      var st = "⚡ 手順: " + it.steps.join(" / ");
+      return it.desc ? (it.desc + " — " + st) : st;
+    }
+    if (it.desc) return it.desc;
+    if (it.src === "shelf") return it.example ? ("棚: " + it.name + "（例: " + it.example + "）") : ("棚: " + it.name);
+    return it.label;
   }
 
   // ===== 並べ替え（区切りの中だけ） =====
@@ -2442,10 +2420,30 @@
   }
 
   document.addEventListener("keydown", function(e) {
-    if (state.activeTab !== "list" || !e.altKey || state.quick.sel < 0) return;
-    if (e.key === "ArrowUp" || e.key === "ArrowDown") {
+    if (e.isComposing || e.keyCode === 229) return;
+    if (state.activeTab !== "list") return;
+    if (e.altKey && state.quick.sel >= 0) {
+      if (e.key === "ArrowUp" || e.key === "ArrowDown") {
+        e.preventDefault();
+        quickMove(e.key === "ArrowUp" ? -1 : 1);
+      }
+      return;
+    }
+    if (e.altKey || e.ctrlKey || e.metaKey) return;
+    if (e.target && /^(INPUT|TEXTAREA|SELECT|BUTTON)$/.test(e.target.tagName)) return;
+    var items = state.quick.items || [];
+    if (e.key === "ArrowDown" && items.length) {
       e.preventDefault();
-      quickMove(e.key === "ArrowUp" ? -1 : 1);
+      quickSelectIdx(state.quick.sel < 0 ? 0 : Math.min(items.length - 1, state.quick.sel + 1));
+    } else if (e.key === "ArrowUp" && state.quick.sel >= 0 && items.length) {
+      e.preventDefault();
+      quickSelectIdx(state.quick.sel - 1);
+    } else if (e.key === "Escape" && state.quick.sel >= 0) {
+      e.preventDefault();
+      quickSelectIdx(-1);
+    } else if (e.key === "Enter" && state.quick.sel >= 0 && items[state.quick.sel] && !state.busy && !state.quick.importMode) {
+      e.preventDefault();
+      quickRunItem(items[state.quick.sel]);
     }
   });
 
@@ -2498,9 +2496,16 @@
       lab.className = "quick-label";
       lab.textContent = it.label;
       row.appendChild(tag);
+      if (it.steps && it.steps.length) {
+        var bolt = document.createElement("span");
+        bolt.className = "quick-bolt";
+        bolt.textContent = "⚡";
+        bolt.title = "手順つき（直結対応）";
+        row.appendChild(bolt);
+      }
       row.appendChild(lab);
       // 一覧は 1 行ずつ。説明は指したとき（マウスを載せる）に下の欄と吹き出しに出す
-      var tip = it.desc || (it.src === "shelf" ? ("棚: " + it.name) : it.label);
+      var tip = quickItemTip(it);
       row.title = tip;
       row.addEventListener("mouseenter", function() { if (!state.quick.importMode) els.quickNote.textContent = tip; });
       // 1 回押せば選ぶ・2 回押せば撃つ（選んでから「実行」でも撃てる）
@@ -2542,6 +2547,24 @@
     }
   }
 
+  // 一覧の選択位置を移して画面内へスクロールし、下の欄に説明を出す（-1 で選択解除）
+  function quickSelectIdx(idx) {
+    var items = state.quick.items || [];
+    if (idx < 0 || idx >= items.length) {
+      state.quick.sel = -1;
+      quickMarkSel(-1);
+      return;
+    }
+    state.quick.sel = idx;
+    quickMarkSel(idx);
+    var rows = els.quickList.querySelectorAll(".quick-item");
+    var row = rows[idx];
+    if (row && row.scrollIntoView) row.scrollIntoView({ block: "nearest" });
+    if (!state.quick.importMode) {
+      els.quickNote.textContent = quickItemTip(items[idx]);
+    }
+  }
+
   var QUICK_LS_KEY = "gasquick_list_v1";
   function quickRestoreList() {
     try {
@@ -2549,7 +2572,7 @@
       if (raw) {
         var c = JSON.parse(raw), q = state.quick;
         // シートのマクロはシートごとに違うので覚えから出さない（マイマクロはどのシートでも同じ）
-        q.my = c.my || []; q.myId = c.myId || ""; q.myUrl = c.myUrl || "";
+        q.my = c.my || []; q.myId = c.myId || ""; q.myUrl = c.myUrl || ""; q.myStamp = c.myStamp || "";
         if (c.order) { q.order.my = c.order.my || []; q.order.shelf = c.order.shelf || []; }
       }
     } catch (e) {}
@@ -2560,21 +2583,28 @@
   function quickRememberLocal() {
     var q = state.quick;
     try {
-      window.localStorage.setItem(QUICK_LS_KEY, JSON.stringify({ my: q.my || [], myId: q.myId || "", myUrl: q.myUrl || "",
+      window.localStorage.setItem(QUICK_LS_KEY, JSON.stringify({ my: q.my || [], myId: q.myId || "", myUrl: q.myUrl || "", myStamp: q.myStamp || "",
         order: { my: q.order.my || [], shelf: q.order.shelf || [] } }));
     } catch (e) {}
   }
 
-  function loadQuickList() {
-    callGas("comboQuickList", {}, function(res) {
+  function loadQuickList(force) {
+    var isForce = force === true || !!state.quick._fetchedOnce;
+    callGas("comboQuickList", isForce ? { force: true } : {}, function(res) {
       var q = state.quick;
       q.loaded = true;
       if (res && res.ok) {
+        q._fetchedOnce = true;
         q.sheet = res.sheet || [];
         if (res.order) q.order = { sheet: res.order.sheet || [], my: res.order.my || [], shelf: res.order.shelf || [] };
         q.my = res.my || [];
         q.myId = res.myId || "";
         q.myUrl = res.myUrl || "";
+        q.myStamp = res.myStamp || "";
+        if (typeof res.oauthToken === "string" && res.oauthToken) {
+          state.oauthToken = res.oauthToken;
+          state.oauthTokenAt = Date.now();
+        }
         quickRememberLocal();
         if (res.draft && !els.askInput.value) { els.askInput.value = res.draft; updatePreview(); }
         if (res.build && QUICK_SIDEBAR_BUILD && res.build !== QUICK_SIDEBAR_BUILD) { quickCheckBuild(true); }
@@ -2589,6 +2619,89 @@
     });
   }
 
+  function quickCompileSteps(steps) {
+    var kind = (state.target && state.target.kind) || "sheet";
+    var baseScope = getActiveScope();
+    var ops = [], carry = null;
+    for (var i = 0; i < steps.length; i++) {
+      var stepTxt = String(steps[i] || "").trim();
+      if (!stepTxt) continue;
+      var p = null;
+      if (carry && !hasSelectionPronoun(stepTxt)) {
+        var pCarry = Planner.plan(stepTxt, kind, state.table, state.sheets, state.curSheet, carry);
+        if (pCarry && pCarry.fire && Array.isArray(pCarry.ops) && pCarry.ops.length && pCarry.ops[0].shelf === "format") {
+          p = pCarry;
+        }
+      }
+      if (!p) {
+        p = Planner.plan(stepTxt, kind, state.table, state.sheets, state.curSheet, baseScope);
+      }
+      if (p && Array.isArray(p.ops) && p.ops.length === 1 && p.ops[0] && p.ops[0].shelf === "width" &&
+          !p.ops[0].width && !p.ops[0].cols && !p.ops[0].rows && !p.ops[0].auto &&
+          /(?:自動|中身に合|オートフィット)/.test(stepTxt)) {
+        var wOp = p.ops[0];
+        if (wOp.col) {
+          wOp.auto = [wOp.col];
+          delete wOp.col;
+        } else if (state.table && Array.isArray(state.table.columns)) {
+          var allCols = state.table.columns.map(function(c) { return c.col; }).filter(Boolean);
+          if (allCols.length) wOp.auto = allCols;
+        }
+        if (Array.isArray(wOp.auto) && wOp.auto.length && !(p.reasons && p.reasons.length)) {
+          p.fire = true;
+        }
+      }
+      if (!p || !p.fire || !Array.isArray(p.ops) || !p.ops.length) {
+        var reason = "";
+        if (p && p.reasons && p.reasons.length) reason = p.reasons.join("／");
+        else if (p && p.missing && p.missing.length) reason = "不足: " + p.missing.join("、");
+        return { ok: false, index: i + 1, step: stepTxt, reason: reason };
+      }
+      for (var j = 0; j < p.ops.length; j++) ops.push(p.ops[j]);
+      var lastOp = p.ops[p.ops.length - 1];
+      if (lastOp && lastOp.shelf === "format") {
+        var nextCarry = {};
+        ["header", "title", "range", "col"].forEach(function(k) {
+          if (lastOp[k] !== undefined && lastOp[k] !== null && lastOp[k] !== "" && lastOp[k] !== false) nextCarry[k] = lastOp[k];
+        });
+        carry = Object.keys(nextCarry).length ? nextCarry : null;
+      } else {
+        carry = null;
+      }
+    }
+    return { ok: true, ops: ops };
+  }
+
+  function quickRunSteps(it) {
+    var steps = (it && Array.isArray(it.steps)) ? it.steps : [];
+    if (!steps.length) return;
+    if (state.busy) {
+      appendLog(els.chatLog, "is-err", "⚠ 別の処理を実行中です", "完了までお待ちください。");
+      return;
+    }
+    var needLiveSel = steps.some(function(s) { return hasSelectionPronoun(s); });
+    if (els.chkSync.checked && needLiveSel && !state.liveSelDone) {
+      setBusy(true, "選んでいる所を読んでいます…");
+      var again = function() {
+        setBusy(false);
+        state.liveSelDone = true;
+        try { quickRunSteps(it); } finally { state.liveSelDone = false; }
+      };
+      callGas("comboPollSelection", { targetId: state.target.id || "", sheet: "" },
+        function(res) { if (res && res.ok) applyServerState(res); again(); }, again);
+      return;
+    }
+    var label = (it.src === "my" ? "マイマクロ " : "マクロ ") + it.name;
+    var compiled = quickCompileSteps(steps);
+    if (!compiled.ok) {
+      var msg = "手順 " + compiled.index + "「" + compiled.step + "」が棚に当たりません" + (compiled.reason ? "（" + compiled.reason + "）" : "");
+      els.quickNote.textContent = "⚠ " + msg;
+      appendLog(els.chatLog, "is-err", "[✗ " + label + "]", msg);
+      return;
+    }
+    onRunOps(compiled.ops, label, { switchToChat: false });
+  }
+
   function quickRunItem(it) {
     if (!it) return;
     if (it.src === "shelf") {
@@ -2596,31 +2709,45 @@
         els.askInput.value = it.label;
         els.askInput.focus();
         updatePreview();
-        els.quickNote.textContent = "棚「" + it.label + "」は言葉を足してから実行してください（例: どの列・何色）";
+        els.quickNote.textContent = it.example
+          ? ("棚「" + it.label + "」は言葉を足してから実行してください（例: " + it.example + "）")
+          : ("棚「" + it.label + "」は言葉を足してから実行してください（例: どの列・何色）");
         return;
       }
-      onRunOps([{ shelf: it.name }], it.label);
+      onRunOps([{ shelf: it.name }], it.label, { switchToChat: false });
+      return;
+    }
+    if (Array.isArray(it.steps) && it.steps.length) {
+      quickRunSteps(it);
       return;
     }
     state.directUndoStack = [];
     runServerAction({
       fnName: "comboQuickRun",
-      payload: { src: it.src, name: it.name, myId: state.quick.myId },
+      payload: { src: it.src, name: it.name, myId: state.quick.myId, myStamp: state.quick.myStamp || "", backup: !!els.chkBackup.checked },
       label: (it.src === "my" ? "マイマクロ " : "マクロ ") + it.name,
       statusText: it.name + " を実行中…",
       switchToChat: false,
-      onSuccess: function(res) { els.quickNote.textContent = res.text || "完了"; }
+      onSuccess: function(res, wallMs) {
+        var sec = typeof wallMs === "number" ? ("（" + (Math.max(0, wallMs / 1000)).toFixed(2) + "s）") : "";
+        els.quickNote.textContent = (res.text || "完了") + sec;
+      }
     });
   }
 
-  // 入力欄の Enter: 選んでいる物、または言葉がシートのマクロ・マイマクロに当たればそれを撃つ（棚は今までどおり頼みとして撃つ）
+  // 入力欄の Enter: ↑↓やクリックで選んでいればそれを撃つ。選んでいなければ、言葉がシート・マイマクロの先頭に当たるときだけ撃つ（棚は頼みとして撃つ）
   function quickRunFromInput() {
     var items = state.quick.items || [];
-    var it = state.quick.sel >= 0 ? items[state.quick.sel] : null;
+    var picked = state.quick.sel >= 0 && !!items[state.quick.sel];
+    var it = picked ? items[state.quick.sel] : null;
     var txt = (els.askInput.value || "").trim();
-    if (!it && txt && items.length && items[0].src !== "shelf" && quickScore(items[0], txt) >= 60) it = items[0];
+    if (!picked && txt && items.length && items[0].src !== "shelf" && quickScore(items[0], txt) >= 60) it = items[0];
     if (!it) return false;
-    if (it.src === "shelf" && txt) return false;
+    if (!picked && it.src === "shelf" && txt) return false;
+    if (it.src === "shelf" && it.needArgs) {
+      quickRunItem(it);
+      return true;
+    }
     pushHistory(txt || it.label);
     els.askInput.value = "";
     updatePreview();
@@ -2630,8 +2757,9 @@
     return true;
   }
 
-  function onRunOps(ops, customLabel) {
+  function onRunOps(ops, customLabel, opts) {
     var label = customLabel || formatOpsShort(ops) || "ops実行";
+    var switchChat = !(opts && opts.switchToChat === false);
     var runViaGas = function() {
       state.directUndoStack = [];
       runServerAction({
@@ -2650,10 +2778,17 @@
         },
         label: label,
         statusText: "実行中…",
-        switchToChat: true
+        switchToChat: switchChat,
+        onSuccess: !switchChat ? function(res, wallMs) {
+          var firstLine = String((res && res.text) || "").split("\n").filter(function(s) {
+            return s && s.indexOf("対象:") !== 0 && s.indexOf("[棚ヒット]") !== 0;
+          })[0] || (label + " を実行しました");
+          var sec = typeof wallMs === "number" ? ("（" + (Math.max(0, wallMs / 1000)).toFixed(2) + "s）") : "";
+          els.quickNote.textContent = firstLine + sec;
+        } : undefined
       });
     };
-    if (!els.chkBackup.checked && tryDirectSheetsApi(ops, label, false, runViaGas)) {
+    if (!els.chkBackup.checked && tryDirectSheetsApi(ops, label, false, runViaGas, false, { switchToChat: switchChat })) {
       return;
     }
     runViaGas();
@@ -2699,7 +2834,6 @@
         ask: "全ての列の幅を中身に合わせて",
         ok: !!els.chkOk.checked,
         backup: !!els.chkBackup.checked,
-        aiAuto: !!els.chkAiAuto.checked,
         targetId: state.target.id || "",
         targetName: state.target.name || "",
         sheets: state.sheets || [],
@@ -2737,89 +2871,6 @@
     });
   }
 
-  function onSaveConfig() {
-    var mode = els.cfgAiMode.value;
-    var model = els.cfgAiModel.value;
-    var rawKey = (els.cfgApiKey.value || "").trim();
-    var cfgPayload = {
-      aiMode: mode,
-      aiModel: model,
-      backupDefault: !!els.chkBackup.checked
-    };
-    if (rawKey) {
-      cfgPayload.apiKey = rawKey;
-      if (mode === "api_gemini") cfgPayload.geminiKey = rawKey;
-      if (mode === "api_claude") cfgPayload.claudeKey = rawKey;
-    }
-
-    runServerAction({
-      fnName: "comboSaveConfig",
-      payload: cfgPayload,
-      label: "設定を保存",
-      statusText: "設定保存中…",
-      switchToChat: false,
-      onSuccess: function(res) {
-        els.cfgApiKey.value = "";
-        if (rawKey) {
-          state.config.hasApiKey = true;
-          if (mode === "api_gemini") state.config.hasGeminiKey = true;
-          if (mode === "api_claude") state.config.hasClaudeKey = true;
-        }
-        applyConfig(res.config || res);
-        els.postboxStatusLabel.textContent = "設定を保存しました（方式: " + mode + " / モデル: " + model + "）";
-      }
-    });
-  }
-
-  function onCheckPostbox() {
-    if (state.polling) return;
-    state.polling = true;
-    els.postboxStatusLabel.textContent = "郵便受け: 確認中…";
-    var t0 = performance.now();
-    callGas(
-      "comboPollSelection",
-      {
-        targetId: state.target.id || "",
-        sheet: state.curSheet || "",
-        checkPostbox: true
-      },
-      function(res) {
-        state.polling = false;
-        var ms = (performance.now() - t0).toFixed(0);
-        if (res && res.ok) {
-          applyServerState(res);
-          if (res.postboxDone && (!Array.isArray(res.postboxDone) || res.postboxDone.length > 0)) {
-            handlePostboxDone(res.postboxDone);
-          } else if (typeof res.postboxPending === "number") {
-            els.postboxStatusLabel.textContent = "郵便受け: 待機中の依頼 " + res.postboxPending + "件 (" + ms + "ms)";
-          } else {
-            var pendCount = Object.keys(state.pendingPostboxIds).length;
-            els.postboxStatusLabel.textContent = pendCount > 0
-              ? ("郵便受け: 処理待ち " + pendCount + "件（PC側 watch を確認してください）")
-              : ("郵便受け: 正常・待機中 (" + ms + "ms)");
-          }
-        } else {
-          els.postboxStatusLabel.textContent = "郵便受け: 確認エラー";
-        }
-      },
-      function(err) {
-        state.polling = false;
-        els.postboxStatusLabel.textContent = "郵便受けエラー: " + formatError(err);
-      }
-    );
-  }
-
-  // PC の郵便受けの受け手（py gas.py combo watch）を起こす。届かなければ動いていないと知らせる
-  function kickWatcher() {
-    try {
-      fetch("http://127.0.0.1:18766/kick", { mode: "no-cors", cache: "no-store" }).catch(function() {
-        els.postboxStatusLabel.textContent = "郵便受け: PC の受け手が動いていません（py gas.py combo watch <id> --autostart を 1 回）";
-        appendLog(els.chatLog, "is-err", "[郵便受け] PC の受け手が動いていません",
-          "PC で py gas.py combo watch <アドオンのID> --autostart を 1 回撃つと、ログオンのたびに自分で起きます（combo addon でも入ります）。");
-      });
-    } catch (e) {}
-  }
-
   function copyToClipboard(text) {
     if (navigator.clipboard && navigator.clipboard.writeText) {
       return navigator.clipboard.writeText(text).catch(function() {
@@ -2848,93 +2899,6 @@
     });
   }
 
-  function onCopyForAi() {
-    var txt = (els.askInput.value || "").trim();
-    var url = (state.target && state.target.url) || "";
-    var sh = state.curSheet || "";
-    var selPart = state.selection ? ("・選択: " + state.selection) : "";
-    var msg = url ? ("対象: " + url + "（シート: " + sh + selPart + "）\n依頼: " + txt) : txt;
-    if (!msg) {
-      appendLog(els.chatLog, "is-info", "[コピー]", "コピーする対象情報や入力文がありません。");
-      return;
-    }
-    copyToClipboard(msg).then(function() {
-      appendLog(els.chatLog, "is-ok", "[AIへコピー完了]", msg);
-    }).catch(function(err) {
-      appendLog(els.chatLog, "is-err", "[コピー失敗]", formatError(err));
-    });
-  }
-
-  // ---- 郵便受け完了待ちポーリング（常時ポーリングは行わない） ----
-  function schedulePoll(delayMs) {
-    if (state.pollTimer) {
-      clearTimeout(state.pollTimer);
-      state.pollTimer = null;
-    }
-    var hasPending = Object.keys(state.pendingPostboxIds).length > 0;
-    if (!hasPending || !hasGasBridge()) return;
-
-    state.pollTimer = setTimeout(runPollTick, delayMs || 1800);
-  }
-
-  function runPollTick() {
-    state.pollTimer = null;
-    var hasPending = Object.keys(state.pendingPostboxIds).length > 0;
-    if (!hasPending) return;
-    if (document.hidden || state.busy || state.polling) {
-      schedulePoll(2000);
-      return;
-    }
-    state.polling = true;
-    callGas(
-      "comboPollSelection",
-      {
-        targetId: state.target.id || "",
-        sheet: state.curSheet || ""
-      },
-      function(res) {
-        state.polling = false;
-        if (res && res.ok !== false) {
-          var prevSheet = state.curSheet;
-          var prevSel = state.selection;
-          if (typeof res.sheet === "string" && res.sheet && res.sheet !== prevSheet) {
-            state.curSheet = res.sheet;
-            syncSheetSelects();
-          }
-          if (typeof res.selection === "string") {
-            state.selection = res.selection.toUpperCase();
-          }
-          if (res.scope && typeof res.scope === "object") {
-            state.scope = res.scope;
-          } else if (state.selection && Planner.parseSelectionScope) {
-            state.scope = Planner.parseSelectionScope(state.selection);
-          } else {
-            state.scope = {};
-          }
-          if (typeof res.heading === "string") {
-            state.heading = res.heading;
-          }
-          if (res.postboxDone) {
-            handlePostboxDone(res.postboxDone);
-          }
-          if (state.curSheet !== prevSheet || state.selection !== prevSel) {
-            updateSelectionLabel();
-            updatePreview();
-          }
-        }
-        if (Object.keys(state.pendingPostboxIds).length > 0) {
-          schedulePoll(1800);
-        }
-      },
-      function() {
-        state.polling = false;
-        if (Object.keys(state.pendingPostboxIds).length > 0) {
-          schedulePoll(3000);
-        }
-      }
-    );
-  }
-
   // ---- キーボード操作（Enter実行・Shift+Enter改行・上下履歴） ----
   function getCursorLineInfo(ta) {
     var val = ta.value || "";
@@ -2953,26 +2917,47 @@
       onRunAsk();
       return;
     }
+    if (e.altKey || e.ctrlKey || e.metaKey) return;
+    var listItems = (state.activeTab === "list") ? (state.quick.items || []) : [];
+    if (e.key === "Escape" && listItems.length && state.quick.sel >= 0) {
+      e.preventDefault();
+      quickSelectIdx(-1);
+      return;
+    }
     if (e.key === "ArrowUp") {
       var infoUp = getCursorLineInfo(els.askInput);
-      if (infoUp.lineIdx === 0 && state.history.length > 0) {
-        e.preventDefault();
-        if (state.histIdx < 0 || state.histIdx > state.history.length) {
-          state.histIdx = state.history.length;
+      if (infoUp.lineIdx === 0) {
+        if (listItems.length && state.quick.sel >= 0) {
+          e.preventDefault();
+          quickSelectIdx(state.quick.sel - 1);
+          return;
         }
-        state.histIdx = Math.max(0, state.histIdx - 1);
-        els.askInput.value = state.history[state.histIdx] || "";
-        updatePreview();
+        if (state.history.length > 0) {
+          e.preventDefault();
+          if (state.histIdx < 0 || state.histIdx > state.history.length) {
+            state.histIdx = state.history.length;
+          }
+          state.histIdx = Math.max(0, state.histIdx - 1);
+          els.askInput.value = state.history[state.histIdx] || "";
+          updatePreview();
+        }
       }
       return;
     }
     if (e.key === "ArrowDown") {
       var infoDown = getCursorLineInfo(els.askInput);
-      if (infoDown.lineIdx === infoDown.totalLines - 1 && state.history.length > 0) {
-        e.preventDefault();
-        state.histIdx = Math.min(state.history.length, state.histIdx + 1);
-        els.askInput.value = (state.histIdx >= state.history.length) ? "" : (state.history[state.histIdx] || "");
-        updatePreview();
+      if (infoDown.lineIdx === infoDown.totalLines - 1) {
+        if (listItems.length) {
+          e.preventDefault();
+          quickSelectIdx(state.quick.sel < 0 ? 0 : Math.min(listItems.length - 1, state.quick.sel + 1));
+          return;
+        }
+        if (state.history.length > 0) {
+          e.preventDefault();
+          state.histIdx = Math.min(state.history.length, state.histIdx + 1);
+          els.askInput.value = (state.histIdx >= state.history.length) ? "" : (state.history[state.histIdx] || "");
+          updatePreview();
+        }
       }
     }
   });
@@ -2989,7 +2974,6 @@
     els.askInput.focus();
   });
 
-  els.chkAiAuto.addEventListener("change", updatePreview);
   els.chkSync.addEventListener("change", function() {
     updateSelectionLabel();
     updatePreview();
@@ -3110,10 +3094,6 @@
     }
   });
 
-  els.cfgAiMode.addEventListener("change", updateApiKeyPlaceholder);
-  els.btnSaveConfig.addEventListener("click", onSaveConfig);
-  els.btnCheckPostbox.addEventListener("click", onCheckPostbox);
-
   els.btnNewTalk.addEventListener("click", function() {
     els.askInput.value = "";
     updatePreview();
@@ -3159,12 +3139,6 @@
   }
   els.btnReload.addEventListener("click", function() { onInit(true); });
 
-  document.addEventListener("visibilitychange", function() {
-    if (!document.hidden && Object.keys(state.pendingPostboxIds).length > 0) {
-      schedulePoll(300);
-    }
-  });
-
   // ---- 初期起動 ----
   if (hasGasBridge()) {
     quickRestoreList();
@@ -3177,7 +3151,6 @@
       switchToChat: false,
       silentSuccess: true,
       onSuccess: function(res) {
-        if (res.postboxDone) handlePostboxDone(res.postboxDone);
         loadLearned();
         if (!res.config) {
           callGas("comboGetConfig", undefined, function(cfg) { applyConfig(cfg); });

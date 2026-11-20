@@ -90,7 +90,8 @@ function comboQuickSkip_(k) {
 }
 function comboQuickSheetFns_() {
   var g = globalThis, out = [];
-  Object.keys(g).forEach(function (k) { if (typeof g[k] === 'function' && !comboQuickSkip_(k)) out.push({ name: k }); });
+  // head＝関数の頭（{ のすぐ内側の「// 説明」「// 棚: 言い方」を大元が読む）
+  Object.keys(g).forEach(function (k) { if (typeof g[k] === 'function' && !comboQuickSkip_(k)) out.push({ name: k, head: String(g[k]).slice(0, 600) }); });
   return out;
 }
 """
