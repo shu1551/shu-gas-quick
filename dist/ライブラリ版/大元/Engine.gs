@@ -36,7 +36,7 @@ return call_('post', 'https://sheets.googleapis.com/v4/spreadsheets/' + encodeUR
 }
 };
 })();
-var ENGINE_VERSION = 'ws-1+059a51d5';
+var ENGINE_VERSION = 'ws-1+ca236e6b';
 var BK_BOOK_NAME = 'GASマネージャー_控え';
 var BK_DOC_PREFIX = 'GASマネージャー_文書控え_';
 var BK_DOC_SLOTS = 5;
@@ -1766,6 +1766,62 @@ var s = Math.abs(v).toFixed(dec ? 2 : 0), p = s.split('.');
 p[0] = p[0].replace(/\B(?=(\d{3})+(?!\d))/g, ',');
 return (v < 0 ? '-' : '') + p.join('.');
 }
+function filterSpanOf_(sh) {
+try {
+var f = (typeof sh.getFilter === 'function') ? sh.getFilter() : null;
+if (!f) return null;
+var rg = f.getRange();
+return { row: rg.getRow(), c1: rg.getColumn(), c2: rg.getLastColumn() };
+} catch (e) { return null; }
+}
+function parseDateText_(s) {
+var m = /^(\d{4})[\/\-\.年](\d{1,2})[\/\-\.月](\d{1,2})日?$/.exec(s);
+if (!m) return null;
+var y = parseInt(m[1], 10), mo = parseInt(m[2], 10), d = parseInt(m[3], 10);
+if (y < 1900 || y > 2100 || mo < 1 || mo > 12 || d < 1 || d > 31) return null;
+var dt = new Date(y, mo - 1, d);
+if (dt.getFullYear() !== y || dt.getMonth() !== mo - 1 || dt.getDate() !== d) return null;
+return dt;
+}
+function tidyColSpec_(headName, vals, existingFmts, isNoCol) {
+var h = String(headName || '').trim();
+if (isNoCol) return { fmt: null, fmtType: null, align: 'center', wrap: false, kind: null };
+var nums = vals.filter(function (v) { return typeof v === 'number'; });
+var dates = vals.filter(function (v) { return Object.prototype.toString.call(v) === '[object Date]'; });
+var nonEmptyList = vals.filter(function (v) { return !isBlank_(v); });
+var nonEmpty = nonEmptyList.length;
+var fmtSample = (existingFmts || []).filter(function (f) { return f && f !== 'General' && f !== '@'; });
+var hasPctFmt = fmtSample.length > 0 && fmtSample.filter(function (f) { return f.indexOf('%') >= 0; }).length / fmtSample.length > 0.5;
+var hasCurFmt = fmtSample.length > 0 && fmtSample.filter(function (f) { return /[¥￥]/.test(f); }).length / fmtSample.length > 0.5;
+if (nonEmpty && nums.length / nonEmpty > 0.5) {
+var hasNeg = nums.some(function (v) { return v < 0; });
+var isPctHead = /(?:率|割合|構成比|達成|進捗|％|%)/.test(h) && nums.filter(function (v) { return Math.abs(v) <= 2; }).length / nums.length > 0.5;
+if (hasPctFmt || isPctHead) {
+return { fmt: hasNeg ? '0.0%;[Red]-0.0%' : '0.0%', fmtType: 'PERCENT', align: 'right', wrap: false, kind: 'pct' };
+}
+var dec = nums.some(function (v) { return v % 1 !== 0; });
+if (hasCurFmt) {
+var cBase = dec ? '¥#,##0.00' : '¥#,##0';
+return { fmt: hasNeg ? (cBase + ';[Red]-' + cBase) : cBase, fmtType: 'CURRENCY', align: 'right', wrap: false, kind: dec ? 'cur_dec' : 'cur' };
+}
+var nBase = dec ? STYLE.numFmtDec : STYLE.numFmt;
+return { fmt: hasNeg ? (nBase + ';[Red]-' + nBase) : nBase, fmtType: 'NUMBER', align: 'right', wrap: false, kind: dec ? 'dec' : 'int' };
+}
+if (nonEmpty && dates.length / nonEmpty > 0.5) {
+return { fmt: STYLE.dateFmt, fmtType: 'DATE', align: 'center', wrap: false, kind: 'date' };
+}
+var strList = nonEmptyList.map(function (v) { return String(v).trim(); });
+var isCodeHead = /^(?:No\.?|NO|番号|ID|コード|区分|状態|ステータス|判定|結果|出欠|性別|曜日|ランク|評価|フラグ|承認|有無)$/i.test(h);
+if (isCodeHead || (strList.length >= 2 && strList.every(function (s) { return wlen_(s) <= 4 && s.indexOf('\n') < 0; }))) {
+return { fmt: null, fmtType: null, align: 'center', wrap: false, kind: null };
+}
+var avgLen = strList.length ? strList.reduce(function (a, s) { return a + wlen_(s); }, 0) / strList.length : 0;
+var isNoteHead = /(?:備考|メモ|内容|説明|コメント|詳細|住所|理由)/.test(h);
+if (isNoteHead || avgLen >= 28) {
+return { fmt: null, fmtType: null, align: 'left', wrap: true, kind: null };
+}
+return { fmt: null, fmtType: null, align: 'left', wrap: false, kind: null };
+}
 function tidyRange_(ctx, sh, rangeA1) {
 if (typeof Sheets === 'undefined' || !Sheets.Spreadsheets || typeof Sheets.Spreadsheets.batchUpdate !== 'function') return tidyRangeLegacy_(ctx, sh, rangeA1);
 var t = findTable_(sh);
@@ -1783,41 +1839,69 @@ var reqs = [
 { repeatCell: { range: grid(t.headerRow, last, t.firstCol, t.lastCol), cell: { userEnteredFormat: { verticalAlignment: 'MIDDLE' } }, fields: 'userEnteredFormat.verticalAlignment' } },
 { repeatCell: { range: grid(t.headerRow, t.headerRow, t.firstCol, t.lastCol), cell: { userEnteredFormat: { backgroundColor: hexColor_(STYLE.headBg), textFormat: { bold: true, foregroundColor: hexColor_(STYLE.headFg) }, horizontalAlignment: 'CENTER', wrapStrategy: 'WRAP' } }, fields: 'userEnteredFormat(backgroundColor,textFormat(bold,foregroundColor),horizontalAlignment,wrapStrategy)' } }
 ];
-var colFmt = {};
+var colFmt = {}, hasWrapCol = false;
 if (t.lastData - t.firstData + 1 >= 1) {
 var rows = (t.totalRow ? t.totalRow : t.lastData) - t.firstData + 1;
+var existFmts = sh.getRange(t.firstData, t.firstCol, t.lastData - t.firstData + 1, nc).getNumberFormats();
 for (var ci = t.firstCol; ci <= t.lastCol; ci++) {
-var vals = [];
-for (var rr = t.firstData; rr <= t.lastData; rr++) vals.push(t.vals[rr - 1][ci - 1]);
-var fmt = null, align = null, kind = null;
-if (isNoCol_(t, ci)) align = 'center';
-else {
-var nums = vals.filter(function (v) { return typeof v === 'number'; });
-var dates = vals.filter(function (v) { return Object.prototype.toString.call(v) === '[object Date]'; });
-var nonEmpty = vals.filter(function (v) { return !isBlank_(v); }).length;
-if (nonEmpty && nums.length / nonEmpty > 0.5) { var dec = nums.some(function (v) { return v % 1 !== 0; }); fmt = dec ? STYLE.numFmtDec : STYLE.numFmt; align = 'right'; kind = dec ? 'dec' : 'int'; }
-else if (nonEmpty && dates.length / nonEmpty > 0.5) { fmt = STYLE.dateFmt; align = 'center'; kind = 'date'; }
+var kCol = ci - t.firstCol, vals = [], fCol = [];
+for (var rr = t.firstData; rr <= t.lastData; rr++) {
+vals.push(t.vals[rr - 1][ci - 1]);
+fCol.push(existFmts[rr - t.firstData] ? existFmts[rr - t.firstData][kCol] : '');
 }
-colFmt[ci] = kind;
+var headNm = t.vals[t.headerRow - 1] ? t.vals[t.headerRow - 1][ci - 1] : '';
+var spec = tidyColSpec_(headNm, vals, fCol, isNoCol_(t, ci));
+colFmt[ci] = spec.kind;
+if (spec.wrap) hasWrapCol = true;
 var uf = {}, fl = [];
-if (fmt) { uf.numberFormat = { type: kind === 'date' ? 'DATE' : 'NUMBER', pattern: fmt }; fl.push('numberFormat'); }
-if (align) { uf.horizontalAlignment = align.toUpperCase(); fl.push('horizontalAlignment'); }
+if (spec.fmt) { uf.numberFormat = { type: spec.fmtType || 'NUMBER', pattern: spec.fmt }; fl.push('numberFormat'); }
+if (spec.align) { uf.horizontalAlignment = spec.align.toUpperCase(); fl.push('horizontalAlignment'); }
+if (spec.wrap) { uf.wrapStrategy = 'WRAP'; fl.push('wrapStrategy'); }
 if (fl.length) reqs.push({ repeatCell: { range: grid(t.firstData, t.firstData + rows - 1, ci, ci), cell: { userEnteredFormat: uf }, fields: 'userEnteredFormat(' + fl.join(',') + ')' } });
 }
 }
-if (t.totalRow) reqs.push({ repeatCell: { range: grid(t.totalRow, t.totalRow, t.firstCol, t.lastCol), cell: { userEnteredFormat: { backgroundColor: hexColor_(STYLE.totalBg), textFormat: { bold: true } } }, fields: 'userEnteredFormat(backgroundColor,textFormat(bold))' } });
+if (t.totalRow) {
+var bdTop = { style: 'DOUBLE', color: hexColor_('#595959') };
+reqs.push({ repeatCell: { range: grid(t.totalRow, t.totalRow, t.firstCol, t.lastCol), cell: { userEnteredFormat: { backgroundColor: hexColor_(STYLE.totalBg), textFormat: { bold: true } } }, fields: 'userEnteredFormat(backgroundColor,textFormat(bold))' } });
+reqs.push({ updateBorders: { range: grid(t.totalRow, t.totalRow, t.firstCol, t.lastCol), top: bdTop } });
+}
+if (t.headerRow > 1) {
+try {
+var tRg = titleRange_(sh);
+if (tRg && tRg.getRow() < t.headerRow) {
+var curSz = tRg.getFontSize();
+if (!curSz || curSz <= 12) {
+reqs.push({ repeatCell: { range: grid(tRg.getRow(), tRg.getLastRow(), tRg.getColumn(), tRg.getLastColumn()), cell: { userEnteredFormat: { textFormat: { bold: true, fontSize: 14 } } }, fields: 'userEnteredFormat.textFormat(bold,fontSize)' } });
+}
+}
+} catch (eTitle) { }
+}
+reqs.push({ updateDimensionProperties: { range: { sheetId: sid, dimension: 'ROWS', startIndex: t.headerRow - 1, endIndex: t.headerRow }, properties: { pixelSize: 28 }, fields: 'pixelSize' } });
+if (!hasWrapCol && t.lastData >= t.firstData) {
+reqs.push({ updateDimensionProperties: { range: { sheetId: sid, dimension: 'ROWS', startIndex: t.firstData - 1, endIndex: t.lastData }, properties: { pixelSize: 24 }, fields: 'pixelSize' } });
+}
+if (t.totalRow) {
+reqs.push({ updateDimensionProperties: { range: { sheetId: sid, dimension: 'ROWS', startIndex: t.totalRow - 1, endIndex: t.totalRow }, properties: { pixelSize: 26 }, fields: 'pixelSize' } });
+}
 var disp = sh.getRange(t.headerRow, t.firstCol, last - t.headerRow + 1, nc).getDisplayValues();
+var flSpan = filterSpanOf_(sh);
 for (var c = 0; c < nc; c++) {
-var k = colFmt[t.firstCol + c], mx = 0;
+var colIdx = t.firstCol + c, k = colFmt[colIdx], mx = 0;
 disp.forEach(function (row, ri) {
 var s = row[c], v = t.vals[t.headerRow - 1 + ri][t.firstCol - 1 + c];
 if (k && ri > 0) {
 if (k === 'date' && Object.prototype.toString.call(v) === '[object Date]') s = '0000/00/00';
+else if (k === 'pct' && typeof v === 'number') s = (v * 100).toFixed(1) + '%';
+else if ((k === 'cur' || k === 'cur_dec') && typeof v === 'number') s = '¥' + tidyNumText_(v, k === 'cur_dec');
 else if ((k === 'int' || k === 'dec') && typeof v === 'number') s = tidyNumText_(v, k === 'dec');
 }
 mx = Math.max(mx, wlen_(s));
 });
-reqs.push({ updateDimensionProperties: { range: { sheetId: sid, dimension: 'COLUMNS', startIndex: t.firstCol - 1 + c, endIndex: t.firstCol + c }, properties: { pixelSize: Math.max(STYLE.colMin, Math.min(STYLE.colMax, mx * STYLE.px + STYLE.pad)) }, fields: 'pixelSize' } });
+var wantPx = mx * STYLE.px + STYLE.pad;
+if (flSpan && flSpan.row === t.headerRow && colIdx >= flSpan.c1 && colIdx <= flSpan.c2) {
+wantPx = Math.max(wantPx, wlen_(disp[0][c]) * STYLE.px + STYLE.pad + 42);
+}
+reqs.push({ updateDimensionProperties: { range: { sheetId: sid, dimension: 'COLUMNS', startIndex: colIdx - 1, endIndex: colIdx }, properties: { pixelSize: Math.max(STYLE.colMin, Math.min(STYLE.colMax, wantPx)) }, fields: 'pixelSize' } });
 }
 var fr = t.headerRow;
 try {
@@ -1848,32 +1932,60 @@ full.setBorder(true, true, true, true, true, true, STYLE.border, SpreadsheetApp.
 full.setVerticalAlignment('middle');
 var hd = sh.getRange(t.headerRow, t.firstCol, 1, nc);
 hd.setFontWeight('bold').setBackground(STYLE.headBg).setFontColor(STYLE.headFg).setHorizontalAlignment('center').setWrap(true);
-var cnt = t.lastData - t.firstData + 1;
+var cnt = t.lastData - t.firstData + 1, hasWrapColL = false;
 if (cnt >= 1) {
 var rows = (t.totalRow ? t.totalRow : t.lastData) - t.firstData + 1;
 var bodyRg = sh.getRange(t.firstData, t.firstCol, rows, nc);
-var nf = bodyRg.getNumberFormats(), al = bodyRg.getHorizontalAlignments();
+var nf = bodyRg.getNumberFormats(), al = bodyRg.getHorizontalAlignments(), wr = bodyRg.getWraps();
 for (var ci = t.firstCol; ci <= t.lastCol; ci++) {
-var k = ci - t.firstCol, vals = [];
-for (var r = t.firstData; r <= t.lastData; r++) vals.push(t.vals[r - 1][ci - 1]);
-var fmt = null, align = null;
-if (isNoCol_(t, ci)) align = 'center';
-else {
-var nums = vals.filter(function (v) { return typeof v === 'number'; });
-var dates = vals.filter(function (v) { return Object.prototype.toString.call(v) === '[object Date]'; });
-var nonEmpty = vals.filter(function (v) { return !isBlank_(v); }).length;
-if (nonEmpty && nums.length / nonEmpty > 0.5) { fmt = nums.some(function (v) { return v % 1 !== 0; }) ? STYLE.numFmtDec : STYLE.numFmt; align = 'right'; }
-else if (nonEmpty && dates.length / nonEmpty > 0.5) { fmt = STYLE.dateFmt; align = 'center'; }
+var k = ci - t.firstCol, vals = [], fColL = [];
+for (var r = t.firstData; r <= t.lastData; r++) {
+vals.push(t.vals[r - 1][ci - 1]);
+fColL.push(nf[r - t.firstData] ? nf[r - t.firstData][k] : '');
 }
-for (var rr = 0; rr < rows; rr++) { if (fmt) nf[rr][k] = fmt; if (align) al[rr][k] = align; }
+var headNmL = t.vals[t.headerRow - 1] ? t.vals[t.headerRow - 1][ci - 1] : '';
+var specL = tidyColSpec_(headNmL, vals, fColL, isNoCol_(t, ci));
+if (specL.wrap) hasWrapColL = true;
+for (var rr = 0; rr < rows; rr++) {
+if (specL.fmt) nf[rr][k] = specL.fmt;
+if (specL.align) al[rr][k] = specL.align;
+if (specL.wrap) wr[rr][k] = true;
+}
 }
 bodyRg.setNumberFormats(nf).setHorizontalAlignments(al);
+if (hasWrapColL && typeof bodyRg.setWraps === 'function') bodyRg.setWraps(wr);
 }
-if (t.totalRow) sh.getRange(t.totalRow, t.firstCol, 1, nc).setFontWeight('bold').setBackground(STYLE.totalBg);
+if (t.totalRow) {
+var totRg = sh.getRange(t.totalRow, t.firstCol, 1, nc);
+totRg.setFontWeight('bold').setBackground(STYLE.totalBg);
+try { totRg.setBorder(true, null, null, null, null, null, '#595959', SpreadsheetApp.BorderStyle.DOUBLE); } catch (eBd) { }
+}
+if (t.headerRow > 1) {
+try {
+var tRgL = titleRange_(sh);
+if (tRgL && tRgL.getRow() < t.headerRow) {
+var curSzL = tRgL.getFontSize();
+if (!curSzL || curSzL <= 12) tRgL.setFontWeight('bold').setFontSize(14);
+}
+} catch (eTL) { }
+}
+if (typeof sh.setRowHeight === 'function') {
+try {
+sh.setRowHeight(t.headerRow, 28);
+if (!hasWrapColL && t.lastData >= t.firstData) sh.setRowHeights(t.firstData, t.lastData - t.firstData + 1, 24);
+if (t.totalRow) sh.setRowHeight(t.totalRow, 26);
+} catch (eRh) { }
+}
 var disp = sh.getRange(t.headerRow, t.firstCol, last - t.headerRow + 1, nc).getDisplayValues();
+var flSpanL = filterSpanOf_(sh);
 for (var c = 0; c < nc; c++) {
-var mx = 0; disp.forEach(function (row) { mx = Math.max(mx, wlen_(row[c])); });
-sh.setColumnWidth(t.firstCol + c, Math.max(STYLE.colMin, Math.min(STYLE.colMax, mx * STYLE.px + STYLE.pad)));
+var colIdxL = t.firstCol + c, mx = 0;
+disp.forEach(function (row) { mx = Math.max(mx, wlen_(row[c])); });
+var wantPxL = mx * STYLE.px + STYLE.pad;
+if (flSpanL && flSpanL.row === t.headerRow && colIdxL >= flSpanL.c1 && colIdxL <= flSpanL.c2) {
+wantPxL = Math.max(wantPxL, wlen_(disp[0][c]) * STYLE.px + STYLE.pad + 42);
+}
+sh.setColumnWidth(colIdxL, Math.max(STYLE.colMin, Math.min(STYLE.colMax, wantPxL)));
 }
 var fr = t.headerRow;
 try {
@@ -1908,8 +2020,8 @@ di++;
 SHELF['seiri'] = function (ctx, op) {
 var sh = sheetCtx_(ctx, op), t = needTable_(sh);
 var rg = sh.getRange(t.headerRow, t.firstCol, t.lastData - t.headerRow + 1, t.lastCol - t.firstCol + 1);
-var vals = rg.getValues(), forms = rg.getFormulas(), fixed = [], nTrim = 0, nHalf = 0, nNum = 0;
-var doTrim = op.trim !== false, doHalf = op.halfwidth !== false, doNum = op.numbers !== false;
+var vals = rg.getValues(), forms = rg.getFormulas(), fixed = [], nTrim = 0, nHalf = 0, nNum = 0, nDate = 0;
+var doTrim = op.trim !== false, doHalf = op.halfwidth !== false, doNum = op.numbers !== false, doDate = op.dates !== false;
 for (var r = 0; r < vals.length; r++) for (var c = 0; c < vals[r].length; c++) {
 var v = vals[r][c];
 if (forms[r][c] || typeof v !== 'string') continue;
@@ -1917,6 +2029,7 @@ var nv = v;
 if (doHalf) { var h = nv.replace(/[！-～]/g, function (ch) { return String.fromCharCode(ch.charCodeAt(0) - 0xFEE0); }).replace(/　/g, ' '); if (h !== nv) { nv = h; nHalf++; } }
 if (doTrim) { var tr = nv.replace(/^[\s　]+|[\s　]+$/g, ''); if (tr !== nv) { nv = tr; nTrim++; } }
 if (doNum && r > 0 && /^-?[\d,]+(\.\d+)?$/.test(nv) && !/^-?0\d/.test(nv)) { nv = Number(nv.replace(/,/g, '')); nNum++; }
+else if (doDate && r > 0 && typeof nv === 'string') { var dt = parseDateText_(nv); if (dt) { nv = dt; nDate++; } }
 if (nv !== v) { vals[r][c] = nv; fixed.push(a1_(t.headerRow + r, t.firstCol + c)); }
 }
 if (fixed.length) {
@@ -1930,7 +2043,7 @@ sh.getRange(t.headerRow + r2, t.firstCol + c2, r3 - r2 + 1, 1).setValues(vals.sl
 r2 = r3 + 1;
 }
 }
-chg_(ctx, sh, fixed.slice(0, 4).join('・') + (fixed.length > 4 ? ' ほか' + (fixed.length - 4) + ' 件' : ''), '空白' + nTrim + '・全角→半角' + nHalf + '・数値化' + nNum);
+chg_(ctx, sh, fixed.slice(0, 4).join('・') + (fixed.length > 4 ? ' ほか' + (fixed.length - 4) + ' 件' : ''), '空白' + nTrim + '・全角→半角' + nHalf + '・数値化' + nNum + (nDate ? '・日付化' + nDate : ''));
 if (_TBL_CACHE) _TBL_CACHE = { _once: true };
 }
 var t2 = op.blank_rows ? findTable_(sh) : null;
@@ -3201,10 +3314,15 @@ var colRef = function (k) { return t ? colIndexOf_(t, k) : colNum_(k); };
 if (op.cols) Object.keys(op.cols).forEach(function (k) { sh.setColumnWidth(colRef(k), op.cols[k]); did.push(k + '列'); });
 if (op.col && op.width) { sh.setColumnWidth(colRef(op.col), op.width); did.push(op.col + '列'); }
 if (op.rows) Object.keys(op.rows).forEach(function (k) { sh.setRowHeight(parseInt(k), op.rows[k]); did.push(k + '行'); });
+var flSpanW = (op.auto && op.auto.length && typeof filterSpanOf_ === 'function') ? filterSpanOf_(sh) : null;
 (op.auto || []).forEach(function (k) {
-var ci = colRef(k), lr = sh.getLastRow(), mx = 0;
-if (lr > 0) sh.getRange(1, ci, lr, 1).getDisplayValues().forEach(function (x) { mx = Math.max(mx, wlen_(x[0])); });
-sh.setColumnWidth(ci, Math.max(STYLE.colMin, Math.min(STYLE.colMax, mx * STYLE.px + STYLE.pad))); did.push(k + '列(自動)');
+var ci = colRef(k), lr = sh.getLastRow(), mx = 0, colDisp = lr > 0 ? sh.getRange(1, ci, lr, 1).getDisplayValues() : [];
+colDisp.forEach(function (x) { mx = Math.max(mx, wlen_(x[0])); });
+var wantW = mx * STYLE.px + STYLE.pad;
+if (flSpanW && flSpanW.row >= 1 && flSpanW.row <= colDisp.length && ci >= flSpanW.c1 && ci <= flSpanW.c2) {
+wantW = Math.max(wantW, wlen_(colDisp[flSpanW.row - 1][0]) * STYLE.px + STYLE.pad + 42);
+}
+sh.setColumnWidth(ci, Math.max(STYLE.colMin, Math.min(STYLE.colMax, wantW))); did.push(k + '列(自動)');
 });
 if (op.auto_rows && !op.all_sheets) {
 var lr0 = sh.getLastRow();
@@ -3220,10 +3338,15 @@ if (s.getName() === '_GASクイックの控え' || s.isSheetHidden()) return;
 var lrA = s.getLastRow(), lcA = s.getLastColumn();
 if (lrA > 0 && lcA > 0) {
 var dA = s.getRange(1, 1, lrA, lcA).getDisplayValues();
+var flA = (typeof filterSpanOf_ === 'function') ? filterSpanOf_(s) : null;
 for (var cA = 0; cA < lcA; cA++) {
 var mxA = 0;
 for (var rA = 0; rA < lrA; rA++) mxA = Math.max(mxA, wlen_(dA[rA][cA]));
-s.setColumnWidth(cA + 1, Math.max(STYLE.colMin, Math.min(STYLE.colMax, mxA * STYLE.px + STYLE.pad)));
+var wantA = mxA * STYLE.px + STYLE.pad;
+if (flA && flA.row >= 1 && flA.row <= lrA && (cA + 1) >= flA.c1 && (cA + 1) <= flA.c2) {
+wantA = Math.max(wantA, wlen_(dA[flA.row - 1][cA]) * STYLE.px + STYLE.pad + 42);
+}
+s.setColumnWidth(cA + 1, Math.max(STYLE.colMin, Math.min(STYLE.colMax, wantA)));
 }
 if (op.auto_rows && typeof s.autoResizeRows === 'function') s.autoResizeRows(1, lrA);
 }

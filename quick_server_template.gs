@@ -934,6 +934,7 @@ function comboRunOps(req) {
   }
   var curSheet = selInfo.sheet;
   var backupOn = !!req.backup;
+  var effOk = !!req.ok || ops.some(function (o) { return !!(o && o.ok === true); });
 
   // フル控えモード（backup=true）：Engine の actDo_ に委譲
   if (backupOn) {
@@ -941,7 +942,7 @@ function comboRunOps(req) {
     var fullRes = actDo_({
       target: { id: ssId, kind: 'sheet', sheet: curSheet },
       ops: ops,
-      ok: !!req.ok,
+      ok: effOk,
       backup: true,
       want_table: true
     });
@@ -1012,7 +1013,7 @@ function comboRunOps(req) {
     doc: null,
     sheetName: curSheet,
     curSheet: curSheet,
-    ok: !!req.ok,
+    ok: effOk,
     changed: [],
     notes: [],
     remaining: [],
