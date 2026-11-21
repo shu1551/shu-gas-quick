@@ -486,8 +486,8 @@ var COMBO_FAST_UNDO_SAFE_SHELVES_ = {
   'format': 1, 'bg.clear': 1, 'freeze': 1, 'unfreeze': 1, 'width': 1,
   'write': 1, 'clear.values': 1, 'clear.format': 1, 'clear.all': 1,
   'renumber': 1, 'formula.guard': 1, 'formula.tovalue': 1, 'round': 1,
-  'text.case': 1, 'date.fix': 1, 'fill.series': 1, 'fill.date': 1,
-  'fill.down': 1, 'replace': 1, 'copy': 1, 'copy.values': 1, 'copy.format': 1
+  'text.case': 1, 'text.affix': 1, 'date.fix': 1, 'number.fix': 1, 'fill.series': 1, 'fill.date': 1,
+  'fill.down': 1, 'fill.blank': 1, 'replace': 1, 'copy': 1, 'copy.values': 1, 'copy.format': 1
 };
 
 function comboFastUndoKey_(ssId) {
