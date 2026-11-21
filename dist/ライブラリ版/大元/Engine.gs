@@ -36,7 +36,7 @@ return call_('post', 'https://sheets.googleapis.com/v4/spreadsheets/' + encodeUR
 }
 };
 })();
-var ENGINE_VERSION = 'ws-1+5608f86a';
+var ENGINE_VERSION = 'ws-1+059a51d5';
 var BK_BOOK_NAME = 'GASマネージャー_控え';
 var BK_DOC_PREFIX = 'GASマネージャー_文書控え_';
 var BK_DOC_SLOTS = 5;
@@ -2315,6 +2315,7 @@ var sortedHdrs = hdrs.slice().sort(function (a, b) { return b.length - a.length;
 var atCol = op.at ? colIndexOf_(t, op.at) : (t.lastCol + 1);
 if (op.at && atCol <= t.lastCol) {
 sh.insertColumnsBefore(atCol, 1);
+if (_TBL_CACHE) _TBL_CACHE = null;
 t = needTable_(sh);
 }
 if (atCol > sh.getMaxColumns()) sh.insertColumnsAfter(sh.getMaxColumns(), atCol - sh.getMaxColumns());
@@ -2349,6 +2350,7 @@ var ci = colIndexOf_(t, op.col);
 var atCol = op.at ? colIndexOf_(t, op.at) : (t.lastCol + 1);
 if (op.at && atCol <= t.lastCol) {
 sh.insertColumnsBefore(atCol, 1);
+if (_TBL_CACHE) _TBL_CACHE = null;
 t = needTable_(sh);
 }
 if (atCol > sh.getMaxColumns()) sh.insertColumnsAfter(sh.getMaxColumns(), atCol - sh.getMaxColumns());
@@ -2420,6 +2422,7 @@ if (!myKey) myKey = t.firstCol;
 var atCol = op.at ? colIndexOf_(t, op.at) : (t.lastCol + 1);
 if (op.at && atCol <= t.lastCol) {
 sh.insertColumnsBefore(atCol, 1);
+if (_TBL_CACHE) _TBL_CACHE = null;
 t = needTable_(sh);
 }
 if (atCol > sh.getMaxColumns()) sh.insertColumnsAfter(sh.getMaxColumns(), atCol - sh.getMaxColumns());
@@ -2446,7 +2449,7 @@ var sh = sheetCtx_(ctx, op), t = needTable_(sh);
 need_(op, ['col_a', 'col_b']);
 var ca = colIndexOf_(t, op.col_a), cb = colIndexOf_(t, op.col_b);
 var atCol = op.at ? colIndexOf_(t, op.at) : (t.lastCol + 1);
-if (op.at && atCol <= t.lastCol) { sh.insertColumnsBefore(atCol, 1); t = needTable_(sh); }
+if (op.at && atCol <= t.lastCol) { sh.insertColumnsBefore(atCol, 1); if (_TBL_CACHE) _TBL_CACHE = null; t = needTable_(sh); }
 if (atCol > sh.getMaxColumns()) sh.insertColumnsAfter(sh.getMaxColumns(), atCol - sh.getMaxColumns());
 var isRate = !!op.rate;
 var name = op.name || (isRate ? '増減率' : '差額');
@@ -2472,7 +2475,7 @@ var sh = sheetCtx_(ctx, op), t = needTable_(sh);
 need_(op, ['col']);
 var ci = colIndexOf_(t, op.col);
 var atCol = op.at ? colIndexOf_(t, op.at) : (t.lastCol + 1);
-if (op.at && atCol <= t.lastCol) { sh.insertColumnsBefore(atCol, 1); t = needTable_(sh); }
+if (op.at && atCol <= t.lastCol) { sh.insertColumnsBefore(atCol, 1); if (_TBL_CACHE) _TBL_CACHE = null; t = needTable_(sh); }
 if (atCol > sh.getMaxColumns()) sh.insertColumnsAfter(sh.getMaxColumns(), atCol - sh.getMaxColumns());
 var name = op.name || '累計';
 sh.getRange(t.headerRow, atCol).setValue(name);
@@ -2494,7 +2497,7 @@ var sh = sheetCtx_(ctx, op), t = needTable_(sh);
 need_(op, ['col']);
 var ci = colIndexOf_(t, op.col);
 var atCol = op.at ? colIndexOf_(t, op.at) : (t.lastCol + 1);
-if (op.at && atCol <= t.lastCol) { sh.insertColumnsBefore(atCol, 1); t = needTable_(sh); }
+if (op.at && atCol <= t.lastCol) { sh.insertColumnsBefore(atCol, 1); if (_TBL_CACHE) _TBL_CACHE = null; t = needTable_(sh); }
 if (atCol > sh.getMaxColumns()) sh.insertColumnsAfter(sh.getMaxColumns(), atCol - sh.getMaxColumns());
 var name = op.name || '順位';
 sh.getRange(t.headerRow, atCol).setValue(name);
@@ -2640,7 +2643,7 @@ var sh = sheetCtx_(ctx, op), t = needTable_(sh);
 need_(op, ['col', 'part']);
 var ci = colIndexOf_(t, op.col);
 var atCol = op.at ? colIndexOf_(t, op.at) : (t.lastCol + 1);
-if (op.at && atCol <= t.lastCol) { sh.insertColumnsBefore(atCol, 1); t = needTable_(sh); }
+if (op.at && atCol <= t.lastCol) { sh.insertColumnsBefore(atCol, 1); if (_TBL_CACHE) _TBL_CACHE = null; t = needTable_(sh); }
 if (atCol > sh.getMaxColumns()) sh.insertColumnsAfter(sh.getMaxColumns(), atCol - sh.getMaxColumns());
 var part = String(op.part).toLowerCase();
 var nameMap = { year: '年', month: '月', day: '日', weekday: '曜日', quarter: '四半期' };
@@ -2670,7 +2673,7 @@ var sh = sheetCtx_(ctx, op), t = needTable_(sh);
 need_(op, ['cols']);
 var colList = (Array.isArray(op.cols) ? op.cols : [op.cols]).map(function (c) { return colIndexOf_(t, c); });
 var atCol = op.at ? colIndexOf_(t, op.at) : (t.lastCol + 1);
-if (op.at && atCol <= t.lastCol) { sh.insertColumnsBefore(atCol, 1); t = needTable_(sh); }
+if (op.at && atCol <= t.lastCol) { sh.insertColumnsBefore(atCol, 1); if (_TBL_CACHE) _TBL_CACHE = null; t = needTable_(sh); }
 if (atCol > sh.getMaxColumns()) sh.insertColumnsAfter(sh.getMaxColumns(), atCol - sh.getMaxColumns());
 var name = op.name || '結合';
 sh.getRange(t.headerRow, atCol).setValue(name);
@@ -3151,13 +3154,18 @@ else if (op.col) { t = needTable_(sh); var ci = colIndexOf_(t, op.col); rg = sh.
 else if (op.range) rg = sh.getRange(op.range);
 else throw new ArgError('棚「format」に range・col・header・title のどれかが要ります');
 var titleBand = false;
-if ((op.title || op._title) && op.merge === undefined && rg.getNumRows() === 1 && !(typeof rg.isPartOfMerge === 'function' && rg.isPartOfMerge())) {
+if (op.title && op.merge === undefined && rg.getNumRows() === 1 && !(typeof rg.isPartOfMerge === 'function' && rg.isPartOfMerge())) {
 var tt = findTable_(sh);
 if (tt && tt.lastCol > rg.getColumn()) {
-var band = sh.getRange(rg.getRow(), Math.min(rg.getColumn(), tt.firstCol), 1, tt.lastCol - Math.min(rg.getColumn(), tt.firstCol) + 1);
-if (band.getValues()[0].filter(function (v) { return !isBlank_(v); }).length <= 1) { rg = band; titleBand = true; }
+var c0 = Math.min(rg.getColumn(), tt.firstCol);
+var rowVals = (tt.vals && tt.vals[rg.getRow() - 1])
+? tt.vals[rg.getRow() - 1].slice(c0 - 1, tt.lastCol)
+: sh.getRange(rg.getRow(), c0, 1, tt.lastCol - c0 + 1).getValues()[0];
+if (rowVals.filter(function (v) { return !isBlank_(v); }).length <= 1) {
+rg = sh.getRange(rg.getRow(), c0, 1, tt.lastCol - c0 + 1);
+titleBand = true;
 }
-if (!titleBand && op._titleA1) rg = sh.getRange(op._titleA1);
+}
 }
 var did = [];
 var set = function (key, fn) { if (op[key] !== undefined) { fn(op[key]); did.push(key); } };
@@ -4122,13 +4130,15 @@ rg = sh.getRange(op.range);
 rg = sh.getDataRange();
 }
 var rich = rg.getRichTextValues(), forms = rg.getFormulas();
-var r0 = rg.getRow(), c0 = rg.getColumn(), cleared = 0;
+var disp = null, r0 = rg.getRow(), c0 = rg.getColumn(), cleared = 0;
+var hasFormulaLink = false, hasRichLink = false;
 for (var r = 0; r < rich.length; r++) {
 for (var c = 0; c < rich[r].length; c++) {
 var f = forms[r][c];
 if (f && /^=HYPERLINK\(/i.test(f)) {
-var disp = sh.getRange(r0 + r, c0 + c).getDisplayValue();
-sh.getRange(r0 + r, c0 + c).setValue(disp);
+if (!disp) disp = rg.getDisplayValues();
+sh.getRange(r0 + r, c0 + c).setValue(disp[r][c]);
+hasFormulaLink = true;
 cleared++;
 continue;
 }
@@ -4139,8 +4149,8 @@ if (!hasLink && typeof rtv.getRuns === 'function') {
 hasLink = rtv.getRuns().some(function (run) { return !!run.getLinkUrl(); });
 }
 if (hasLink) {
-var plain = SpreadsheetApp.newRichTextValue().setText(rtv.getText()).build();
-sh.getRange(r0 + r, c0 + c).setRichTextValue(plain);
+rich[r][c] = SpreadsheetApp.newRichTextValue().setText(rtv.getText()).build();
+hasRichLink = true;
 cleared++;
 }
 }
@@ -4148,6 +4158,17 @@ cleared++;
 if (!cleared) {
 note_(ctx, 'ハイパーリンクは見つかりませんでした（変更なし）');
 return;
+}
+if (hasRichLink && !hasFormulaLink && typeof rg.setRichTextValues === 'function') {
+rg.setRichTextValues(rich);
+} else if (hasRichLink) {
+for (var r2 = 0; r2 < rich.length; r2++) {
+for (var c2 = 0; c2 < rich[r2].length; c2++) {
+if (!(forms[r2][c2] && /^=HYPERLINK\(/i.test(forms[r2][c2])) && rich[r2][c2]) {
+sh.getRange(r0 + r2, c0 + c2).setRichTextValue(rich[r2][c2]);
+}
+}
+}
 }
 chg_(ctx, sh, rg.getA1Notation(), 'ハイパーリンクを解除（' + cleared + ' 件）');
 };

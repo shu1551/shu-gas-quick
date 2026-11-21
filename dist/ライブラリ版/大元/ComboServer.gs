@@ -832,13 +832,21 @@ var resolvedOps = ops.map(function (op) {
 if (!op || op.shelf !== 'format') return op;
 if (op.title === true && titleA1) {
 var bandA1 = titleA1;
-if (titleA1.indexOf(':') < 0 && table && table.last_col) {
+if (op.merge === undefined && titleA1.indexOf(':') < 0 && table && table.last_col) {
 var tm = /^([A-Z]+)(\d+)$/.exec(titleA1);
 if (tm && colNum_(table.last_col) > colNum_(tm[1])) {
+var c0 = Math.min(colNum_(table.first_col || tm[1]), colNum_(tm[1]));
+var c1 = colNum_(table.last_col);
+var rIdx = parseInt(tm[2], 10) - 1;
+var rawRow = (cached && cached.rawTable && cached.rawTable.vals && cached.rawTable.vals[rIdx]) ? cached.rawTable.vals[rIdx].slice(c0 - 1, c1) : null;
+if (!rawRow || rawRow.filter(function (v) { return !isBlank_(v); }).length <= 1) {
 bandA1 = (colNum_(table.first_col || tm[1]) < colNum_(tm[1]) ? table.first_col : tm[1]) + tm[2] + ':' + table.last_col + tm[2];
 }
 }
-return Object.assign({}, op, { range: bandA1, title: false, _title: true, _titleA1: titleA1 });
+}
+var nextOp = Object.assign({}, op, { range: bandA1, title: false });
+if (bandA1 !== titleA1 && (op.align === 'center' || op.align === 'right')) nextOp.align = 'left';
+return nextOp;
 }
 if (op.header === true && table && table.header_row && table.first_col && table.last_col) {
 var hdrA1 = table.first_col + table.header_row + ':' + table.last_col + table.header_row;
@@ -1233,7 +1241,7 @@ return comboSetTestTarget((req && (req.targetId || req.ssId)) || '');
 };
 }
 var QUICK_MY_TITLE = 'GASクイック マイマクロ';
-var QUICK_BUILD = 'ef169d6d91';
+var QUICK_BUILD = '9380d02e57';
 var QUICK_DRAFT_KEY = 'QUICK_DRAFT';
 function comboQuickBuild() {
 return { ok: true, build: QUICK_BUILD, oauthToken: comboGetOAuthToken_() };
