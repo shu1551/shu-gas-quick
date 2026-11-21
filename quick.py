@@ -49,7 +49,7 @@ function showGasComboSidebar() {
 }
 
 function comboMenuUndo() { return {lib}.comboMenuUndo(); }
-function comboInit(req) { return {lib}.comboInit(req); }
+function comboInit(req) { return {lib}.comboInit(req, comboQuickSheetFns_()); }
 function comboLook(req) { return {lib}.comboLook(req); }
 function comboRunAsk(req) { return {lib}.comboRunAsk(req); }
 function comboRunOps(req) { return {lib}.comboRunOps(req); }
@@ -58,6 +58,7 @@ function comboUndo(req) { return {lib}.comboUndo(req); }
 function comboGetConfig() { return {lib}.comboGetConfig(); }
 function comboSaveConfig(cfg) { return {lib}.comboSaveConfig(cfg); }
 function comboPollSelection(req) { return {lib}.comboPollSelection(req); }
+function comboGotoRange(req) { return {lib}.comboGotoRange(req); }
 function comboGetLearned(req) { return {lib}.comboGetLearned(req); }
 function comboLearn(req) { return {lib}.comboLearn(req); }
 
@@ -66,6 +67,7 @@ function comboQuickList(req) { return {lib}.comboQuickList(req, comboQuickSheetF
 function comboQuickMake(req) { return {lib}.comboQuickMake(req); }
 function comboQuickBuild(req) { return {lib}.comboQuickBuild(req); }
 function comboQuickSaveOrder(req) { return {lib}.comboQuickSaveOrder(req); }
+function comboQuickSavePins(req) { return {lib}.comboQuickSavePins(req); }
 function comboQuickSaveSteps(req) { return {lib}.comboQuickSaveSteps(req); }
 function comboQuickReopen(req) { return {lib}.comboQuickReopen(req); }
 function comboQuickImport(req) {
@@ -84,13 +86,12 @@ function comboQuickRun(req) {
     if (backupOn && !noBk) {
       snapped = {lib}.comboQuickSnap(name);
     } else {
-      try { CacheService.getScriptCache().remove('COMBO_FAST_UNDO'); } catch (eDel) {}
-      try { PropertiesService.getScriptProperties().deleteProperty('COMBO_FAST_UNDO'); } catch (eDelP) {}
+      {lib}.comboQuickClearFastUndo();
     }
     var r = f();
     {lib}.comboQuickAfter();
-    var note = noBk ? '（控えなし指定）' : (backupOn ? (snapped ? '' : '（控えを取れませんでした。取り消しは Ctrl+Z で）') : '（控えなし・backup=OFF）');
-    return { ok: true, text: name + ' を実行しました' + (r !== undefined && r !== null && r !== '' && typeof r.then !== 'function' ? '（' + String(r).slice(0, 200) + '）' : '') + note, gasMs: Date.now() - t0 };
+    var note = noBk ? '（控えなし指定）' : (backupOn ? (snapped ? '' : '（控えを取れませんでした。取り消しは Ctrl+Z で）') : '（控えなし・取り消し不可・Ctrl+Z 推奨）');
+    return { ok: true, snapped: snapped, text: name + ' を実行しました' + (r !== undefined && r !== null && r !== '' && typeof r.then !== 'function' ? '（' + String(r).slice(0, 200) + '）' : '') + note, gasMs: Date.now() - t0 };
   } catch (e) {
     return { ok: false, error: name + ' でエラー: ' + String(e && e.message || e), gasMs: Date.now() - t0 };
   }

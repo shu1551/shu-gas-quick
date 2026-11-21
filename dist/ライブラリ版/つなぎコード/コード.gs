@@ -15,7 +15,7 @@ function showGasComboSidebar() {
 }
 
 function comboMenuUndo() { return shuquickengine.comboMenuUndo(); }
-function comboInit(req) { return shuquickengine.comboInit(req); }
+function comboInit(req) { return shuquickengine.comboInit(req, comboQuickSheetFns_()); }
 function comboLook(req) { return shuquickengine.comboLook(req); }
 function comboRunAsk(req) { return shuquickengine.comboRunAsk(req); }
 function comboRunOps(req) { return shuquickengine.comboRunOps(req); }
@@ -24,6 +24,7 @@ function comboUndo(req) { return shuquickengine.comboUndo(req); }
 function comboGetConfig() { return shuquickengine.comboGetConfig(); }
 function comboSaveConfig(cfg) { return shuquickengine.comboSaveConfig(cfg); }
 function comboPollSelection(req) { return shuquickengine.comboPollSelection(req); }
+function comboGotoRange(req) { return shuquickengine.comboGotoRange(req); }
 function comboGetLearned(req) { return shuquickengine.comboGetLearned(req); }
 function comboLearn(req) { return shuquickengine.comboLearn(req); }
 
@@ -32,6 +33,7 @@ function comboQuickList(req) { return shuquickengine.comboQuickList(req, comboQu
 function comboQuickMake(req) { return shuquickengine.comboQuickMake(req); }
 function comboQuickBuild(req) { return shuquickengine.comboQuickBuild(req); }
 function comboQuickSaveOrder(req) { return shuquickengine.comboQuickSaveOrder(req); }
+function comboQuickSavePins(req) { return shuquickengine.comboQuickSavePins(req); }
 function comboQuickSaveSteps(req) { return shuquickengine.comboQuickSaveSteps(req); }
 function comboQuickReopen(req) { return shuquickengine.comboQuickReopen(req); }
 function comboQuickImport(req) {
@@ -50,13 +52,12 @@ function comboQuickRun(req) {
     if (backupOn && !noBk) {
       snapped = shuquickengine.comboQuickSnap(name);
     } else {
-      try { CacheService.getScriptCache().remove('COMBO_FAST_UNDO'); } catch (eDel) {}
-      try { PropertiesService.getScriptProperties().deleteProperty('COMBO_FAST_UNDO'); } catch (eDelP) {}
+      shuquickengine.comboQuickClearFastUndo();
     }
     var r = f();
     shuquickengine.comboQuickAfter();
-    var note = noBk ? '（控えなし指定）' : (backupOn ? (snapped ? '' : '（控えを取れませんでした。取り消しは Ctrl+Z で）') : '（控えなし・backup=OFF）');
-    return { ok: true, text: name + ' を実行しました' + (r !== undefined && r !== null && r !== '' && typeof r.then !== 'function' ? '（' + String(r).slice(0, 200) + '）' : '') + note, gasMs: Date.now() - t0 };
+    var note = noBk ? '（控えなし指定）' : (backupOn ? (snapped ? '' : '（控えを取れませんでした。取り消しは Ctrl+Z で）') : '（控えなし・取り消し不可・Ctrl+Z 推奨）');
+    return { ok: true, snapped: snapped, text: name + ' を実行しました' + (r !== undefined && r !== null && r !== '' && typeof r.then !== 'function' ? '（' + String(r).slice(0, 200) + '）' : '') + note, gasMs: Date.now() - t0 };
   } catch (e) {
     return { ok: false, error: name + ' でエラー: ' + String(e && e.message || e), gasMs: Date.now() - t0 };
   }

@@ -36,7 +36,7 @@ return call_('post', 'https://sheets.googleapis.com/v4/spreadsheets/' + encodeUR
 }
 };
 })();
-var ENGINE_VERSION = 'ws-1+e7d8f977';
+var ENGINE_VERSION = 'ws-1+760f6753';
 var BK_BOOK_NAME = 'GASマネージャー_控え';
 var BK_DOC_PREFIX = 'GASマネージャー_文書控え_';
 var BK_DOC_SLOTS = 5;
@@ -1870,6 +1870,21 @@ var sh = sheetCtx_(ctx, op);
 tidyRange_(ctx, sh, op.range || null);
 chg_(ctx, sh, op.range || 'A1', '書式をそろえた');
 };
+function deleteRowRuns_(sh, rowNums) {
+if (!rowNums || !rowNums.length) return;
+var seen = {}, desc = [];
+for (var i = 0; i < rowNums.length; i++) {
+var n = rowNums[i];
+if (!seen[n]) { seen[n] = 1; desc.push(n); }
+}
+desc.sort(function (a, b) { return b - a; });
+for (var di = 0; di < desc.length; ) {
+var runEnd = desc[di], runStart = runEnd;
+while (di + 1 < desc.length && desc[di + 1] === runStart - 1) { runStart = desc[++di]; }
+sh.deleteRows(runStart, runEnd - runStart + 1);
+di++;
+}
+}
 SHELF['seiri'] = function (ctx, op) {
 var sh = sheetCtx_(ctx, op), t = needTable_(sh);
 var rg = sh.getRange(t.headerRow, t.firstCol, t.lastData - t.headerRow + 1, t.lastCol - t.firstCol + 1);
@@ -1907,7 +1922,7 @@ if (row.every(isBlank_)) blanks.push(rr);
 }
 if (blanks.length) {
 guardDelete_(ctx, '空行 ' + blanks.join('・') + ' 行目を詰めます', wideRowCount_(t2, blanks.length), blanks.length + ' 行');
-for (var k = blanks.length - 1; k >= 0; k--) sh.deleteRow(blanks[k]);
+deleteRowRuns_(sh, blanks);
 chg_(ctx, sh, blanks.join('・') + ' 行目', '空行を削除（' + blanks.length + ' 行）');
 if (_TBL_CACHE) _TBL_CACHE = { _once: true };
 }
@@ -1921,7 +1936,7 @@ if (seen[key]) dups.push(d); else seen[key] = 1;
 }
 if (dups.length) {
 guardDelete_(ctx, '全列が同じ重複行 ' + dups.join('・') + ' 行目を消します', wideRowCount_(t2, dups.length), dups.length + ' 行');
-for (var k2 = dups.length - 1; k2 >= 0; k2--) sh.deleteRow(dups[k2]);
+deleteRowRuns_(sh, dups);
 chg_(ctx, sh, dups.join('・') + ' 行目', '重複行を削除（' + dups.length + ' 行）');
 if (_TBL_CACHE) _TBL_CACHE = { _once: true };
 }
@@ -2007,7 +2022,7 @@ note_(ctx, '重複行はありませんでした（変更なし）');
 return;
 }
 guardDelete_(ctx, (colIndices.length ? '指定列が同じ' : '全列が同じ') + '重複行 ' + dups.join('・') + ' 行目を消します', wideRowCount_(t, dups.length), dups.length + ' 行');
-for (var k = dups.length - 1; k >= 0; k--) sh.deleteRow(dups[k]);
+deleteRowRuns_(sh, dups);
 chg_(ctx, sh, dups.join('・') + ' 行目', '重複行を削除（' + dups.length + ' 行）');
 };
 SHELF['split.col'] = function (ctx, op) {
@@ -2293,27 +2308,47 @@ need_(op, ['key_col']);
 var ki = colIndexOf_(t, op.key_col);
 var sumIndices = op.sum_cols ? op.sum_cols.map(function (c) { return colIndexOf_(t, c); }) : [];
 if (!sumIndices.length) {
-for (var c = t.firstCol; c <= t.lastCol; c++) if (isNumberCol_(t, c)) sumIndices.push(c);
+for (var c = t.firstCol; c <= t.lastCol; c++) if (!isNoCol_(t, c) && isNumberCol_(t, c)) sumIndices.push(c);
 }
 var vals = sh.getRange(t.firstData, ki, t.lastData - t.firstData + 1, 1).getValues();
-var breaks = [];
-for (var i = 1; i < vals.length; i++) {
-if (vals[i][0] !== vals[i - 1][0] && vals[i][0] !== '' && vals[i - 1][0] !== '') {
-breaks.push(t.firstData + i);
+var groups = [], cur = null;
+for (var i = 0; i < vals.length; i++) {
+var kv = vals[i][0], rowNo = t.firstData + i;
+if (kv === '' || kv === null || kv === undefined) {
+if (cur) { groups.push(cur); cur = null; }
+continue;
+}
+var keyStr = String(kv);
+if (!cur) cur = { sR: rowNo, eR: rowNo, key: keyStr };
+else if (cur.key === keyStr) cur.eR = rowNo;
+else { groups.push(cur); cur = { sR: rowNo, eR: rowNo, key: keyStr }; }
+}
+if (cur) groups.push(cur);
+if (!groups.length) {
+note_(ctx, '小計を入れるデータがありません');
+return;
+}
+var nc = t.lastCol - t.firstCol + 1;
+var labelCol = t.firstCol;
+if (sumIndices.indexOf(labelCol) >= 0) {
+for (var lc = t.firstCol; lc <= t.lastCol; lc++) {
+if (sumIndices.indexOf(lc) < 0) { labelCol = lc; break; }
 }
 }
-var inserted = 0, lastR = t.firstData;
-for (var b = breaks.length - 1; b >= 0; b--) {
-var rowIdx = breaks[b];
-sh.insertRowBefore(rowIdx);
-sh.getRange(rowIdx, t.firstCol).setValue('小計').setFontWeight('bold');
+for (var b = groups.length - 1; b >= 0; b--) {
+var g = groups[b];
+sh.insertRowAfter(g.eR);
+var rowIdx = g.eR + 1;
+var rowArr = [];
+for (var ci = 0; ci < nc; ci++) rowArr.push('');
+rowArr[labelCol - t.firstCol] = '小計';
 sumIndices.forEach(function (si) {
 var cl = colLetter_(si);
-sh.getRange(rowIdx, si).setFormula('=SUBTOTAL(9, ' + cl + lastR + ':' + cl + (rowIdx - 1) + ')').setFontWeight('bold');
+rowArr[si - t.firstCol] = '=SUBTOTAL(9, ' + cl + g.sR + ':' + cl + g.eR + ')';
 });
-inserted++;
+sh.getRange(rowIdx, t.firstCol, 1, nc).setValues([rowArr]).setFontWeight('bold');
 }
-chg_(ctx, sh, '表', inserted + ' か所に小計行を挿入');
+chg_(ctx, sh, '表', groups.length + ' か所に小計行を挿入');
 };
 SHELF['formula.guard'] = function (ctx, op) {
 var sh = sheetCtx_(ctx, op), rg;
@@ -2799,8 +2834,18 @@ else if (op.title) { rg = titleRange_(sh); }
 else if (op.col) { t = needTable_(sh); var ci = colIndexOf_(t, op.col); rg = sh.getRange(t.firstData, ci, (t.totalRow || t.lastData) - t.firstData + 1, 1); }
 else if (op.range) rg = sh.getRange(op.range);
 else throw new ArgError('棚「format」に range・col・header・title のどれかが要ります');
+var titleBand = false;
+if ((op.title || op._title) && op.merge === undefined && rg.getNumRows() === 1 && !(typeof rg.isPartOfMerge === 'function' && rg.isPartOfMerge())) {
+var tt = findTable_(sh);
+if (tt && tt.lastCol > rg.getColumn()) {
+var band = sh.getRange(rg.getRow(), Math.min(rg.getColumn(), tt.firstCol), 1, tt.lastCol - Math.min(rg.getColumn(), tt.firstCol) + 1);
+if (band.getValues()[0].filter(function (v) { return !isBlank_(v); }).length <= 1) { rg = band; titleBand = true; }
+}
+if (!titleBand && op._titleA1) rg = sh.getRange(op._titleA1);
+}
 var did = [];
 var set = function (key, fn) { if (op[key] !== undefined) { fn(op[key]); did.push(key); } };
+if (titleBand && (op.align === 'center' || op.align === 'right')) op = Object.assign({}, op, { align: 'left' });
 set('bold', function (v) { rg.setFontWeight(v ? 'bold' : 'normal'); });
 set('italic', function (v) { rg.setFontStyle(v ? 'italic' : 'normal'); });
 set('color', function (v) { rg.setFontColor(rgb_(v)); });
@@ -3530,7 +3575,7 @@ var sh = sheetCtx_(ctx, op), act = op.action || (op.cols ? 'delete' : 'delete');
 var isCol = !!op.cols, list = (isCol ? op.cols : op.rows) || [];
 var tw;
 var getTw = function () { if (tw === undefined) tw = findTable_(sh); return tw; };
-var colRef = function (x) {
+var resolveCol = function (x) {
 if (typeof x === 'number') return x;
 if (/^[A-Za-z]{1,3}$/.test(String(x).trim())) return colNum_(x);
 return getTw() ? colIndexOf_(getTw(), x) : colNum_(x);
@@ -3538,24 +3583,35 @@ return getTw() ? colIndexOf_(getTw(), x) : colNum_(x);
 if (act === 'insert') {
 var at = op.at || list[0]; need_({ shelf: 'rows', at: at }, ['at']);
 var cnt = op.count || 1;
-var atNum = isCol ? colRef(at) : parseInt(at);
+var atNum = isCol ? resolveCol(at) : parseInt(at);
 if (isCol) sh.insertColumnsBefore(atNum, cnt); else sh.insertRowsBefore(atNum, cnt);
 chg_(ctx, sh, (isCol ? (typeof at === 'number' ? colLetter_(at) : at) + '列の前' : at + '行目の前'), cnt + ' ' + (isCol ? '列' : '行') + '挿入');
 } else if (act === 'delete') {
 if (!list.length) throw new ArgError('棚「rows」に rows（行番号の配列）か cols が要ります');
-var nums = list.map(function (x) { return isCol ? colRef(x) : parseInt(x); }).sort(function (a, b) { return b - a; });
+var seenN = {}, nums = [];
+list.forEach(function (x) {
+var n = isCol ? resolveCol(x) : parseInt(x, 10);
+if (!seenN[n]) { seenN[n] = 1; nums.push(n); }
+});
+nums.sort(function (a, b) { return b - a; });
 var max = isCol ? sh.getMaxColumns() : sh.getMaxRows();
 nums.forEach(function (n) { if (n < 1 || n > max) throw new ArgError((isCol ? '列' : '行') + '番号 ' + n + ' は範囲外です（1〜' + max + '）'); });
 var peek = nums.map(function (n) { var v = isCol ? sh.getRange(1, n, Math.min(sh.getLastRow() || 1, 50), 1).getDisplayValues() : sh.getRange(n, 1, 1, Math.max(1, sh.getLastColumn())).getDisplayValues()[0]; return (isCol ? colLetter_(n) + '列' : n + '行目') + '「' + String(isCol ? v.map(function (x) { return x[0]; }).filter(Boolean).slice(0, 2).join('/') : v.filter(Boolean).slice(0, 3).join('/')).slice(0, 24) + '」'; });
 var wide = false;
 if (getTw()) wide = isCol ? nums.some(function (n) { return n < tw.firstCol || n > tw.lastCol; }) : (nums.some(function (n) { return n < tw.headerRow || n > (tw.totalRow || tw.lastData); }) || wideRowCount_(tw, nums.length));
 guardDelete_(ctx, peek.reverse().join('、') + ' を削除します', wide, nums.length + (isCol ? ' 列' : ' 行'));
-nums.forEach(function (n) { if (isCol) sh.deleteColumn(n); else sh.deleteRow(n); });
+for (var di = 0; di < nums.length; ) {
+var runEnd = nums[di], runStart = runEnd;
+while (di + 1 < nums.length && nums[di + 1] === runStart - 1) { runStart = nums[++di]; }
+if (isCol) sh.deleteColumns(runStart, runEnd - runStart + 1);
+else sh.deleteRows(runStart, runEnd - runStart + 1);
+di++;
+}
 chg_(ctx, sh, nums.slice().reverse().join('・') + (isCol ? ' 列' : ' 行目'), '削除');
 } else if (act === 'move') {
 need_(op, ['from', 'to']);
 try {
-if (isCol) { var f = colRef(op.from), to = colRef(op.to); sh.moveColumns(sh.getRange(1, f, 1, 1), to > f ? to + 1 : to); }
+if (isCol) { var f = resolveCol(op.from), to = resolveCol(op.to); sh.moveColumns(sh.getRange(1, f, 1, 1), to > f ? to + 1 : to); }
 else { var fr = parseInt(op.from), cn = op.count || 1, tr = parseInt(op.to); sh.moveRows(sh.getRange(fr, 1, cn, 1), tr > fr ? tr + cn : tr); }
 SpreadsheetApp.flush();
 } catch (e) {
@@ -3780,7 +3836,8 @@ if (s.getName() !== intoName) srcSheets.push(s);
 });
 } else {
 ss.getSheets().forEach(function (s) {
-if (s.getName() !== intoName && !s.isSheetHidden()) srcSheets.push(s);
+var nm = s.getName();
+if (nm !== intoName && nm !== '_GASクイックの控え' && !s.isSheetHidden()) srcSheets.push(s);
 });
 }
 if (!srcSheets.length) throw new ArgError('結合する元シートが見つかりません');

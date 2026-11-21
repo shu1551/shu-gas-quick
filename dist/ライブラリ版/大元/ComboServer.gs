@@ -78,10 +78,10 @@ var sh = null;
 if (reqSheet) {
 sh = ss.getSheetByName(reqSheet);
 if (!sh) {
-throw new ArgError('シート「' + reqSheet + '」がありません。あるのは: ' + ss.getSheets().map(function (s) { return s.getName(); }).join('、'));
+throw new ArgError('シート「' + reqSheet + '」がありません。あるのは: ' + quickVisibleSheets_(ss).map(function (s) { return s.getName(); }).join('、'));
 }
 } else {
-sh = activeSh || ss.getSheets()[0];
+sh = (activeSh && activeSh.getName() !== QUICK_BK_NAME) ? activeSh : (quickVisibleSheets_(ss)[0] || ss.getSheets()[0]);
 }
 var sheetName = sh.getName();
 var sel = String(req.selection || '').trim().toUpperCase();
@@ -99,12 +99,16 @@ if (rg2) sel = rg2.getA1Notation();
 }
 return { sheet: sheetName, selection: sel };
 }
-function comboTblCacheKey_(sheetName) {
-return COMBO_TBL_CACHE_PREFIX + String(sheetName || '').slice(0, 200);
+function comboTblCacheKey_(ssId, sheetName) {
+if (sheetName === undefined) {
+sheetName = ssId;
+ssId = '';
+}
+return COMBO_TBL_CACHE_PREFIX + String(ssId || '').slice(0, 44) + '_' + String(sheetName || '').slice(0, 150);
 }
 function comboCacheGet_(ssId, sheetName) {
 try {
-var raw = CacheService.getScriptCache().get(comboTblCacheKey_(sheetName));
+var raw = CacheService.getUserCache().get(comboTblCacheKey_(ssId, sheetName));
 if (!raw) return null;
 var obj = JSON.parse(raw);
 if (obj && obj.ssId === ssId) return obj;
@@ -159,14 +163,17 @@ s = JSON.stringify(payload);
 }
 }
 if (s.length < 95000) {
-CacheService.getScriptCache().put(comboTblCacheKey_(sheetName), s, COMBO_TBL_CACHE_TTL);
+CacheService.getUserCache().put(comboTblCacheKey_(ssId, sheetName), s, COMBO_TBL_CACHE_TTL);
 }
 } catch (e) {}
 }
-function comboCacheInvalidate_(sheetName) {
+function comboCacheInvalidate_(ssId, sheetName) {
 try {
-CacheService.getScriptCache().remove(comboTblCacheKey_(sheetName));
+CacheService.getUserCache().remove(comboTblCacheKey_(ssId, sheetName));
 } catch (e) {}
+}
+function quickVisibleSheets_(ss) {
+return ss.getSheets().filter(function (s) { return s.getName() !== QUICK_BK_NAME; });
 }
 function comboParseScope_(selection) {
 if (!selection || typeof ComboPlanner === 'undefined' || typeof ComboPlanner.parseSelectionScope !== 'function') {
@@ -186,14 +193,8 @@ return ScriptApp.getOAuthToken() || '';
 } catch (e) {}
 return '';
 }
-function comboInit(req) {
-var t0 = Date.now();
-try {
-req = req || {};
-var ss = comboOpenSs_(req);
-var selInfo = comboGetSelectionInfo_(ss, req);
-var sh = sheetOf_(ss, selInfo.sheet, '');
-var sheetInfos = ss.getSheets().map(function (s) {
+function comboSheetInfos_(ss) {
+return quickVisibleSheets_(ss).map(function (s) {
 return {
 name: s.getName(),
 sheetId: typeof s.getSheetId === 'function' ? s.getSheetId() : 0,
@@ -201,6 +202,15 @@ rows: s.getLastRow(),
 cols: s.getLastColumn()
 };
 });
+}
+function comboInit(req, sheetFns) {
+var t0 = Date.now();
+try {
+req = req || {};
+var ss = comboOpenSs_(req);
+var selInfo = comboGetSelectionInfo_(ss, req);
+var sh = sheetOf_(ss, selInfo.sheet, '');
+var sheetInfos = comboSheetInfos_(ss);
 var sheets = sheetInfos.map(function (s) { return s.name; });
 var ssId = ss.getId();
 var ssName = ss.getName();
@@ -209,7 +219,8 @@ var table = tb ? tableOut_(tb) : null;
 var titleA1 = comboComputeTitleA1_(sh, tb);
 if (table && titleA1) table.title_a1 = titleA1;
 comboCachePut_(ssId, sh.getName(), table, sheets, tb, ssName, titleA1);
-return {
+var token = comboGetOAuthToken_();
+var out = {
 ok: true,
 target: {
 id: ssId,
@@ -219,16 +230,20 @@ url: 'https://docs.google.com/spreadsheets/d/' + ssId + '/edit',
 sheet: sh.getName()
 },
 sheetId: typeof sh.getSheetId === 'function' ? sh.getSheetId() : 0,
-oauthToken: comboGetOAuthToken_(),
+oauthToken: token,
 sheets: sheets,
 sheetInfos: sheetInfos,
 table: table,
 selection: selInfo.selection,
 scope: comboParseScope_(selInfo.selection),
 config: comboGetConfig(),
-learned: comboGetLearned().learned,
-gasMs: Date.now() - t0
+learned: comboGetLearned().learned
 };
+if (req.includeQuick) {
+out.quick = comboQuickList({ force: !!req.forceQuick, _skipToken: true }, sheetFns);
+}
+out.gasMs = Date.now() - t0;
+return out;
 } catch (err) {
 return {
 ok: false,
@@ -243,14 +258,33 @@ try {
 req = req || {};
 var ss = comboOpenSs_(req);
 var selInfo = comboGetSelectionInfo_(ss, req);
-return {
+var out = {
 ok: true,
 sheet: selInfo.sheet,
 selection: selInfo.selection,
 scope: comboParseScope_(selInfo.selection),
-oauthToken: comboGetOAuthToken_(),
-gasMs: Date.now() - t0
+oauthToken: comboGetOAuthToken_()
 };
+var prevSheet = String(req.prevSheet || '').trim();
+if (prevSheet && selInfo.sheet && selInfo.sheet !== prevSheet) {
+var sh = sheetOf_(ss, selInfo.sheet, '');
+var sheetInfos = comboSheetInfos_(ss);
+var sheets = sheetInfos.map(function (s) { return s.name; });
+var ssId = ss.getId();
+var ssName = ss.getName();
+var tb = findTable_(sh);
+var table = tb ? tableOut_(tb) : null;
+var titleA1 = comboComputeTitleA1_(sh, tb);
+if (table && titleA1) table.title_a1 = titleA1;
+comboCachePut_(ssId, sh.getName(), table, sheets, tb, ssName, titleA1);
+out.sheetChanged = true;
+out.sheetId = typeof sh.getSheetId === 'function' ? sh.getSheetId() : 0;
+out.sheets = sheets;
+out.sheetInfos = sheetInfos;
+out.table = table;
+}
+out.gasMs = Date.now() - t0;
+return out;
 } catch (err) {
 return {
 ok: false,
@@ -298,14 +332,7 @@ req = req || {};
 var ss = comboOpenSs_(req);
 var selInfo = comboGetSelectionInfo_(ss, req);
 var sh = sheetOf_(ss, req.sheet || selInfo.sheet, '');
-var sheetInfos = ss.getSheets().map(function (s) {
-return {
-name: s.getName(),
-sheetId: typeof s.getSheetId === 'function' ? s.getSheetId() : 0,
-rows: s.getLastRow(),
-cols: s.getLastColumn()
-};
-});
+var sheetInfos = comboSheetInfos_(ss);
 var sheets = sheetInfos.map(function (s) { return s.name; });
 var ssId = ss.getId();
 var ssName = ss.getName();
@@ -360,10 +387,55 @@ gasMs: Date.now() - t0
 };
 }
 }
-var COMBO_STRUCTURAL_SHELVES_ = {
-'sheet.add': 1, 'sheet.delete': 1, 'sheet.rename': 1,
-'sheet.move': 1, 'sheet.copy': 1, 'sheet.hide': 1, 'sheet.show': 1
+var COMBO_FAST_UNDO_SAFE_SHELVES_ = {
+'format': 1, 'bg.clear': 1, 'freeze': 1, 'unfreeze': 1, 'width': 1,
+'write': 1, 'clear.values': 1, 'clear.format': 1, 'clear.all': 1,
+'renumber': 1, 'formula.guard': 1, 'formula.tovalue': 1, 'round': 1,
+'text.case': 1, 'date.fix': 1, 'fill.series': 1, 'fill.date': 1,
+'fill.down': 1, 'replace': 1, 'copy': 1, 'copy.values': 1, 'copy.format': 1
 };
+function comboFastUndoKey_(ssId) {
+return COMBO_PROP_FAST_UNDO + '_' + String(ssId || '').slice(0, 60);
+}
+function comboFastUndoLoadRaw_(ssId) {
+var raw = null, fromUser = false, fromProp = false;
+try {
+raw = CacheService.getUserCache().get(comboFastUndoKey_(ssId));
+if (raw) fromUser = true;
+} catch (eU) {}
+if (!raw) {
+try { raw = CacheService.getScriptCache().get(COMBO_PROP_FAST_UNDO); } catch (eS) {}
+}
+if (!raw) {
+try {
+raw = PropertiesService.getScriptProperties().getProperty(COMBO_PROP_FAST_UNDO);
+if (raw) fromProp = true;
+} catch (eP) {}
+}
+return { raw: raw, fromUser: fromUser, fromProp: fromProp };
+}
+function comboFastUndoClear_(ssId, optSs) {
+try {
+var uc = CacheService.getUserCache();
+var k = comboFastUndoKey_(ssId);
+if (optSs) {
+var prev = uc.get(k);
+if (prev && prev.indexOf('"sheetcopy"') >= 0) quickDropBackup_(optSs);
+}
+uc.remove(k);
+} catch (eU) {}
+try { CacheService.getScriptCache().remove(COMBO_PROP_FAST_UNDO); } catch (eS) {}
+try { PropertiesService.getScriptProperties().deleteProperty(COMBO_PROP_FAST_UNDO); } catch (eP) {}
+}
+function comboQuickClearFastUndo(ssId) {
+var id = String(ssId || '').trim();
+var ss = null;
+if (!id) {
+try { ss = SpreadsheetApp.getActive(); id = ss.getId(); } catch (e) {}
+}
+if (id) comboFastUndoClear_(id, ss);
+return { ok: true };
+}
 function comboEncodeCellVal_(v, formula) {
 if (formula && String(formula).charAt(0) === '=') return formula;
 if (v instanceof Date) return { __dt: v.getTime() };
@@ -373,13 +445,17 @@ function comboDecodeCellVal_(v) {
 if (v && typeof v === 'object' && v.__dt !== undefined) return new Date(v.__dt);
 return v;
 }
-function comboFastUndoSave_(sh, ops, table, optSsId) {
-var cache = CacheService.getScriptCache();
-try {
+function comboFastUndoSave_(sh, ops, table, optSsId, optSs) {
 var ssId = optSsId || (typeof sh.getParent === 'function' ? sh.getParent().getId() : '');
+try {
+var cache = CacheService.getUserCache();
+var fastKey = comboFastUndoKey_(ssId);
 for (var i = 0; i < ops.length; i++) {
-if (COMBO_STRUCTURAL_SHELVES_[ops[i].shelf]) {
-cache.remove(COMBO_PROP_FAST_UNDO);
+var op0 = ops[i];
+if (!op0 || !COMBO_FAST_UNDO_SAFE_SHELVES_[op0.shelf] ||
+(op0.shelf === 'format' && (op0.borders !== undefined || op0.merge !== undefined)) ||
+(op0.shelf === 'write' && op0.tsv !== undefined)) {
+comboFastUndoClear_(ssId, optSs);
 return false;
 }
 }
@@ -401,9 +477,10 @@ var widthOnly = true;
 var fmtFlags = {};
 for (var j = 0; j < ops.length; j++) {
 var op = ops[j];
-if (op.shelf !== 'format' || op.merge !== undefined || op.borders !== undefined) formatOnly = false;
+if ((op.shelf !== 'format' && op.shelf !== 'bg.clear') || op.merge !== undefined || op.borders !== undefined) formatOnly = false;
 if (op.shelf !== 'freeze' && op.shelf !== 'unfreeze') freezeOnly = false;
 if (op.shelf !== 'width') widthOnly = false;
+if (op.shelf === 'bg.clear') fmtFlags.bgs = true;
 if (op.shelf === 'format') {
 if (op.color !== undefined) fmtFlags.colors = true;
 if (op.bg !== undefined) fmtFlags.bgs = true;
@@ -417,6 +494,10 @@ if (op.number_format !== undefined) fmtFlags.numFmts = true;
 if (op.wrap !== undefined) fmtFlags.wraps = true;
 }
 if (op.shelf === 'width') hasWidth = true;
+if (op.to) {
+if (String(op.to).indexOf('!') >= 0) { comboFastUndoClear_(ssId, optSs); return false; }
+try { addRange(sh.getRange(op.to)); continue; } catch (eTo) {}
+}
 if (op.range && !/^(all|\*|全体|全セル|シート全体|sheet)$/i.test(String(op.range).trim())) {
 try { addRange(sh.getRange(op.range)); continue; } catch (eR) {}
 }
@@ -461,13 +542,13 @@ minR = 1; minC = 1; maxR = 1; maxC = 1;
 } else if (lr * lc2 <= 800) {
 minR = 1; minC = 1; maxR = lr; maxC = lc2;
 } else {
-cache.remove(COMBO_PROP_FAST_UNDO);
+comboFastUndoClear_(ssId, optSs);
 return false;
 }
 }
 var nr = maxR - minR + 1, nc = maxC - minC + 1;
 if (nr * nc > 800) {
-cache.remove(COMBO_PROP_FAST_UNDO);
+comboFastUndoClear_(ssId, optSs);
 return false;
 }
 var targetRg = sh.getRange(minR, minC, nr, nc);
@@ -517,8 +598,11 @@ snap.colors = targetRg.getFontColors();
 snap.weights = targetRg.getFontWeights();
 snap.styles = targetRg.getFontStyles();
 snap.sizes = targetRg.getFontSizes();
+snap.fonts = targetRg.getFontFamilies();
 snap.aligns = targetRg.getHorizontalAlignments();
+snap.valigns = targetRg.getVerticalAlignments();
 snap.numFmts = targetRg.getNumberFormats();
+snap.wraps = targetRg.getWraps();
 snap.frozenR = sh.getFrozenRows();
 snap.frozenC = sh.getFrozenColumns();
 }
@@ -536,27 +620,25 @@ var gz = Utilities.base64Encode(Utilities.gzip(Utilities.newBlob(jsonStr, 'appli
 jsonStr = JSON.stringify({ __gz: gz, ssId: snap.ssId });
 }
 if (jsonStr.length > 95000) {
-cache.remove(COMBO_PROP_FAST_UNDO);
+comboFastUndoClear_(ssId, optSs);
 return false;
 }
-cache.put(COMBO_PROP_FAST_UNDO, jsonStr, COMBO_TBL_CACHE_TTL);
+if (optSs) {
+var prevRaw = cache.get(fastKey);
+if (prevRaw && prevRaw.indexOf('"sheetcopy"') >= 0) quickDropBackup_(optSs);
+}
+cache.put(fastKey, jsonStr, COMBO_TBL_CACHE_TTL);
 return true;
 } catch (err) {
-try { cache.remove(COMBO_PROP_FAST_UNDO); } catch (eDel) {}
+comboFastUndoClear_(ssId, optSs);
 return false;
 }
 }
 function comboFastUndoRestore_(ss, optRaw) {
 var t0 = Date.now();
-var cache = CacheService.getScriptCache();
-var raw = optRaw || cache.get(COMBO_PROP_FAST_UNDO);
-var fromProp = false;
-if (!raw) {
-try {
-raw = PropertiesService.getScriptProperties().getProperty(COMBO_PROP_FAST_UNDO);
-if (raw) fromProp = true;
-} catch (eP) {}
-}
+var ssId = ss.getId();
+var loaded = optRaw ? { raw: optRaw } : comboFastUndoLoadRaw_(ssId);
+var raw = loaded.raw;
 if (!raw) {
 return { ok: false, error: '戻せる高速控えがありません' };
 }
@@ -568,10 +650,9 @@ var unz = Utilities.ungzip(Utilities.newBlob(Utilities.base64Decode(snap.__gz), 
 snap = JSON.parse(unz);
 }
 } catch (e) {
-cache.remove(COMBO_PROP_FAST_UNDO);
+comboFastUndoClear_(ssId);
 return { ok: false, error: '高速控えのデータが壊れていました' };
 }
-var ssId = ss.getId();
 if (!snap || snap.ssId !== ssId) {
 return { ok: false, error: '現在のスプレッドシートの高速控えがありません' };
 }
@@ -609,12 +690,9 @@ Object.keys(snap.colWidths).forEach(function (k) {
 sh.setColumnWidth(parseInt(k, 10), snap.colWidths[k]);
 });
 }
-cache.remove(COMBO_PROP_FAST_UNDO);
-if (fromProp) {
-try { PropertiesService.getScriptProperties().deleteProperty(COMBO_PROP_FAST_UNDO); } catch (eDelP) {}
-}
+comboFastUndoClear_(ssId);
 if (!snap.partial) {
-comboCacheInvalidate_(snap.sheetName);
+comboCacheInvalidate_(ssId, snap.sheetName);
 }
 var cachedUndo = comboCacheGet_(ssId, sh.getName());
 var target = {
@@ -667,7 +745,7 @@ if (rest.length) lines.push(rest.join('　'));
 var tail = [];
 if (res.backup) tail.push('控え #' + res.backup + '（戻す で取り消せます）');
 else if (res.fastUndo) tail.push('高速控えあり（戻す で取り消せます）');
-else if (!backupOn) tail.push('控えなし（backup=OFF）');
+else if (!backupOn) tail.push('控えなし（取り消し不可・Ctrl+Z 推奨）');
 if (tail.length) lines.push(tail.join(' ／ '));
 return lines.join('\n');
 }
@@ -720,8 +798,7 @@ return { ok: false, error: String(errSel && errSel.message || errSel), text: '�
 var curSheet = selInfo.sheet;
 var backupOn = !!req.backup;
 if (backupOn) {
-try { CacheService.getScriptCache().remove(COMBO_PROP_FAST_UNDO); } catch (eDelC) {}
-try { PropertiesService.getScriptProperties().deleteProperty(COMBO_PROP_FAST_UNDO); } catch (eDel) {}
+comboFastUndoClear_(ssId, ss);
 var fullRes = actDo_({
 target: { id: ssId, kind: 'sheet', sheet: curSheet },
 ops: ops,
@@ -730,7 +807,7 @@ backup: true,
 want_table: true
 });
 if (fullRes.ok) {
-comboCacheInvalidate_(curSheet);
+comboCacheInvalidate_(ssId, curSheet);
 if (fullRes.table !== undefined) {
 comboCachePut_(ssId, (fullRes.target && fullRes.target.sheet) || curSheet, fullRes.table, fullRes.sheets, null, (fullRes.target && fullRes.target.name) || '');
 }
@@ -754,7 +831,14 @@ var titleA1 = (table && table.title_a1) || (cached && cached.titleA1) || '';
 var resolvedOps = ops.map(function (op) {
 if (!op || op.shelf !== 'format') return op;
 if (op.title === true && titleA1) {
-return Object.assign({}, op, { range: titleA1, title: false });
+var bandA1 = titleA1;
+if (titleA1.indexOf(':') < 0 && table && table.last_col) {
+var tm = /^([A-Z]+)(\d+)$/.exec(titleA1);
+if (tm && colNum_(table.last_col) > colNum_(tm[1])) {
+bandA1 = (colNum_(table.first_col || tm[1]) < colNum_(tm[1]) ? table.first_col : tm[1]) + tm[2] + ':' + table.last_col + tm[2];
+}
+}
+return Object.assign({}, op, { range: bandA1, title: false, _title: true, _titleA1: titleA1 });
 }
 if (op.header === true && table && table.header_row && table.first_col && table.last_col) {
 var hdrA1 = table.first_col + table.header_row + ':' + table.last_col + table.header_row;
@@ -786,7 +870,9 @@ _file: { id: ssId, name: ssName, url: ssUrl }
 };
 try {
 if (req.fastUndo === true) {
-fastSaved = comboFastUndoSave_(sh, resolvedOps, table, ssId);
+fastSaved = comboFastUndoSave_(sh, resolvedOps, table, ssId, ss);
+} else {
+comboFastUndoClear_(ssId, ss);
 }
 if (!keepsShape && _TBL_CACHE) _TBL_CACHE._once = true;
 for (var i = 0; i < resolvedOps.length; i++) {
@@ -804,8 +890,8 @@ if (!keepsShape) _TBL_CACHE = null;
 var finalSheet = ctx.curSheet || curSheet;
 if (!keepsShape) {
 SpreadsheetApp.flush();
-comboCacheInvalidate_(curSheet);
-if (finalSheet !== curSheet) comboCacheInvalidate_(finalSheet);
+comboCacheInvalidate_(ssId, curSheet);
+if (finalSheet !== curSheet) comboCacheInvalidate_(ssId, finalSheet);
 try {
 var finalSh = ss.getSheetByName(finalSheet);
 if (finalSh) {
@@ -813,12 +899,12 @@ var tbNew = findTable_(finalSh);
 table = tbNew ? tableOut_(tbNew) : null;
 var newTitleA1 = comboComputeTitleA1_(finalSh, tbNew);
 if (table && newTitleA1) table.title_a1 = newTitleA1;
-sheets = ss.getSheets().map(function (s) { return s.getName(); });
+sheets = quickVisibleSheets_(ss).map(function (s) { return s.getName(); });
 comboCachePut_(ssId, finalSheet, table, sheets, tbNew, ssName, newTitleA1);
 }
 } catch (eTbl) {}
 } else if (!sheets) {
-sheets = ss.getSheets().map(function (s) { return s.getName(); });
+sheets = quickVisibleSheets_(ss).map(function (s) { return s.getName(); });
 }
 var out = {
 ok: true,
@@ -966,7 +1052,7 @@ var tb = findTable_(sh);
 table = tb ? tableOut_(tb) : null;
 var titleA1 = comboComputeTitleA1_(sh, tb);
 if (table && titleA1) table.title_a1 = titleA1;
-sheets = ss.getSheets().map(function (s) { return s.getName(); });
+sheets = quickVisibleSheets_(ss).map(function (s) { return s.getName(); });
 ssName = ssName || ss.getName();
 comboCachePut_(ssId, curSheet, table, sheets, tb, ssName, titleA1);
 cached = comboCacheGet_(ssId, curSheet);
@@ -1043,13 +1129,11 @@ var t0 = Date.now();
 req = req || {};
 try {
 var ss = comboOpenSs_(req);
+var ssId = ss.getId();
 if (!req.to) {
-var fastRaw = CacheService.getScriptCache().get(COMBO_PROP_FAST_UNDO);
-if (!fastRaw) {
-try { fastRaw = PropertiesService.getScriptProperties().getProperty(COMBO_PROP_FAST_UNDO); } catch (eP) {}
-}
-if (fastRaw) {
-var fastRes = comboFastUndoRestore_(ss, fastRaw);
+var loaded = comboFastUndoLoadRaw_(ssId);
+if (loaded.raw) {
+var fastRes = comboFastUndoRestore_(ss, loaded.raw);
 if (fastRes.ok || String(fastRes.error || '').indexOf('現在のスプレッドシート') < 0) {
 fastRes.gasMs = Date.now() - t0;
 return fastRes;
@@ -1057,13 +1141,13 @@ return fastRes;
 }
 }
 var res = actUndo_({
-target_id: ss.getId(),
+target_id: ssId,
 ok: !!req.ok,
 to: req.to ? String(req.to) : ''
 });
 var t = res.target || {};
 if (res.ok) {
-comboCacheInvalidate_(t.sheet || '');
+comboCacheInvalidate_(ssId, t.sheet || '');
 res.text = [
 '対象: ' + (t.name || ss.getName()),
 '戻した: #' + res.undone + '（' + (res.what || '') + '）を取り消しました',
@@ -1083,14 +1167,39 @@ gasMs: Date.now() - t0
 };
 }
 }
+function comboGotoRange(req) {
+var t0 = Date.now();
+req = req || {};
+try {
+var raw = String(req.range || '').trim();
+if (!raw) return { ok: false, error: '移動先の番地が空です', gasMs: Date.now() - t0 };
+var ss = comboOpenSs_(req);
+var shName = String(req.sheet || '').trim();
+var a1 = raw;
+var bang = raw.lastIndexOf('!');
+if (bang > 0) {
+shName = raw.slice(0, bang).trim().replace(/^'|'$/g, '').replace(/''/g, "'");
+a1 = raw.slice(bang + 1).trim();
+}
+var sh = sheetOf_(ss, shName, '');
+if (ss.getActiveSheet().getName() !== sh.getName()) {
+sh.activate();
+}
+sh.getRange(a1).activate();
+return { ok: true, sheet: sh.getName(), range: a1, gasMs: Date.now() - t0 };
+} catch (err) {
+return { ok: false, error: String(err && err.message || err), gasMs: Date.now() - t0 };
+}
+}
 function comboGetRawConfig_() {
-var def = { backupDefault: false };
+var def = { backupDefault: false, defaultTab: 'auto' };
 try {
 var raw = PropertiesService.getUserProperties().getProperty(COMBO_PROP_CONFIG);
 if (!raw) return def;
 var parsed = JSON.parse(raw);
-if (parsed && typeof parsed === 'object' && parsed.backupDefault !== undefined) {
-def.backupDefault = !!parsed.backupDefault;
+if (parsed && typeof parsed === 'object') {
+if (parsed.backupDefault !== undefined) def.backupDefault = !!parsed.backupDefault;
+if (parsed.defaultTab === 'list' || parsed.defaultTab === 'auto') def.defaultTab = parsed.defaultTab;
 }
 } catch (e) {}
 return def;
@@ -1102,6 +1211,7 @@ function comboSaveConfig(cfg) {
 cfg = cfg || {};
 var cur = comboGetRawConfig_();
 if (cfg.backupDefault !== undefined) cur.backupDefault = !!cfg.backupDefault;
+if (cfg.defaultTab === 'list' || cfg.defaultTab === 'auto') cur.defaultTab = cfg.defaultTab;
 PropertiesService.getUserProperties().setProperty(COMBO_PROP_CONFIG, JSON.stringify(cur));
 return { ok: true, config: cur };
 }
@@ -1117,12 +1227,13 @@ EXTRA_ACTIONS.combo_ask = comboRunAsk;
 EXTRA_ACTIONS.combo_ops = comboRunOps;
 EXTRA_ACTIONS.combo_undo = comboUndo;
 EXTRA_ACTIONS.combo_poll = comboPollSelection;
+EXTRA_ACTIONS.combo_goto = comboGotoRange;
 EXTRA_ACTIONS.combo_set_target = function (req) {
 return comboSetTestTarget((req && (req.targetId || req.ssId)) || '');
 };
 }
 var QUICK_MY_TITLE = 'GASクイック マイマクロ';
-var QUICK_BUILD = '4b02849c8d';
+var QUICK_BUILD = '66f3ec3d53';
 var QUICK_DRAFT_KEY = 'QUICK_DRAFT';
 function comboQuickBuild() {
 return { ok: true, build: QUICK_BUILD, oauthToken: comboGetOAuthToken_() };
@@ -1152,6 +1263,28 @@ try { out[k] = JSON.parse(props.getProperty(quickOrderKey_(k)) || '[]'); } catch
 });
 return out;
 }
+var QUICK_PINS_KEY = 'QUICK_PINS';
+function quickGetPins_() {
+try {
+var raw = PropertiesService.getUserProperties().getProperty(QUICK_PINS_KEY);
+var parsed = raw ? JSON.parse(raw) : {};
+return (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) ? parsed : {};
+} catch (e) { return {}; }
+}
+function comboQuickSavePins(req) {
+req = req || {};
+var raw = (req.pins && typeof req.pins === 'object' && !Array.isArray(req.pins)) ? req.pins : {};
+var clean = {}, keys = Object.keys(raw).slice(0, 400);
+for (var i = 0; i < keys.length; i++) {
+if (raw[keys[i]]) clean[String(keys[i])] = 1;
+}
+try {
+PropertiesService.getUserProperties().setProperty(QUICK_PINS_KEY, JSON.stringify(clean));
+return { ok: true, pins: clean };
+} catch (e) {
+return { ok: false, error: String(e && e.message || e) };
+}
+}
 function comboQuickSaveOrder(req) {
 req = req || {};
 var kind = req.kind === 'sheet' ? 'sheet' : (req.kind === 'my' ? 'my' : 'shelf');
@@ -1170,9 +1303,35 @@ if (d) c.remove(QUICK_DRAFT_KEY);
 return d || '';
 } catch (e) { return ''; }
 }
-var QUICK_LIB_FNS = ["ArgError", "Blocked", "a1_", "actDo_", "actUndo_", "activeDriveList_", "activeFiles_", "activeFolders_", "apiColor_", "apiDefaultSheet_", "apiDig_", "apiGrid_", "apiScan_", "apiSheetId_", "apiSheetNames_", "apiWalk_", "backupDoc_", "backupSheetsLite_", "backupSheets_", "batchRetry_", "bkBook_", "bkLap_", "bkTabName_", "byId_", "call_", "capList_", "captureSide_", "chg_", "clearBody_", "colIndexOf_", "colLetter_", "colNum_", "colRuns_", "colWidths_", "comboCacheGet_", "comboCacheInvalidate_", "comboCachePut_", "comboComputeTitleA1_", "comboDecodeCellVal_", "comboEncodeCellVal_", "comboFastUndoRestore_", "comboFastUndoSave_", "comboFind", "comboFormatDoText_", "comboFormatLookText_", "comboFormatOpsShort_", "comboGetConfig", "comboGetLearned", "comboGetOAuthToken_", "comboGetRawConfig_", "comboGetSelectionInfo_", "comboInit", "comboKeepsShape_", "comboLearn", "comboLook", "comboMenuUndo", "comboOpenSs_", "comboParseScope_", "comboPing", "comboPollSelection", "comboQuickAfter", "comboQuickBuild", "comboQuickImport", "comboQuickList", "comboQuickMake", "comboQuickReopen", "comboQuickRun", "comboQuickSaveOrder", "comboQuickSaveSteps", "comboQuickSnap", "comboRenderUnfired_", "comboRunAsk", "comboRunOps", "comboSaveConfig", "comboSetTestTarget", "comboTblCacheKey_", "comboUndo", "copyBody_", "countFolderChildren_", "createComboSidebarHtml", "dataRange_", "digest_", "discardBackup_", "docBkIds_", "docBkSlotDoc_", "docStructure_", "errReport_", "errScanNeeded_", "errScan_", "extractDriveId_", "filterChanged_", "findTable_", "fingerDoc_", "fingerOnly_", "fingerSheet_", "folderLabel_", "getJson_", "gridA1_", "guardDelete_", "guardOverwrite_", "guardWide_", "headerNames_", "hexColor_", "hiddenRuns_", "isAncestorFolder_", "isBlank_", "isNoCol_", "isNoop_", "isNumberCol_", "json_", "lap_", "ledgerBrief_", "ledgerSave_", "ledger_", "liteTouch_", "loadSide_", "lookSide_", "mimeLabel_", "msOut_", "needTable_", "need_", "normJson_", "note_", "numRuns_", "onOpen", "openTarget_", "packDim_", "packRects_", "packSide_", "pickSlot_", "props_", "pruneTabs_", "q_", "qs_", "quickDrive_", "quickDropBackup_", "quickFindHelperRefs_", "quickFnBodyMeta_", "quickFormatMyErr_", "quickGetOrders_", "quickInsertTop_", "quickMyContent_", "quickMyFind_", "quickMyInvalidate_", "quickMyListCached_", "quickMySourceCached_", "quickMySource_", "quickMyStamp_", "quickMyUrl_", "quickOrderKey_", "quickParseFns_", "quickRestoreSheetCopy_", "quickSheetFnsHere_", "quickSkip_", "quickTakeDraft_", "quickUndoNote_", "resetNew_", "resolveDriveItem_", "resolveFolder_", "restoreAll_", "restoreChartApp_", "restoreDoc_", "restoreFilter_", "restoreSheet_", "restoreSide_", "rgb_", "runDo_", "sameFinger_", "sameTable_", "saveSide_", "setJson_", "sheetCtx_", "sheetOf_", "shiftFormula_", "showGasComboSidebar", "sideFields_", "sideItems_", "stripId_", "stripSide_", "summarizeOps_", "tableOfSheet_", "tableOut_", "tgt_", "tidyNumText_", "tidyRangeLegacy_", "tidyRange_", "titleRange_", "touchedSheets_", "touchesItem_", "validationLabel_", "wideRange_", "wideRowCount_", "wlen_", "wrapDriveObj_"];
+var QUICK_LIB_FNS = ["ArgError", "Blocked", "a1_", "actDo_", "actUndo_", "activeDriveList_", "activeFiles_", "activeFolders_", "apiColor_", "apiDefaultSheet_", "apiDig_", "apiGrid_", "apiScan_", "apiSheetId_", "apiSheetNames_", "apiWalk_", "backupDoc_", "backupSheetsLite_", "backupSheets_", "batchRetry_", "bkBook_", "bkLap_", "bkTabName_", "byId_", "call_", "capList_", "captureSide_", "chg_", "clearBody_", "colIndexOf_", "colLetter_", "colNum_", "colRuns_", "colWidths_", "comboCacheGet_", "comboCacheInvalidate_", "comboCachePut_", "comboComputeTitleA1_", "comboDecodeCellVal_", "comboEncodeCellVal_", "comboFastUndoClear_", "comboFastUndoKey_", "comboFastUndoLoadRaw_", "comboFastUndoRestore_", "comboFastUndoSave_", "comboFind", "comboFormatDoText_", "comboFormatLookText_", "comboFormatOpsShort_", "comboGetConfig", "comboGetLearned", "comboGetOAuthToken_", "comboGetRawConfig_", "comboGetSelectionInfo_", "comboGotoRange", "comboInit", "comboKeepsShape_", "comboLearn", "comboLook", "comboMenuUndo", "comboOpenSs_", "comboParseScope_", "comboPing", "comboPollSelection", "comboQuickAfter", "comboQuickBuild", "comboQuickClearFastUndo", "comboQuickImport", "comboQuickList", "comboQuickMake", "comboQuickReopen", "comboQuickRun", "comboQuickSaveOrder", "comboQuickSavePins", "comboQuickSaveSteps", "comboQuickSnap", "comboRenderUnfired_", "comboRunAsk", "comboRunOps", "comboSaveConfig", "comboSetTestTarget", "comboSheetInfos_", "comboTblCacheKey_", "comboUndo", "copyBody_", "countFolderChildren_", "createComboSidebarHtml", "dataRange_", "deleteRowRuns_", "digest_", "discardBackup_", "docBkIds_", "docBkSlotDoc_", "docStructure_", "errReport_", "errScanNeeded_", "errScan_", "extractDriveId_", "filterChanged_", "findTable_", "fingerDoc_", "fingerOnly_", "fingerSheet_", "folderLabel_", "getJson_", "gridA1_", "guardDelete_", "guardOverwrite_", "guardWide_", "headerNames_", "hexColor_", "hiddenRuns_", "isAncestorFolder_", "isBlank_", "isNoCol_", "isNoop_", "isNumberCol_", "json_", "lap_", "ledgerBrief_", "ledgerSave_", "ledger_", "liteTouch_", "loadSide_", "lookSide_", "mimeLabel_", "msOut_", "needTable_", "need_", "normJson_", "note_", "numRuns_", "onOpen", "openTarget_", "packDim_", "packRects_", "packSide_", "pickSlot_", "props_", "pruneTabs_", "q_", "qs_", "quickDrive_", "quickDropBackup_", "quickFindHelperRefs_", "quickFnBodyMeta_", "quickFormatMyErr_", "quickGetOrders_", "quickGetPins_", "quickInsertTop_", "quickMyContent_", "quickMyFind_", "quickMyInvalidate_", "quickMyListCached_", "quickMySourceCached_", "quickMySource_", "quickMyStamp_", "quickMyUrl_", "quickOrderKey_", "quickParseFns_", "quickRestoreSheetCopy_", "quickSheetFnsHere_", "quickSkip_", "quickSplitSteps_", "quickTakeDraft_", "quickUndoNote_", "quickVisibleSheets_", "resetNew_", "resolveDriveItem_", "resolveFolder_", "restoreAll_", "restoreChartApp_", "restoreDoc_", "restoreFilter_", "restoreSheet_", "restoreSide_", "rgb_", "runDo_", "sameFinger_", "sameTable_", "saveSide_", "setJson_", "sheetCtx_", "sheetOf_", "shiftFormula_", "showGasComboSidebar", "sideFields_", "sideItems_", "stripId_", "stripSide_", "summarizeOps_", "tableOfSheet_", "tableOut_", "tgt_", "tidyNumText_", "tidyRangeLegacy_", "tidyRange_", "titleRange_", "touchedSheets_", "touchesItem_", "validationLabel_", "wideRange_", "wideRowCount_", "wlen_", "wrapDriveObj_"];
 function quickSkip_(k) {
 return /_$/.test(k) || /^(combo|__gm|onOpen$|onEdit$|onInstall$|onSelectionChange$|onChange$|onFormSubmit$|doGet$|doPost$|showGasComboSidebar$|createComboSidebarHtml$)/.test(k);
+}
+function quickSplitSteps_(raw) {
+var s = String(raw || '').trim();
+if (!s) return [];
+var tokens = [], idx = 0;
+var protect = function (re) {
+s = s.replace(re, function (m) {
+var key = '\uE002' + (idx++) + '\uE003';
+tokens.push(m);
+return key;
+});
+};
+protect(/\\\//g);
+protect(/\\／/g);
+protect(/https?:\/\/[^\s]+/g);
+protect(/\d+(?:\/\d+)+/g);
+var parts = (/／|\s+\/\s+/.test(s)) ? s.split(/\s*／\s*|\s+\/\s+/) : s.split(/\s*\/\s*/);
+return parts.map(function (st) {
+var restored = st.replace(/\uE002(\d+)\uE003/g, function (_, n) {
+var t = tokens[parseInt(n, 10)] || '';
+if (t === '\\/') return '/';
+if (t === '\\／') return '／';
+return t;
+});
+return restored.trim();
+}).filter(Boolean);
 }
 function quickFnBodyMeta_(fn) {
 var desc = '', words = [], steps = [], noBackup = false;
@@ -1190,12 +1349,12 @@ continue;
 }
 var mw = ln.match(/^\/\/\s*棚\s*[:：]\s*(.+)$/);
 if (mw) {
-words = mw[1].split(/[,、，]/).map(function (w) { return w.trim(); }).filter(String);
+words = words.concat(mw[1].split(/[,、，]/).map(function (w) { return w.trim(); }).filter(String));
 continue;
 }
 var ms = ln.match(/^\/\/\s*手順\s*[:：]\s*(.+)$/);
 if (ms) {
-steps = steps.concat(ms[1].split(/[\/／]/).map(function (st) { return st.trim(); }).filter(String));
+steps = steps.concat(quickSplitSteps_(ms[1]));
 continue;
 }
 var mc = ln.match(/^\/\/\s*(.+)$/);
@@ -1341,14 +1500,30 @@ return (head ? head + '\n\n' : '') + String(block).replace(/\s*$/, '') + '\n' + 
 }
 function quickParseFns_(src) {
 var lines = String(src || '').split('\n'), out = [], words = [], desc = '', steps = [], noBackup = false;
+var inBlock = false;
 for (var i = 0; i < lines.length; i++) {
-var ln = lines[i].trim();
+var rawLine = lines[i];
+var ln = rawLine.trim();
+if (inBlock) {
+var endIdx = ln.indexOf('*/');
+if (endIdx < 0) continue;
+ln = ln.slice(endIdx + 2).trim();
+inBlock = false;
+if (!ln) continue;
+}
+while (/^\/\*/.test(ln)) {
+var closeIdx = ln.indexOf('*/', 2);
+if (closeIdx < 0) { inBlock = true; ln = ''; break; }
+ln = ln.slice(closeIdx + 2).trim();
+}
+if (inBlock) continue;
+if (!ln) { words = []; desc = ''; steps = []; noBackup = false; continue; }
 if (/^\/\/\s*控えなし(?:\s|$)/.test(ln)) { noBackup = true; continue; }
 var mw = ln.match(/^\/\/\s*棚\s*[:：]\s*(.+)$/);
-if (mw) { words = mw[1].split(/[,、，]/).map(function (s) { return s.trim(); }).filter(String); continue; }
+if (mw) { words = words.concat(mw[1].split(/[,、，]/).map(function (s) { return s.trim(); }).filter(String)); continue; }
 var ms = ln.match(/^\/\/\s*手順\s*[:：]\s*(.+)$/);
-if (ms) { steps = steps.concat(ms[1].split(/[\/／]/).map(function (s) { return s.trim(); }).filter(String)); continue; }
-var top = !/^\s/.test(lines[i]);
+if (ms) { steps = steps.concat(quickSplitSteps_(ms[1])); continue; }
+var top = !/^\s/.test(rawLine);
 var mf = top && (ln.match(/^(?:async\s+)?function\s+([^\s(]+)\s*\(/) ||
 ln.match(/^(?:const|let|var)\s+([^\s=]+)\s*=\s*(?:async\s+)?(?:function\s*\(|\([^)]*\)\s*=>|[\w$]+\s*=>)/));
 if (mf) {
@@ -1357,8 +1532,8 @@ words = []; desc = ''; steps = []; noBackup = false;
 continue;
 }
 var mc = ln.match(/^\/\/\s*(.+)$/);
-if (mc) { desc = mc[1].trim(); continue; }
-if (ln) { words = []; desc = ''; steps = []; noBackup = false; }
+if (mc) { if (!desc) desc = mc[1].trim(); continue; }
+words = []; desc = ''; steps = []; noBackup = false;
 }
 return out;
 }
@@ -1376,7 +1551,8 @@ if (hm.noBackup) f.noBackup = true;
 }
 return { name: f.name, desc: f.desc || '', words: Array.isArray(f.words) ? f.words : [], steps: Array.isArray(f.steps) ? f.steps : [], noBackup: !!f.noBackup };
 }), my: [], myId: '', myUrl: '', myStamp: '',
-oauthToken: comboGetOAuthToken_(), build: QUICK_BUILD, draft: quickTakeDraft_(), order: quickGetOrders_() };
+oauthToken: req._skipToken ? '' : comboGetOAuthToken_(), build: QUICK_BUILD, draft: quickTakeDraft_(),
+order: quickGetOrders_(), pins: quickGetPins_() };
 try {
 var meta = quickMyFind_(true);
 if (meta && meta.id) {
@@ -1398,57 +1574,69 @@ if (old) ss.deleteSheet(old);
 } catch (e) {}
 }
 function comboQuickSnap(what) {
-var cache = CacheService.getScriptCache();
 try {
 var ss = SpreadsheetApp.getActive();
 var sh = ss.getActiveSheet();
 if (sh.getName() === QUICK_BK_NAME) return false;
+var ssId = ss.getId();
 quickDropBackup_(ss);
 var bk = sh.copyTo(ss);
 bk.setName(QUICK_BK_NAME);
 bk.hideSheet();
-var snap = { kind: 'sheetcopy', ssId: ss.getId(), sheetName: sh.getName(), bk: QUICK_BK_NAME,
+var snap = { kind: 'sheetcopy', ssId: ssId, sheetName: sh.getName(), bk: QUICK_BK_NAME,
 a1: 'シート全体', what: String(what || 'マクロ'), ts: Date.now(),
 frozenR: sh.getFrozenRows(), frozenC: sh.getFrozenColumns() };
-cache.put(COMBO_PROP_FAST_UNDO, JSON.stringify(snap), COMBO_TBL_CACHE_TTL);
+CacheService.getUserCache().put(comboFastUndoKey_(ssId), JSON.stringify(snap), COMBO_TBL_CACHE_TTL);
 return true;
 } catch (e) {
-try { cache.remove(COMBO_PROP_FAST_UNDO); } catch (e2) {}
+try { comboFastUndoClear_(SpreadsheetApp.getActive().getId()); } catch (e2) {}
 return false;
 }
 }
 function quickRestoreSheetCopy_(ss, snap) {
 var t0 = Date.now();
-var cache = CacheService.getScriptCache();
+var ssId = ss.getId();
 var sh = ss.getSheetByName(snap.sheetName);
 var bk = ss.getSheetByName(snap.bk || QUICK_BK_NAME);
 if (!sh) return { ok: false, error: 'シート「' + snap.sheetName + '」が見つかりません' };
-if (!bk) { cache.remove(COMBO_PROP_FAST_UNDO); return { ok: false, error: '控えのシートが見つかりません（消されたか、次のマクロで入れ替わりました）' }; }
-var nr = bk.getMaxRows(), nc = bk.getMaxColumns();
+if (!bk) {
+comboFastUndoClear_(ssId);
+return { ok: false, error: '控えのシートが見つかりません（消されたか、次のマクロで入れ替わりました）' };
+}
+var maxR = bk.getMaxRows(), maxC = bk.getMaxColumns();
+var isHuge = (maxR * maxC > 50000);
+var nr = isHuge ? Math.min(maxR, Math.max(bk.getLastRow() + 20, sh.getLastRow() + 20, 50)) : maxR;
+var nc = isHuge ? Math.min(maxC, Math.max(bk.getLastColumn() + 5, sh.getLastColumn() + 5, 26)) : maxC;
 if (sh.getMaxRows() < nr) sh.insertRowsAfter(sh.getMaxRows(), nr - sh.getMaxRows());
 if (sh.getMaxColumns() < nc) sh.insertColumnsAfter(sh.getMaxColumns(), nc - sh.getMaxColumns());
-var all = sh.getRange(1, 1, sh.getMaxRows(), sh.getMaxColumns());
+var clrR = isHuge ? Math.min(sh.getMaxRows(), Math.max(sh.getLastRow() + 20, nr)) : sh.getMaxRows();
+var clrC = isHuge ? Math.min(sh.getMaxColumns(), Math.max(sh.getLastColumn() + 5, nc)) : sh.getMaxColumns();
+var all = sh.getRange(1, 1, clrR, clrC);
 all.breakApart();
 all.clear();
 all.clearDataValidations();
+try { sh.getBandings().forEach(function (b) { b.remove(); }); } catch (eB) {}
+try { var flt = sh.getFilter(); if (flt) flt.remove(); } catch (eF) {}
 var src = bk.getRange(1, 1, nr, nc);
 src.copyTo(sh.getRange(1, 1, nr, nc));
 src.copyTo(sh.getRange(1, 1, nr, nc), SpreadsheetApp.CopyPasteType.PASTE_COLUMN_WIDTHS, false);
+if (!isHuge) {
 if (sh.getMaxRows() > nr) sh.deleteRows(nr + 1, sh.getMaxRows() - nr);
 if (sh.getMaxColumns() > nc) sh.deleteColumns(nc + 1, sh.getMaxColumns() - nc);
+}
 if (snap.frozenR !== undefined && sh.getFrozenRows() !== snap.frozenR) sh.setFrozenRows(snap.frozenR);
 if (snap.frozenC !== undefined && sh.getFrozenColumns() !== snap.frozenC) sh.setFrozenColumns(snap.frozenC);
 ss.deleteSheet(bk);
-cache.remove(COMBO_PROP_FAST_UNDO);
-comboCacheInvalidate_(sh.getName());
-var target = { id: ss.getId(), name: ss.getName(), kind: 'sheet', url: 'https://docs.google.com/spreadsheets/d/' + ss.getId() + '/edit', sheet: sh.getName() };
+comboFastUndoClear_(ssId);
+comboCacheInvalidate_(ssId, sh.getName());
+var target = { id: ssId, name: ss.getName(), kind: 'sheet', url: 'https://docs.google.com/spreadsheets/d/' + ssId + '/edit', sheet: sh.getName() };
 return { ok: true, fast: true, undone: 'fast', what: snap.what, target: target,
 text: '対象: ' + target.name + ' › ' + target.sheet + '\n戻した: シート全体（' + snap.what + ' の前）に戻しました',
 gasMs: Date.now() - t0 };
 }
 function quickUndoNote_(snapped, backupOn, noBackup) {
 if (noBackup) return '（控えなし指定）';
-if (backupOn === false) return '（控えなし・backup=OFF）';
+if (backupOn === false) return '（控えなし・取り消し不可・Ctrl+Z 推奨）';
 return snapped ? '' : '（控えを取れませんでした。取り消しは Ctrl+Z で）';
 }
 function quickFormatMyErr_(name, err, isCompile) {
@@ -1468,7 +1656,10 @@ if (ln > 2) lineHint = '（マイマクロ ' + (ln - 2) + ' 行目付近）';
 return name + ' でエラー' + lineHint + ': ' + msg;
 }
 function comboQuickAfter() {
-try { comboCacheInvalidate_(SpreadsheetApp.getActive().getActiveSheet().getName()); } catch (e) {}
+try {
+var ss = SpreadsheetApp.getActive();
+comboCacheInvalidate_(ss.getId(), ss.getActiveSheet().getName());
+} catch (e) {}
 }
 function comboQuickRun(req) {
 var t0 = Date.now();
@@ -1482,31 +1673,33 @@ return { ok: false, error: 'このシートに「' + name + '」がありませ�
 }
 var noBkS = !!(quickFnBodyMeta_(f).noBackup);
 try {
+var ssS = null;
+try { ssS = SpreadsheetApp.getActive(); } catch (eActS) {}
 var snappedS = false;
 if (backupOn && !noBkS) {
 snappedS = comboQuickSnap(name);
 } else {
-try { CacheService.getScriptCache().remove(COMBO_PROP_FAST_UNDO); } catch (eDelS) {}
-try { PropertiesService.getScriptProperties().deleteProperty(COMBO_PROP_FAST_UNDO); } catch (eDelSP) {}
+if (ssS) { comboFastUndoClear_(ssS.getId(), ssS); }
+else { comboQuickClearFastUndo(); }
 }
 var rs = f();
 comboQuickAfter();
-return { ok: true, text: name + ' を実行しました' + (rs !== undefined && rs !== null && rs !== '' && typeof rs.then !== 'function' ? '（' + String(rs).slice(0, 200) + '）' : '') + quickUndoNote_(snappedS, backupOn, noBkS), gasMs: Date.now() - t0 };
+return { ok: true, snapped: snappedS, text: name + ' を実行しました' + (rs !== undefined && rs !== null && rs !== '' && typeof rs.then !== 'function' ? '（' + String(rs).slice(0, 200) + '）' : '') + quickUndoNote_(snappedS, backupOn, noBkS), gasMs: Date.now() - t0 };
 } catch (eS) {
 return { ok: false, error: name + ' でエラー: ' + String(eS && eS.message || eS), gasMs: Date.now() - t0 };
 }
 }
 try {
-var id = req.myId || quickMyFind_();
-if (!id) return { ok: false, error: 'マイマクロがまだありません。一覧の「マイマクロを作る」を押してください' };
-var src = quickMySourceCached_(id, req.myStamp || undefined, true);
+var reqId = String(req.myId || '').trim();
+var meta = reqId ? { id: reqId, stamp: quickMyStamp_(reqId) } : quickMyFind_(true);
+if (!meta || !meta.id || !meta.stamp) {
+meta = quickMyFind_(true);
+}
+if (!meta || !meta.id) return { ok: false, error: 'マイマクロがまだありません。一覧の「マイマクロを作る」を押してください' };
+var id = meta.id;
+var src = quickMySourceCached_(id, meta.stamp);
 var parsed = quickParseFns_(src);
 var hit = parsed.filter(function (f) { return f.name === name; })[0];
-if (!hit) {
-src = quickMySourceCached_(id);
-parsed = quickParseFns_(src);
-hit = parsed.filter(function (f) { return f.name === name; })[0];
-}
 if (!hit) return { ok: false, error: 'マイマクロに「' + name + '」が見つかりません（一覧を更新してください）' };
 var mod;
 try {
@@ -1515,16 +1708,18 @@ mod = new Function(src + '\nreturn {' + JSON.stringify(name) + ': ' + name + '};
 return { ok: false, error: quickFormatMyErr_(name, eComp, true), gasMs: Date.now() - t0 };
 }
 var noBkM = !!hit.noBackup;
+var ssM = null;
+try { ssM = SpreadsheetApp.getActive(); } catch (eActM) {}
 var snapped = false;
 if (backupOn && !noBkM) {
 snapped = comboQuickSnap(name);
 } else {
-try { CacheService.getScriptCache().remove(COMBO_PROP_FAST_UNDO); } catch (eDelM) {}
-try { PropertiesService.getScriptProperties().deleteProperty(COMBO_PROP_FAST_UNDO); } catch (eDelMP) {}
+if (ssM) { comboFastUndoClear_(ssM.getId(), ssM); }
+else { comboQuickClearFastUndo(); }
 }
 var r = mod[name]();
 comboQuickAfter();
-return { ok: true, text: name + ' を実行しました' + (r !== undefined && r !== null && r !== '' && typeof r.then !== 'function' ? '（' + String(r).slice(0, 200) + '）' : '') + quickUndoNote_(snapped, backupOn, noBkM), gasMs: Date.now() - t0 };
+return { ok: true, snapped: snapped, myStamp: meta.stamp, text: name + ' を実行しました' + (r !== undefined && r !== null && r !== '' && typeof r.then !== 'function' ? '（' + String(r).slice(0, 200) + '）' : '') + quickUndoNote_(snapped, backupOn, noBkM), gasMs: Date.now() - t0 };
 } catch (e) {
 return { ok: false, error: quickFormatMyErr_(name, e, false), gasMs: Date.now() - t0 };
 }
@@ -1612,6 +1807,7 @@ if (quickParseFns_(all).some(function (f) { return f.name === name; })) {
 return { ok: false, error: 'マイマクロに同じ名前「' + name + '」があります（どちらかの名前を変えてください）' };
 }
 var file = (content.files || []).filter(function (f) { return f.type === 'server_js'; })[0];
+if (!file) return { ok: false, error: 'マイマクロのコードファイルが見つかりません' };
 var sheetName = '';
 try { sheetName = SpreadsheetApp.getActive().getName(); } catch (e2) {}
 file.source = quickInsertTop_(file.source, '// ' + sheetName + ' から取り込み（' +
@@ -1627,18 +1823,40 @@ return { ok: true, myId: made.myId, myUrl: made.myUrl, text: name + ' をマイ�
 return { ok: false, error: name + ' を写せませんでした: ' + String(e && e.message || e) };
 }
 }
+var QUICK_JS_RESERVED_ = {
+'break': 1, 'case': 1, 'catch': 1, 'class': 1, 'const': 1, 'continue': 1, 'debugger': 1,
+'default': 1, 'delete': 1, 'do': 1, 'else': 1, 'enum': 1, 'export': 1, 'extends': 1,
+'false': 1, 'finally': 1, 'for': 1, 'function': 1, 'if': 1, 'import': 1, 'in': 1,
+'instanceof': 1, 'let': 1, 'new': 1, 'null': 1, 'return': 1, 'static': 1, 'super': 1,
+'switch': 1, 'this': 1, 'throw': 1, 'true': 1, 'try': 1, 'typeof': 1, 'var': 1,
+'void': 1, 'while': 1, 'with': 1, 'yield': 1, 'await': 1, 'eval': 1, 'arguments': 1
+};
 function comboQuickSaveSteps(req) {
 req = req || {};
 try {
 var rawName = String(req.name || '').trim();
 var safeName = rawName.replace(/[\s　.,:;!?()\[\]{}'"`/\\+\-*=<>|&^%$#@~]+/g, '_').replace(/^_+|_+$/g, '');
 if (!safeName) return { ok: false, error: 'マクロ名を入力してください' };
-if (/^\d/.test(safeName)) safeName = '手順_' + safeName;
+if (/^\d/.test(safeName) || QUICK_JS_RESERVED_[safeName]) safeName = '手順_' + safeName;
 if (/_$/.test(safeName)) safeName = safeName.replace(/_+$/, '') + '実行';
 var steps = Array.isArray(req.steps)
 ? req.steps.map(function (s) { return String(s || '').trim().replace(/\r?\n/g, ' '); }).filter(String)
-: String(req.steps || '').split(/[\/／\r\n]+/).map(function (s) { return s.trim(); }).filter(String);
+: quickSplitSteps_(String(req.steps || '').replace(/\r?\n/g, ' ／ '));
 if (!steps.length) return { ok: false, error: '手順が空です' };
+var desc = (String(req.desc || '').trim() || ('手順マクロ（' + Utilities.formatDate(new Date(), 'Asia/Tokyo', 'yyyy/MM/dd') + ' 登録）')).replace(/\r?\n/g, ' ');
+var stepLines = steps.map(function (st) {
+return '// 手順: ' + String(st).replace(/\//g, '\\/').replace(/／/g, '\\／');
+});
+var block = ['// ' + desc].concat(stepLines, [
+'function ' + safeName + '() {',
+'  // GASクイックの一覧から実行すると、上の手順を直結APIで高速実行します',
+'}'
+]).join('\n');
+try {
+new Function(block);
+} catch (eSyn) {
+return { ok: false, error: 'マクロ名または構文が不正です: ' + String(eSyn && eSyn.message || eSyn) };
+}
 var made = comboQuickMake({});
 if (!made.ok) return made;
 var content = quickMyContent_(made.myId);
@@ -1648,14 +1866,6 @@ return { ok: false, error: 'マイマクロに同じ名前「' + safeName + '」
 }
 var file = (content.files || []).filter(function (f) { return f.type === 'server_js'; })[0];
 if (!file) return { ok: false, error: 'マイマクロのコードファイルが見つかりません' };
-var desc = String(req.desc || '').trim() || ('手順マクロ（' + Utilities.formatDate(new Date(), 'Asia/Tokyo', 'yyyy/MM/dd') + ' 登録）');
-var block = [
-'// ' + desc,
-'// 手順: ' + steps.join(' / '),
-'function ' + safeName + '() {',
-'  // GASクイックの一覧から実行すると、上の手順を直結APIで高速実行します',
-'}'
-].join('\n');
 file.source = quickInsertTop_(file.source, block);
 quickDrive_('patch', 'https://www.googleapis.com/upload/drive/v3/files/' + made.myId + '?uploadType=media', JSON.stringify(content), QUICK_SCRIPT_JSON);
 quickMyInvalidate_(made.myId);

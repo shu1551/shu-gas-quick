@@ -37,7 +37,6 @@
     overflow: hidden;
     background: var(--bg);
     color: #000000;
-    text-shadow: 0 0 0.25px #000000;
     font-family: var(--font-ui);
     font-size: 13.5px;
     font-weight: 500;
@@ -51,7 +50,7 @@
   }
 
   ::placeholder {
-    color: #111111;
+    color: #5f6368;
     opacity: 1;
   }
 
@@ -486,10 +485,45 @@
     white-space: pre-line;
   }
 
+  /* ---- インライン手順保存バー ---- */
+  .save-steps-bar {
+    margin-top: 5px;
+    padding: 5px;
+    border: 1px solid #93c5fd;
+    border-radius: 3px;
+    background: #eff6ff;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    flex-shrink: 0;
+  }
+  .save-steps-info {
+    font-size: 11px;
+    color: #1e3a8a;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .save-steps-row {
+    display: flex;
+    gap: 4px;
+    align-items: center;
+  }
+  .save-steps-input {
+    flex: 1;
+    min-width: 0;
+    height: 24px;
+    padding: 2px 5px;
+    border: 1px solid var(--border);
+    border-radius: 2px;
+    background: #ffffff;
+    font-size: 12px;
+  }
+
   /* ---- 下部固定バー ---- */
   .bottom-bar {
     display: grid;
-    grid-template-columns: repeat(3, 1fr);
+    grid-template-columns: 1fr 1fr;
     gap: 4px;
     flex-shrink: 0;
   }
@@ -499,13 +533,22 @@
     font-weight: 500;
     color: #000000;
   }
+  .bottom-bar .btn.btn-undo-ready {
+    border-color: #2563eb;
+    background: #eff6ff;
+    color: #1e40af;
+    font-weight: 700;
+  }
+  .bottom-bar .btn.btn-undo-ready:hover:not(:disabled) {
+    background: #dbeafe;
+  }
 </style>
 </head>
 <body>
 <div class="app">
   <!-- 上部入力欄 -->
   <div class="top-input">
-    <textarea id="askInput" class="ask-textarea" rows="3" placeholder="頼みを入力（例: 見出しを太字に）するか、下の一覧から選ぶ"></textarea>
+    <textarea id="askInput" class="ask-textarea" rows="3" placeholder="頼みを入力（例: 見出しを太字に）するか、「一覧」から選ぶ"></textarea>
     <div class="top-btns">
       <button id="btnRun" class="btn btn-primary btn-run" type="button">実 行</button>
       <button id="btnClear" class="btn btn-clear" type="button">クリア(×)</button>
@@ -524,11 +567,10 @@
   <div class="target-bar">
     <span id="targetNameLabel" class="target-name" title="対象スプレッドシート">読込中…</span>
     <select id="sheetSelect" class="sheet-select" title="シート切替"></select>
-    <button id="btnLook" class="btn" type="button">読込</button>
-    <button id="btnRefresh" class="btn" type="button">更新</button>
+    <button id="btnLook" class="btn" type="button" title="今のシートの表情報を読み直す">読込</button>
   </div>
 
-  <!-- 5タブ -->
+  <!-- 6タブ -->
   <div class="tabs-wrap">
     <div class="tab-bar" role="tablist">
       <button class="tab-btn active" type="button" data-tab="auto">自動</button>
@@ -563,38 +605,18 @@
 
       <!-- 自動タブ -->
       <div id="pane-auto" class="tab-pane active">
-        <!-- Sheetモード -->
         <div id="autoSheetPanel">
           <button id="btnSeiri" class="btn btn-hero" type="button">【一発整形】データ整理 ＋ 表を整える</button>
           <div class="quick-grid">
-            <button class="btn" type="button" data-action="look">読込</button>
-            <button class="btn" type="button" data-action="undo">戻す</button>
             <button class="btn" type="button" data-op='[{"shelf":"total"}]'>合計行</button>
             <button class="btn" type="button" data-action="autoWidth">列幅自動</button>
+            <button class="btn" type="button" data-op='[{"shelf":"dedupe"}]'>重複削除</button>
             <button class="btn" type="button" data-action="freezeHeader">見出し固定</button>
             <button class="btn" type="button" data-op='[{"shelf":"unfreeze"}]'>固定解除</button>
-            <button class="btn" type="button" data-op='[{"shelf":"dedupe"}]'>重複削除</button>
+            <button class="btn" type="button" data-op='[{"shelf":"filter.on"}]'>フィルタ</button>
             <button class="btn" type="button" data-op='[{"shelf":"banding.add","theme":"blue"}]'>交互の色</button>
             <button class="btn" type="button" data-op='[{"shelf":"banding.remove"}]'>交互解除</button>
-          </div>
-        </div>
-
-        <!-- Docモード -->
-        <div id="autoDocPanel" style="display:none;">
-          <button id="btnDocStyle" class="btn btn-hero" type="button">【一発整形】文書の体裁を整える</button>
-          <div class="quick-grid">
-            <button class="btn" type="button" data-action="look">読込</button>
-            <button class="btn" type="button" data-action="undo">戻す</button>
-            <button class="btn" type="button" data-op='[{"shelf":"doc.outline"}]'>章立て確認</button>
-            <button class="btn" type="button" data-op='[{"shelf":"doc.toc"}]'>目次挿入</button>
-            <button class="btn" type="button" data-op='[{"shelf":"doc.header","page_number":true}]'>ページ番号</button>
-            <button class="btn" type="button" data-op='[{"shelf":"doc.table.style"}]'>表の装飾</button>
-            <button class="btn" type="button" data-op='[{"shelf":"doc.align","align":"left"}]'>左揃え</button>
-            <button class="btn" type="button" data-op='[{"shelf":"doc.align","align":"center"}]'>中央揃え</button>
-            <button class="btn" type="button" data-op='[{"shelf":"doc.align","line_spacing":1.5}]'>行間1.5</button>
-            <button class="btn" type="button" data-op='[{"shelf":"doc.list","type":"bullet"}]'>箇条書き</button>
-            <button class="btn" type="button" data-op='[{"shelf":"doc.list","type":"none"}]'>リスト解除</button>
-            <button class="btn" type="button" data-action="findShelf">棚検索</button>
+            <button class="btn" type="button" data-op='[{"shelf":"filter.off"}]'>フィルタ解除</button>
           </div>
         </div>
 
@@ -624,6 +646,14 @@
         <div id="histList" class="hist-list">
           <div class="log-empty">実行した指示の履歴はまだありません。</div>
         </div>
+        <div id="saveStepsBar" class="save-steps-bar" style="display:none;">
+          <div id="saveStepsInfo" class="save-steps-info"></div>
+          <div class="save-steps-row">
+            <input id="saveStepsName" class="save-steps-input" type="text" placeholder="手順マクロ名を入力">
+            <button id="btnSaveStepsOk" class="btn btn-primary" type="button">保存</button>
+            <button id="btnSaveStepsCancel" class="btn" type="button">やめる</button>
+          </div>
+        </div>
         <div class="pane-footer">
           <button id="btnUseHist" class="btn" type="button">入力欄へ</button>
           <button id="btnSaveSteps" class="btn" type="button" title="チェックした履歴（または選択中の履歴）を⚡手順マクロとしてマイマクロへ保存">⚡手順化</button>
@@ -641,8 +671,14 @@
       <!-- 設定タブ -->
       <div id="pane-conf" class="tab-pane">
         <div class="conf-group">
-          <label class="conf-label" for="settingsSheetSelect">シート切替</label>
-          <select id="settingsSheetSelect" class="conf-control"></select>
+          <label class="conf-label" for="settingsDefaultTab">起動時に開くタブ</label>
+          <select id="settingsDefaultTab" class="conf-control">
+            <option value="auto">自動（一発ボタン・自動判定）</option>
+            <option value="list">一覧（マクロ・棚一覧）</option>
+          </select>
+        </div>
+        <div class="conf-group">
+          <div class="conf-note">「控え」ON: 操作前に全体バックアップを取り安全にやり直せます。OFF 時も「直結API」や安全に元に戻せる範囲は自動で取り消し可能です。</div>
         </div>
         <div class="conf-group">
           <div id="settingsInfoLabel" class="conf-note">対象: 未読込</div>
@@ -656,7 +692,6 @@
 
   <!-- 下部固定バー -->
   <div class="bottom-bar">
-    <button id="btnNewTalk" class="btn" type="button" style="display:none">新しい話</button>
     <button id="btnUndo" class="btn" type="button">直前を取り消す</button>
     <button id="btnReload" class="btn" type="button">再読込</button>
   </div>
@@ -707,7 +742,7 @@
 
   var state = {
     activeTab: "auto",
-    quick: { sheet: [], my: [], myId: "", myUrl: "", items: [], sel: -1, loaded: false, importMode: false,
+    quick: { sheet: [], my: [], myId: "", myUrl: "", myStamp: "", items: [], sel: -1, loaded: false, importMode: false,
              filter: "all", pins: {}, order: { sheet: [], my: [], shelf: [] } },
     busy: false,
     target: { id: "", name: "", kind: "sheet", url: "", sheet: "" },
@@ -718,16 +753,20 @@
     heading: "",
     scope: {},
     config: {
-      backupDefault: false
+      backupDefault: false,
+      defaultTab: "auto"
     },
     history: [],
     histIdx: -1,
     selectedHistIdx: -1,
     checkedHist: {},
+    pendingSteps: [],
     oauthToken: "",
     sheetIdMap: {},
+    sheetDimsMap: {},
     sheetSnapshot: {},
-    directUndoStack: []
+    directUndoStack: [],
+    serverCanUndo: false
   };
 
   var els = {
@@ -741,11 +780,8 @@
     targetNameLabel: document.getElementById("targetNameLabel"),
     sheetSelect: document.getElementById("sheetSelect"),
     btnLook: document.getElementById("btnLook"),
-    btnRefresh: document.getElementById("btnRefresh"),
     autoSheetPanel: document.getElementById("autoSheetPanel"),
-    autoDocPanel: document.getElementById("autoDocPanel"),
     btnSeiri: document.getElementById("btnSeiri"),
-    btnDocStyle: document.getElementById("btnDocStyle"),
     selLabel: document.getElementById("selLabel"),
     previewLabel: document.getElementById("previewLabel"),
     infoLabel: document.getElementById("infoLabel"),
@@ -755,14 +791,18 @@
     btnAgain: document.getElementById("btnAgain"),
     btnGoChanged: document.getElementById("btnGoChanged"),
     histList: document.getElementById("histList"),
+    saveStepsBar: document.getElementById("saveStepsBar"),
+    saveStepsInfo: document.getElementById("saveStepsInfo"),
+    saveStepsName: document.getElementById("saveStepsName"),
+    btnSaveStepsOk: document.getElementById("btnSaveStepsOk"),
+    btnSaveStepsCancel: document.getElementById("btnSaveStepsCancel"),
     btnUseHist: document.getElementById("btnUseHist"),
     btnSaveSteps: document.getElementById("btnSaveSteps"),
     btnRerunHist: document.getElementById("btnRerunHist"),
     traceLog: document.getElementById("traceLog"),
-    settingsSheetSelect: document.getElementById("settingsSheetSelect"),
+    settingsDefaultTab: document.getElementById("settingsDefaultTab"),
     settingsInfoLabel: document.getElementById("settingsInfoLabel"),
     settingsBuildLabel: document.getElementById("settingsBuildLabel"),
-    btnNewTalk: document.getElementById("btnNewTalk"),
     btnUndo: document.getElementById("btnUndo"),
     btnReload: document.getElementById("btnReload"),
     quickFilterBar: document.getElementById("quickFilterBar"),
@@ -838,6 +878,17 @@
       setStatus(statusText || "実行中…", true);
     } else {
       setStatus("表示中: " + (TAB_NAMES[state.activeTab] || "自動"), false);
+    }
+  }
+
+  function updateUndoBtnState(canUndo, hint) {
+    state.serverCanUndo = !!canUndo;
+    var active = !!(canUndo || (state.directUndoStack && state.directUndoStack.length));
+    if (els.btnUndo) {
+      els.btnUndo.classList.toggle("btn-undo-ready", active);
+      els.btnUndo.title = active
+        ? ("直前の操作を取り消せます" + (hint ? "（" + hint + "）" : ""))
+        : "直前の操作を取り消す（控えがあれば戻します）";
     }
   }
 
@@ -931,52 +982,24 @@
     try { return JSON.stringify(err); } catch (_e) { return String(err); }
   }
 
-  function updateAutoPanelMode() {
-    var isDoc = state.target && state.target.kind === "doc";
-    els.autoSheetPanel.style.display = isDoc ? "none" : "block";
-    els.autoDocPanel.style.display = isDoc ? "block" : "none";
-  }
-
   function syncSheetSelects() {
-    var isDoc = state.target && state.target.kind === "doc";
-    var selects = [els.sheetSelect, els.settingsSheetSelect];
-    for (var s = 0; s < selects.length; s++) {
-      var sel = selects[s];
-      sel.innerHTML = "";
-      if (isDoc) {
-        var optDoc = document.createElement("option");
-        optDoc.value = "";
-        optDoc.textContent = "（文書）";
-        sel.appendChild(optDoc);
-        sel.disabled = true;
-      } else {
-        sel.disabled = false;
-        var list = state.sheets && state.sheets.length ? state.sheets : (state.curSheet ? [state.curSheet] : []);
-        for (var i = 0; i < list.length; i++) {
-          var opt = document.createElement("option");
-          opt.value = list[i];
-          opt.textContent = list[i];
-          if (list[i] === state.curSheet) opt.selected = true;
-          sel.appendChild(opt);
-        }
-      }
+    var sel = els.sheetSelect;
+    if (!sel) return;
+    sel.innerHTML = "";
+    sel.disabled = false;
+    var list = state.sheets && state.sheets.length ? state.sheets : (state.curSheet ? [state.curSheet] : []);
+    for (var i = 0; i < list.length; i++) {
+      var opt = document.createElement("option");
+      opt.value = list[i];
+      opt.textContent = list[i];
+      if (list[i] === state.curSheet) opt.selected = true;
+      sel.appendChild(opt);
     }
   }
 
   function updateSelectionLabel() {
     if (!els.chkSync.checked) {
       els.selLabel.textContent = "選択中: OFF（上部「連動」チェックで有効化）";
-      return;
-    }
-    var isDoc = state.target && state.target.kind === "doc";
-    if (isDoc) {
-      if (state.heading) {
-        els.selLabel.textContent = "選択中: 見出し「" + state.heading + "」";
-      } else if (state.target.name) {
-        els.selLabel.textContent = "選択中: " + state.target.name;
-      } else {
-        els.selLabel.textContent = "選択中: 待機中…";
-      }
       return;
     }
     if (state.selection) {
@@ -993,23 +1016,19 @@
     els.targetNameLabel.textContent = name;
     els.targetNameLabel.title = name + (tgt.url ? "\n" + tgt.url : "");
 
+    var sh = state.curSheet || tgt.sheet || "";
+    var tb = state.table;
     var msg = "";
-    if (tgt.kind === "doc") {
-      msg = "[文書] " + name + "\n（Google ドキュメントを選択中）";
+    if (tb) {
+      var cols = (tb.columns || []).map(function(c) {
+        return (c.col || "") + ":" + (c.name || "");
+      }).join("・");
+      msg = "[表] " + name + (sh ? " › " + sh : "") +
+        "\n見出し" + (tb.header_row || 1) + "行 (" + (tb.first_col || "?") + "〜" + (tb.last_col || "?") +
+        "・" + (tb.data != null ? tb.data : "?") + "行)" +
+        (cols ? " / 列: " + cols : "");
     } else {
-      var sh = state.curSheet || tgt.sheet || "";
-      var tb = state.table;
-      if (tb) {
-        var cols = (tb.columns || []).map(function(c) {
-          return (c.col || "") + ":" + (c.name || "");
-        }).join("・");
-        msg = "[表] " + name + (sh ? " › " + sh : "") +
-          "\n見出し" + (tb.header_row || 1) + "行 (" + (tb.first_col || "?") + "〜" + (tb.last_col || "?") +
-          "・" + (tb.data != null ? tb.data : "?") + "行)" +
-          (cols ? " / 列: " + cols : "");
-      } else {
-        msg = "[表] " + name + (sh ? " › " + sh : "") + "（表情報なし）";
-      }
+      msg = "[表] " + name + (sh ? " › " + sh : "") + "（表情報なし）";
     }
     els.infoLabel.textContent = msg;
     els.settingsInfoLabel.textContent = msg;
@@ -1031,7 +1050,14 @@
       els.previewLabel.textContent = "自動判定: 待機中";
       return null;
     }
-    var kind = (state.target && state.target.kind) || "sheet";
+    var macroHit = (typeof findQuickMacroMatch === "function") ? findQuickMacroMatch(txt) : null;
+    if (macroHit) {
+      els.previewLabel.textContent = "マクロヒット: [" + (QUICK_TAG[macroHit.src] || macroHit.src) + "] " +
+        (macroHit.steps && macroHit.steps.length ? "⚡" : "") + macroHit.label;
+      els.previewLabel.classList.add("preview-hit");
+      return null;
+    }
+    var kind = "sheet";
     var ls = getActiveScope();
     var p = Planner.plan(txt, kind, state.table, state.sheets, state.curSheet, ls);
     if (p && p.fire) {
@@ -1059,7 +1085,7 @@
       state.target = {
         id: res.target.id || state.target.id || "",
         name: res.target.name || state.target.name || "",
-        kind: res.target.kind || state.target.kind || "sheet",
+        kind: "sheet",
         url: res.target.url || state.target.url || "",
         sheet: res.target.sheet || ""
       };
@@ -1089,9 +1115,6 @@
     } else if (res.scope && typeof res.scope === "object") {
       state.scope = res.scope;
     }
-    if (typeof res.heading === "string") {
-      state.heading = res.heading;
-    }
     if (res.config) {
       applyConfig(res.config);
     }
@@ -1105,22 +1128,29 @@
     if (Array.isArray(res.sheetInfos)) {
       for (var si = 0; si < res.sheetInfos.length; si++) {
         var sInfo = res.sheetInfos[si];
-        if (sInfo && sInfo.name && typeof sInfo.sheetId === "number") {
-          state.sheetIdMap[sInfo.name] = sInfo.sheetId;
+        if (sInfo && sInfo.name) {
+          if (typeof sInfo.sheetId === "number") state.sheetIdMap[sInfo.name] = sInfo.sheetId;
+          state.sheetDimsMap[sInfo.name] = { rows: Number(sInfo.rows || 0), cols: Number(sInfo.cols || 0) };
         }
       }
     }
     if (state.curSheet && typeof res.sheetId === "number") {
       state.sheetIdMap[state.curSheet] = res.sheetId;
     }
+    if (res.quick && typeof applyQuickListRes === "function") {
+      applyQuickListRes(res.quick);
+    }
 
-    updateAutoPanelMode();
     syncSheetSelects();
     updateSelectionLabel();
     updateInfoLabel();
     updatePreview();
-    if (state.curSheet && state.oauthToken && state.target.id && !state.sheetSnapshot[state.curSheet]) {
-      prefetchSheetSnapshot(state.curSheet);
+    if (state.curSheet && state.oauthToken && state.target.id) {
+      var curSnap = state.sheetSnapshot[state.curSheet];
+      var needDim = getSnapshotDims(state.curSheet);
+      if (!curSnap || curSnap.maxRows < needDim.maxRows || curSnap.maxCols < needDim.maxCols) {
+        prefetchSheetSnapshot(state.curSheet);
+      }
     }
   }
 
@@ -1131,6 +1161,10 @@
     if (typeof bkp === "boolean") {
       state.config.backupDefault = bkp;
       els.chkBackup.checked = bkp;
+    }
+    if (cfg.defaultTab === "list" || cfg.defaultTab === "auto") {
+      state.config.defaultTab = cfg.defaultTab;
+      if (els.settingsDefaultTab) els.settingsDefaultTab.value = cfg.defaultTab;
     }
   }
 
@@ -1217,8 +1251,13 @@
     var cls = ok ? "is-ok" : "is-err";
     var body = (bodyText ? bodyText.replace(/\s+$/, "") + "\n" : "") + "(" + timing + ")";
     appendLog(els.chatLog, cls, "[" + prefix + "] " + label, body);
-    var mChg = ok && bodyText ? String(bodyText).match(/直した所:\s*(\S+)/) : null;
-    if (mChg) state.lastChanged = mChg[1].replace(/[／,、]+$/, "");
+    var mChg = ok && bodyText ? String(bodyText).match(/直した所:\s*((?:'[^']+'!)?[^\s／,、]+)/) : null;
+    if (mChg) {
+      var cand = mChg[1].replace(/[／,、]+$/, "");
+      if (/(?:^|!)[A-Z]{1,3}[0-9]{1,6}(?::[A-Z]{1,3}[0-9]{1,6})?$/i.test(cand)) {
+        state.lastChanged = cand;
+      }
+    }
     appendLog(els.traceLog, cls, "[" + prefix + " " + label + "] " + timing, "");
     if (!ok || switchToChat) {
       switchTab("chat");
@@ -1242,12 +1281,15 @@
     "lightred": "#FCE4D6", "lightgreen": "#E2EFDA", "lightyellow": "#FFF2CC", "lightgray": "#F2F2F2"
   };
 
+  function isClearColor(val) {
+    var s = String(val === undefined || val === null ? "" : val).trim();
+    return s === "なし" || /^(none|transparent|clear)$/i.test(s);
+  }
+
   function parseColorToRgbObj(val) {
     if (val === undefined || val === null || val === "") return null;
     var s = String(val).trim();
-    if (s === "なし" || /^(none|transparent|clear)$/i.test(s)) {
-      return { red: 1, green: 1, blue: 1 };
-    }
+    if (isClearColor(s)) return null;
     var hex = DIRECT_COLOR_MAP[s] || DIRECT_COLOR_MAP[s.toLowerCase()];
     if (!hex) {
       var norm = s.replace(/^薄い/, "薄").replace(/色$/, "");
@@ -1324,9 +1366,34 @@
     return "";
   }
 
+  function getSnapshotDims(sheetName) {
+    var maxR = 30, maxC = 26;
+    var dims = state.sheetDimsMap && state.sheetDimsMap[sheetName];
+    if (dims) {
+      if (dims.rows > maxR) maxR = dims.rows;
+      if (dims.cols > maxC) maxC = dims.cols;
+    }
+    var tb = state.table;
+    if (tb && (!state.curSheet || state.curSheet === sheetName)) {
+      if (tb.total_row && Number(tb.total_row) > maxR) maxR = Number(tb.total_row);
+      if (tb.data) {
+        var dm = String(tb.data).match(/-([0-9]+)$/);
+        if (dm && parseInt(dm[1], 10) > maxR) maxR = parseInt(dm[1], 10);
+      }
+      if (tb.last_col) {
+        var lcN = colToNum0(tb.last_col) + 1;
+        if (lcN > maxC) maxC = lcN;
+      }
+    }
+    maxR = Math.min(200, Math.max(30, maxR));
+    maxC = Math.min(40, Math.max(26, maxC));
+    return { maxRows: maxR, maxCols: maxC, rangeA1: "A1:" + num0ToCol(maxC - 1) + maxR };
+  }
+
   function prefetchSheetSnapshot(sheetName, retried) {
     if (!state.oauthToken || !state.target.id || !sheetName || typeof fetch !== "function") return;
-    var qName = "'" + String(sheetName).replace(/'/g, "''") + "'!A1:Z30";
+    var dim = getSnapshotDims(sheetName);
+    var qName = "'" + String(sheetName).replace(/'/g, "''") + "'!" + dim.rangeA1;
     var url = "https://sheets.googleapis.com/v4/spreadsheets/" + encodeURIComponent(state.target.id) +
       "?ranges=" + encodeURIComponent(qName) +
       "&fields=sheets(properties(sheetId,title,gridProperties(frozenRowCount,frozenColumnCount)),bandedRanges(bandedRangeId),data(rowData(values(userEnteredFormat,userEnteredValue,effectiveValue(errorValue)))))";
@@ -1352,10 +1419,10 @@
         var gp = props.gridProperties || {};
         var rowData = (shObj.data && shObj.data[0] && shObj.data[0].rowData) || [];
         var cells = [];
-        for (var r = 0; r < 30; r++) {
+        for (var r = 0; r < dim.maxRows; r++) {
           var rowVals = (rowData[r] && rowData[r].values) || [];
           var rowArr = [];
-          for (var c = 0; c < 26; c++) {
+          for (var c = 0; c < dim.maxCols; c++) {
             rowArr.push((rowVals[c] && rowVals[c].userEnteredFormat) ? JSON.parse(JSON.stringify(rowVals[c].userEnteredFormat)) : {});
           }
           cells.push(rowArr);
@@ -1369,8 +1436,11 @@
           }
         }
         state.sheetSnapshot[sheetName] = {
-          errs: errsOfRowData(rowData),
-          vals: valsOfRowData(rowData),
+          maxRows: dim.maxRows,
+          maxCols: dim.maxCols,
+          rangeA1: dim.rangeA1,
+          errs: errsOfRowData(rowData, dim.maxRows, dim.maxCols),
+          vals: valsOfRowData(rowData, dim.maxRows, dim.maxCols),
           frozenRows: gp.frozenRowCount || 0,
           frozenCols: gp.frozenColumnCount || 0,
           bandedRangeIds: bIds,
@@ -1397,25 +1467,29 @@
       });
   }
 
-  // 写しの範囲（A1:Z30）の中のエラーのセル { "A1": "#REF!" }
+  // 写しの範囲の中のエラーのセル { "A1": "#REF!" }
   var ERR_LABEL = { ERROR: "#ERROR!", NULL_VALUE: "#NULL!", DIVIDE_BY_ZERO: "#DIV/0!", VALUE: "#VALUE!", REF: "#REF!", NAME: "#NAME?", NUM: "#NUM!", N_A: "#N/A", LOADING: "" };
   // 写しの範囲の「書く前の値」 { "A1": userEnteredValue }（空のセルは入れない）
-  function valsOfRowData(rowData) {
+  function valsOfRowData(rowData, maxRows, maxCols) {
     var out = {};
-    for (var r = 0; r < Math.min(rowData.length, 30); r++) {
+    var limR = Math.min(rowData.length, maxRows || 30);
+    var limC = maxCols || 26;
+    for (var r = 0; r < limR; r++) {
       var vs = (rowData[r] && rowData[r].values) || [];
-      for (var c = 0; c < Math.min(vs.length, 26); c++) {
+      for (var c = 0; c < Math.min(vs.length, limC); c++) {
         if (vs[c] && vs[c].userEnteredValue) out[num0ToCol(c) + (r + 1)] = vs[c].userEnteredValue;
       }
     }
     return out;
   }
 
-  function errsOfRowData(rowData) {
+  function errsOfRowData(rowData, maxRows, maxCols) {
     var out = {};
-    for (var r = 0; r < Math.min(rowData.length, 30); r++) {
+    var limR = Math.min(rowData.length, maxRows || 30);
+    var limC = maxCols || 26;
+    for (var r = 0; r < limR; r++) {
       var vs = (rowData[r] && rowData[r].values) || [];
-      for (var c = 0; c < Math.min(vs.length, 26); c++) {
+      for (var c = 0; c < Math.min(vs.length, limC); c++) {
         var ev = vs[c] && vs[c].effectiveValue && vs[c].effectiveValue.errorValue;
         if (ev && ERR_LABEL[ev.type] !== "") out[num0ToCol(c) + (r + 1)] = ERR_LABEL[ev.type] || ("#" + ev.type);
       }
@@ -1424,23 +1498,41 @@
   }
 
   // 値を書く手を直結で撃った後、写しの範囲を読み直して、撃つ前に無かったエラーだけを返す（書式だけの手では読まない）
-  function checkNewErrorsAfterDirect(sheetName, ops, done) {
+  function checkNewErrorsAfterDirect(sheetName, ops, done, retried) {
     var writes = ops.some(function(o) { return /^(write|clear\.)/.test(String(o.shelf || "")); });
     var snap = state.sheetSnapshot[sheetName];
     if (!writes || !snap || !snap.errs || typeof fetch !== "function") { done([]); return; }
-    var qName = "'" + String(sheetName).replace(/'/g, "''") + "'!A1:Z30";
+    var rngA1 = snap.rangeA1 || "A1:Z30";
+    var qName = "'" + String(sheetName).replace(/'/g, "''") + "'!" + rngA1;
     var url = "https://sheets.googleapis.com/v4/spreadsheets/" + encodeURIComponent(state.target.id) +
       "?ranges=" + encodeURIComponent(qName) + "&fields=sheets(data(rowData(values(effectiveValue(errorValue)))))";
     fetch(url, { method: "GET", headers: { "Authorization": "Bearer " + state.oauthToken } })
-      .then(function(r) { return r.ok ? r.json() : null; })
+      .then(function(r) {
+        if (r.status === 401 && !retried && hasGasBridge()) {
+          var e = new Error("401"); e.status = 401; throw e;
+        }
+        return r.ok ? r.json() : null;
+      })
       .then(function(data) {
         var rowData = (data && data.sheets && data.sheets[0] && data.sheets[0].data && data.sheets[0].data[0] && data.sheets[0].data[0].rowData) || [];
-        var now = errsOfRowData(rowData), news = [];
+        var now = errsOfRowData(rowData, snap.maxRows, snap.maxCols), news = [];
         Object.keys(now).forEach(function(k) { if (!(k in snap.errs)) news.push(k + " " + now[k]); });
         snap.errs = now;
         done(news);
       })
-      .catch(function() { done([]); });
+      .catch(function(err) {
+        if (err && err.status === 401 && !retried && hasGasBridge()) {
+          callGas("comboQuickBuild", {}, function(rb) {
+            if (rb && rb.oauthToken) {
+              state.oauthToken = rb.oauthToken;
+              state.oauthTokenAt = Date.now();
+              checkNewErrorsAfterDirect(sheetName, ops, done, true);
+            } else { done([]); }
+          }, function() { done([]); });
+          return;
+        }
+        done([]);
+      });
   }
 
   function getSnapCellFmt(sheetName, r0, c0) {
@@ -1474,6 +1566,29 @@
     orange: { header: "#EF6C00", first: "#FFFFFF", second: "#FFF3E0" }
   };
 
+  function inferNumberFormatType(pattern) {
+    var p = String(pattern || "");
+    if (p === "@" || p.indexOf("@") >= 0) return "TEXT";
+    if (p.indexOf("%") >= 0) return "PERCENT";
+    if (/[¥$€£￥]/.test(p)) return "CURRENCY";
+    var stripped = p.replace(/"[^"]*"/g, "").replace(/\\./g, "");
+    var hasDate = /[ymd]/i.test(stripped);
+    var hasTime = /[hs]/i.test(stripped) || stripped.indexOf("AM/PM") >= 0;
+    if (hasDate && hasTime) return "DATE_TIME";
+    if (hasDate) return "DATE";
+    if (hasTime) return "TIME";
+    return "NUMBER";
+  }
+
+  function normalizeSnapCellFmt(pf) {
+    var uf = JSON.parse(JSON.stringify(pf || {}));
+    if (uf.backgroundColor && !uf.backgroundColorStyle) uf.backgroundColorStyle = { rgbColor: uf.backgroundColor };
+    if (uf.textFormat && uf.textFormat.foregroundColor && !uf.textFormat.foregroundColorStyle) {
+      uf.textFormat.foregroundColorStyle = { rgbColor: uf.textFormat.foregroundColor };
+    }
+    return uf;
+  }
+
   function buildDirectBatchUpdate(ops, sheetName) {
     if (!Array.isArray(ops) || !ops.length) return null;
     if (!state.oauthToken || !state.target.id || state.target.kind !== "sheet" || !sheetName) return null;
@@ -1481,25 +1596,56 @@
     if (typeof state.sheetIdMap[sheetName] !== "number") return null;
 
     var sheetId = state.sheetIdMap[sheetName];
+    var snapCur = state.sheetSnapshot[sheetName] || null;
+    var maxRow0 = (snapCur && snapCur.maxRows) ? (snapCur.maxRows - 1) : 29;
+    var maxCol0 = (snapCur && snapCur.maxCols) ? (snapCur.maxCols - 1) : 25;
     var requests = [];
     var undoRequests = [];
+    var postUndoBuilders = [];
     var snapshotMutators = [];
     var undoSnapshotMutators = [];
     var changed = [];
     var whatList = [];
+    var canUndo = true;
 
     for (var i = 0; i < ops.length; i++) {
       var op = ops[i];
       if (!op || !op.shelf) return null;
       if (op.sheet && op.sheet !== sheetName) return null;
-      // 背景色を消す棚は、書式の道で「背景色の欄を空で送る」＝塗りつぶしなしに戻す
-      var bgClear = op.shelf === "bg.clear";
-      if (bgClear) op = Object.assign({}, op, { shelf: "format" });
+      // 背景色を消す棚／bg="なし" は書式の道で背景色フィールドだけ空で送る（塗りつぶしなしに戻す）
+      var bgClear = op.shelf === "bg.clear" || (op.shelf === "format" && op.bg !== undefined && isClearColor(op.bg));
+      if (op.shelf === "bg.clear") op = Object.assign({}, op, { shelf: "format" });
 
       if (op.shelf === "format") {
         var targetA1 = "";
         if (op.title) {
           targetA1 = (state.table && state.table.title_a1) || "A1";
+          // 1セルタイトルは右側が空なら表幅いっぱいの帯にし、中央/右寄せは左寄せにそろえる
+          if (op.merge === undefined && targetA1.indexOf(":") < 0 && state.table && state.table.last_col) {
+            var tmT = /^([A-Z]+)(\d+)$/.exec(targetA1);
+            var fcT = state.table.first_col || (tmT && tmT[1]);
+            var lcT = state.table.last_col;
+            if (tmT && colToNum0(lcT) > colToNum0(tmT[1])) {
+              var startColL = colToNum0(fcT) < colToNum0(tmT[1]) ? fcT : tmT[1];
+              var bandClear = !!(snapCur && snapCur.vals);
+              if (bandClear) {
+                var rKey = tmT[2];
+                var cLo = colToNum0(startColL), cHi = colToNum0(lcT), cOrig = colToNum0(tmT[1]);
+                for (var bc = cLo; bc <= cHi; bc++) {
+                  if (bc !== cOrig && snapCur.vals[num0ToCol(bc) + rKey]) {
+                    bandClear = false;
+                    break;
+                  }
+                }
+              }
+              if (bandClear) {
+                targetA1 = startColL + tmT[2] + ":" + lcT + tmT[2];
+                if (op.align === "center" || op.align === "right") {
+                  op = Object.assign({}, op, { align: "left" });
+                }
+              }
+            }
+          }
         } else if (op.header) {
           if (!state.table || !state.table.header_row || !state.table.first_col || !state.table.last_col) return null;
           targetA1 = state.table.first_col + state.table.header_row + ":" + state.table.last_col + state.table.header_row;
@@ -1519,10 +1665,12 @@
 
         var parsedRg = parseSimpleA1Range(targetA1, sheetId);
         if (!parsedRg) return null;
+        if (op.merge === false) return null;
 
         var cellFmt = {};
         var textFmt = {};
         var hasTextFmt = false;
+        var fgClear = false;
         var fields = [];
         var did = [];
 
@@ -1539,12 +1687,19 @@
           did.push("italic");
         }
         if (op.color !== undefined) {
-          var rgbFg = parseColorToRgbObj(op.color);
-          if (!rgbFg) return null;
-          textFmt.foregroundColorStyle = { rgbColor: rgbFg };
-          hasTextFmt = true;
-          fields.push("userEnteredFormat.textFormat.foregroundColorStyle");
-          did.push("color");
+          if (isClearColor(op.color)) {
+            fgClear = true;
+            hasTextFmt = true;
+            fields.push("userEnteredFormat.textFormat.foregroundColorStyle");
+            did.push("color");
+          } else {
+            var rgbFg = parseColorToRgbObj(op.color);
+            if (!rgbFg) return null;
+            textFmt.foregroundColorStyle = { rgbColor: rgbFg };
+            hasTextFmt = true;
+            fields.push("userEnteredFormat.textFormat.foregroundColorStyle");
+            did.push("color");
+          }
         }
         if (bgClear) {
           fields.push("userEnteredFormat.backgroundColorStyle");
@@ -1569,7 +1724,8 @@
           did.push("font");
         }
         if (op.number_format !== undefined) {
-          cellFmt.numberFormat = { type: "NUMBER", pattern: String(op.number_format) };
+          var nfPat = String(op.number_format);
+          cellFmt.numberFormat = { type: inferNumberFormatType(nfPat), pattern: nfPat };
           fields.push("userEnteredFormat.numberFormat");
           did.push("number_format");
         }
@@ -1604,20 +1760,16 @@
             }
           });
 
-          // 取り消し：書く前のセルの書式を、セルごとにそのまま書き戻す（範囲の左上 1 セルで全体を塗り戻さない）。
-          // 書く前の写し（A1:Z30）が無い・範囲がその外なら、直結の道は使わず GAS の道に任せる（黒・白で戻してしまうため）
+          // 取り消し：書く前のセルの書式をセルごとに書き戻す（写しが無い・範囲外なら GAS の道に任せる）
           var snapU = state.sheetSnapshot[sheetName];
-          if (!snapU || !snapU.cells || !snapU.cells.length || parsedRg.r2 > 29 || parsedRg.c2 > 25) return null;
+          if (!snapU || !snapU.cells || !snapU.cells.length || parsedRg.r2 > maxRow0 || parsedRg.c2 > maxCol0) return null;
           var prevCells = [], undoRows = [];
           for (var ur = parsedRg.r1; ur <= parsedRg.r2; ur++) {
             var pRow = [], uVals = [];
             for (var uc = parsedRg.c1; uc <= parsedRg.c2; uc++) {
               var pf = JSON.parse(JSON.stringify((snapU.cells[ur] && snapU.cells[ur][uc]) || {}));
               pRow.push(pf);
-              var uf = JSON.parse(JSON.stringify(pf));
-              if (uf.backgroundColor && !uf.backgroundColorStyle) uf.backgroundColorStyle = { rgbColor: uf.backgroundColor };
-              if (uf.textFormat && uf.textFormat.foregroundColor && !uf.textFormat.foregroundColorStyle) uf.textFormat.foregroundColorStyle = { rgbColor: uf.textFormat.foregroundColor };
-              uVals.push({ userEnteredFormat: uf });
+              uVals.push({ userEnteredFormat: normalizeSnapCellFmt(pf) });
             }
             prevCells.push(pRow);
             undoRows.push({ values: uVals });
@@ -1630,12 +1782,12 @@
             }
           });
 
-          (function(rgInfo, cFmt, prev, clearBg) {
+          (function(rgInfo, cFmt, prev, clearBg, clearFg) {
             snapshotMutators.push(function() {
               var snap = state.sheetSnapshot[sheetName];
               if (!snap || !snap.cells) return;
-              for (var r = rgInfo.r1; r <= Math.min(rgInfo.r2, 29); r++) {
-                for (var c = rgInfo.c1; c <= Math.min(rgInfo.c2, 25); c++) {
+              for (var r = rgInfo.r1; r <= Math.min(rgInfo.r2, maxRow0); r++) {
+                for (var c = rgInfo.c1; c <= Math.min(rgInfo.c2, maxCol0); c++) {
                   var cur = snap.cells[r][c] || {};
                   if (cFmt.backgroundColorStyle) cur.backgroundColorStyle = cFmt.backgroundColorStyle;
                   else if (clearBg) { delete cur.backgroundColorStyle; delete cur.backgroundColor; }
@@ -1643,8 +1795,10 @@
                   if (cFmt.verticalAlignment) cur.verticalAlignment = cFmt.verticalAlignment;
                   if (cFmt.wrapStrategy) cur.wrapStrategy = cFmt.wrapStrategy;
                   if (cFmt.numberFormat) cur.numberFormat = cFmt.numberFormat;
-                  if (cFmt.textFormat) {
-                    cur.textFormat = Object.assign({}, cur.textFormat || {}, cFmt.textFormat);
+                  if (cFmt.textFormat || clearFg) {
+                    var tf = Object.assign({}, cur.textFormat || {}, cFmt.textFormat || {});
+                    if (clearFg) { delete tf.foregroundColorStyle; delete tf.foregroundColor; }
+                    cur.textFormat = tf;
                   }
                   snap.cells[r][c] = cur;
                 }
@@ -1653,13 +1807,13 @@
             undoSnapshotMutators.push(function() {
               var snap = state.sheetSnapshot[sheetName];
               if (!snap || !snap.cells) return;
-              for (var r = rgInfo.r1; r <= Math.min(rgInfo.r2, 29); r++) {
-                for (var c = rgInfo.c1; c <= Math.min(rgInfo.c2, 25); c++) {
+              for (var r = rgInfo.r1; r <= Math.min(rgInfo.r2, maxRow0); r++) {
+                for (var c = rgInfo.c1; c <= Math.min(rgInfo.c2, maxCol0); c++) {
                   snap.cells[r][c] = JSON.parse(JSON.stringify(prev[r - rgInfo.r1][c - rgInfo.c1]));
                 }
               }
             });
-          })(parsedRg, cellFmt, prevCells, bgClear);
+          })(parsedRg, cellFmt, prevCells, bgClear, fgClear);
         }
 
         if (op.borders !== undefined) {
@@ -1676,9 +1830,9 @@
             bReq.top = bSolid; bReq.bottom = bSolid; bReq.left = bSolid; bReq.right = bSolid;
             bReq.innerHorizontal = bSolid; bReq.innerVertical = bSolid;
           }
-          // 取り消しは、書く前のセルの罫線をセルごとに書き戻す（写しが無い・A1:Z30 の外なら GAS の道に任せる）
+          // 取り消しは書く前のセルの罫線を書き戻す（写しが無い・範囲外なら GAS の道に任せる）
           var snapB = state.sheetSnapshot[sheetName];
-          if (!snapB || !snapB.cells || !snapB.cells.length || parsedRg.r2 > 29 || parsedRg.c2 > 25) return null;
+          if (!snapB || !snapB.cells || !snapB.cells.length || parsedRg.r2 > maxRow0 || parsedRg.c2 > maxCol0) return null;
           var bRows = [];
           for (var brr = parsedRg.r1; brr <= parsedRg.r2; brr++) {
             var bVals = [];
@@ -1696,22 +1850,15 @@
               fields: "userEnteredFormat.borders"
             }
           });
-          // 罫線は写しに書き足せないので、書いた後・戻した後に写しを取り直す（次の取り消しが古い罫線で戻さないように）
           snapshotMutators.push(function() { prefetchSheetSnapshot(sheetName); });
           undoSnapshotMutators.push(function() { prefetchSheetSnapshot(sheetName); });
           did.push("borders");
         }
 
-        if (op.merge !== undefined) {
-          if (op.merge) {
-            requests.push({ mergeCells: { range: parsedRg.gridRange, mergeType: "MERGE_ALL" } });
-            undoRequests.unshift({ unmergeCells: { range: parsedRg.gridRange } });
-            did.push("merge");
-          } else {
-            requests.push({ unmergeCells: { range: parsedRg.gridRange } });
-            undoRequests.unshift({ mergeCells: { range: parsedRg.gridRange, mergeType: "MERGE_ALL" } });
-            did.push("unmerge");
-          }
+        if (op.merge) {
+          requests.push({ mergeCells: { range: parsedRg.gridRange, mergeType: "MERGE_ALL" } });
+          undoRequests.unshift({ unmergeCells: { range: parsedRg.gridRange } });
+          did.push("merge");
         }
 
         if (!did.length) return null;
@@ -1730,16 +1877,31 @@
             fields: "gridProperties.frozenRowCount,gridProperties.frozenColumnCount"
           }
         });
-        var snapF = state.sheetSnapshot[sheetName] || { frozenRows: 0, frozenCols: 0 };
-        undoRequests.unshift({
-          updateSheetProperties: {
-            properties: {
-              sheetId: sheetId,
-              gridProperties: { frozenRowCount: snapF.frozenRows || 0, frozenColumnCount: snapF.frozenCols || 0 }
-            },
-            fields: "gridProperties.frozenRowCount,gridProperties.frozenColumnCount"
-          }
-        });
+        var snapF = state.sheetSnapshot[sheetName];
+        if (snapF) {
+          var prevFR = snapF.frozenRows || 0, prevFC = snapF.frozenCols || 0;
+          undoRequests.unshift({
+            updateSheetProperties: {
+              properties: {
+                sheetId: sheetId,
+                gridProperties: { frozenRowCount: prevFR, frozenColumnCount: prevFC }
+              },
+              fields: "gridProperties.frozenRowCount,gridProperties.frozenColumnCount"
+            }
+          });
+          (function(sName, nFR, nFC, oFR, oFC) {
+            snapshotMutators.push(function() {
+              var sp = state.sheetSnapshot[sName];
+              if (sp) { sp.frozenRows = nFR; sp.frozenCols = nFC; }
+            });
+            undoSnapshotMutators.push(function() {
+              var sp = state.sheetSnapshot[sName];
+              if (sp) { sp.frozenRows = oFR; sp.frozenCols = oFC; }
+            });
+          })(sheetName, fRows, fCols, prevFR, prevFC);
+        } else {
+          canUndo = false;
+        }
         changed.push(sheetName + "!" + (op.shelf === "unfreeze" ? "固定解除" : ("固定 " + fRows + "行")));
         whatList.push(op.shelf);
       } else if (op.shelf === "width") {
@@ -1802,6 +1964,7 @@
           }
         }
         if (!wDid.length) return null;
+        canUndo = false;
         changed.push(sheetName + "!" + wDid.join("・") + " 幅・高さを変更");
         whatList.push("width");
       } else if (op.shelf === "clear.format" || op.shelf === "clear.values" || op.shelf === "clear.all") {
@@ -1809,28 +1972,89 @@
         if (op.shelf === "clear.values" && op.only === "constants") return null;
         var clRg = parseSimpleA1Range(String(op.range || ""), sheetId);
         if (!clRg) return null;
+        var snapCl = state.sheetSnapshot[sheetName];
+        if (!snapCl || clRg.r2 > maxRow0 || clRg.c2 > maxCol0) return null;
+        if ((op.shelf === "clear.format" || op.shelf === "clear.all") && (!snapCl.cells || !snapCl.cells.length)) return null;
+        if ((op.shelf === "clear.values" || op.shelf === "clear.all") && !snapCl.vals) return null;
+
+        var clUndoRows = [], clPrevCells = [], clPrevVals = {};
+        for (var clr = clRg.r1; clr <= clRg.r2; clr++) {
+          var crRow = [], cpRow = [];
+          for (var clc = clRg.c1; clc <= clRg.c2; clc++) {
+            var cObj = {};
+            if (op.shelf === "clear.format" || op.shelf === "clear.all") {
+              var cpf = JSON.parse(JSON.stringify((snapCl.cells[clr] && snapCl.cells[clr][clc]) || {}));
+              cpRow.push(cpf);
+              cObj.userEnteredFormat = normalizeSnapCellFmt(cpf);
+            }
+            if (op.shelf === "clear.values" || op.shelf === "clear.all") {
+              var ck = num0ToCol(clc) + (clr + 1);
+              var cv = snapCl.vals[ck];
+              if (cv) {
+                clPrevVals[ck] = JSON.parse(JSON.stringify(cv));
+                cObj.userEnteredValue = JSON.parse(JSON.stringify(cv));
+              }
+            }
+            crRow.push(cObj);
+          }
+          if (cpRow.length) clPrevCells.push(cpRow);
+          clUndoRows.push({ values: crRow });
+        }
+
         if (op.shelf === "clear.format") {
           requests.push({ repeatCell: { range: clRg.gridRange, cell: {}, fields: "userEnteredFormat" } });
+          undoRequests.unshift({ updateCells: { range: clRg.gridRange, rows: clUndoRows, fields: "userEnteredFormat" } });
           changed.push(sheetName + "!" + clRg.a1 + " 書式クリア");
         } else if (op.shelf === "clear.values") {
           requests.push({ updateCells: { range: clRg.gridRange, fields: "userEnteredValue" } });
+          undoRequests.unshift({ updateCells: { range: clRg.gridRange, rows: clUndoRows, fields: "userEnteredValue" } });
           changed.push(sheetName + "!" + clRg.a1 + " 値クリア");
         } else {
           requests.push({ updateCells: { range: clRg.gridRange, fields: "userEnteredValue,userEnteredFormat" } });
+          undoRequests.unshift({ updateCells: { range: clRg.gridRange, rows: clUndoRows, fields: "userEnteredValue,userEnteredFormat" } });
           changed.push(sheetName + "!" + clRg.a1 + " すべてクリア");
         }
+
+        (function(rgInfo, shMode, prevC, prevV) {
+          snapshotMutators.push(function() {
+            var sp = state.sheetSnapshot[sheetName];
+            if (!sp) return;
+            for (var r = rgInfo.r1; r <= Math.min(rgInfo.r2, maxRow0); r++) {
+              for (var c = rgInfo.c1; c <= Math.min(rgInfo.c2, maxCol0); c++) {
+                if ((shMode === "clear.format" || shMode === "clear.all") && sp.cells && sp.cells[r]) sp.cells[r][c] = {};
+                if ((shMode === "clear.values" || shMode === "clear.all") && sp.vals) delete sp.vals[num0ToCol(c) + (r + 1)];
+              }
+            }
+          });
+          undoSnapshotMutators.push(function() {
+            var sp = state.sheetSnapshot[sheetName];
+            if (!sp) return;
+            for (var r = rgInfo.r1; r <= Math.min(rgInfo.r2, maxRow0); r++) {
+              for (var c = rgInfo.c1; c <= Math.min(rgInfo.c2, maxCol0); c++) {
+                if ((shMode === "clear.format" || shMode === "clear.all") && sp.cells && sp.cells[r]) {
+                  sp.cells[r][c] = JSON.parse(JSON.stringify(prevC[r - rgInfo.r1][c - rgInfo.c1]));
+                }
+                if ((shMode === "clear.values" || shMode === "clear.all") && sp.vals) {
+                  var kk = num0ToCol(c) + (r + 1);
+                  if (prevV[kk]) sp.vals[kk] = JSON.parse(JSON.stringify(prevV[kk]));
+                  else delete sp.vals[kk];
+                }
+              }
+            }
+          });
+        })(clRg, op.shelf, clPrevCells, clPrevVals);
         whatList.push(op.shelf);
       } else if (op.shelf === "write") {
         if (op.tsv !== undefined || !op.cells || typeof op.cells !== "object" || Array.isArray(op.cells)) return null;
         var wKeys = Object.keys(op.cells);
         if (!wKeys.length) return null;
-        // 書く前の値が写しで分かるセルだけ直結で書く。空でないセルの上書きは GAS の道（上書きの止め・控えあり）に任せる
+        // 書く前の値が写しで分かるセルだけ直結で書く。空でないセルの上書きは GAS の道に任せる
         var wSnap = state.sheetSnapshot[sheetName];
         if (!wSnap || !wSnap.vals) return null;
         for (var wi = 0; wi < wKeys.length; wi++) {
           var cellRg = parseSimpleA1Range(wKeys[wi], sheetId);
           if (!cellRg || cellRg.r1 !== cellRg.r2 || cellRg.c1 !== cellRg.c2) return null;
-          if (cellRg.r1 > 29 || cellRg.c1 > 25) return null;
+          if (cellRg.r1 > maxRow0 || cellRg.c1 > maxCol0) return null;
           var wPrev = wSnap.vals[cellRg.a1];
           if (wPrev && !(els.chkOk && els.chkOk.checked)) return null;
           undoRequests.unshift({
@@ -1856,6 +2080,7 @@
         whatList.push("write");
       } else if (op.shelf === "filter.off") {
         requests.push({ clearBasicFilter: { sheetId: sheetId } });
+        canUndo = false;
         changed.push(sheetName + " フィルター解除");
         whatList.push("filter.off");
       } else if (op.shelf === "filter.on") {
@@ -1880,6 +2105,8 @@
             sortSpecs: [{ dimensionIndex: sortColIdx, sortOrder: op.desc ? "DESCENDING" : "ASCENDING" }]
           }
         });
+        canUndo = false;
+        snapshotMutators.push(function() { prefetchSheetSnapshot(sheetName); });
         changed.push(sheetName + "!" + sRg.a1 + " " + op.col + "列で" + (op.desc ? "降順" : "昇順") + "並べ替え");
         whatList.push("sort");
       } else if (op.shelf === "banding.add" || op.shelf === "banding.remove") {
@@ -1909,6 +2136,22 @@
               }
             }
           });
+          if (oldBandIds.length === 0) {
+            (function(rIdx, sName) {
+              postUndoBuilders.push(function(resJson, outUndo) {
+                if (resJson && Array.isArray(resJson.replies) && resJson.replies[rIdx] &&
+                    resJson.replies[rIdx].addBanding && resJson.replies[rIdx].addBanding.bandedRange) {
+                  var bid = resJson.replies[rIdx].addBanding.bandedRange.bandedRangeId;
+                  outUndo.unshift({ deleteBanding: { bandedRangeId: bid } });
+                }
+              });
+              undoSnapshotMutators.push(function() {
+                if (state.sheetSnapshot[sName]) state.sheetSnapshot[sName].bandedRangeIds = [];
+              });
+            })(addReqIdx, sheetName);
+          } else {
+            canUndo = false;
+          }
           (function(rIdx, sName) {
             snapshotMutators.push(function(resJson) {
               var sp = state.sheetSnapshot[sName];
@@ -1923,6 +2166,7 @@
           })(addReqIdx, sheetName);
           changed.push(sheetName + "!" + bRg.a1 + " 交互背景色(" + themeKey + ")");
         } else {
+          canUndo = false;
           (function(sName) {
             snapshotMutators.push(function() {
               if (state.sheetSnapshot[sName]) state.sheetSnapshot[sName].bandedRangeIds = [];
@@ -1935,8 +2179,7 @@
         var tcName = op.name || sheetName;
         var tcSid = state.sheetIdMap[tcName];
         if (typeof tcSid !== "number") return null;
-        var isClearTab = (op.color === undefined || op.color === null || op.color === "" ||
-          op.color === "なし" || /^(none|clear)$/i.test(String(op.color).trim()));
+        var isClearTab = (op.color === undefined || op.color === null || op.color === "" || isClearColor(op.color));
         var tabStyle = null;
         if (!isClearTab) {
           var tcRgb = parseColorToRgbObj(op.color);
@@ -1949,6 +2192,7 @@
             fields: "tabColorStyle"
           }
         });
+        canUndo = false;
         changed.push(tcName + " タブ色" + (isClearTab ? "解除" : "変更"));
         whatList.push("sheet.color");
       } else if (op.shelf === "sheet.rename") {
@@ -1973,6 +2217,7 @@
           snapshotMutators.push(function() {
             delete state.sheetIdMap[oName];
             state.sheetIdMap[nName] = sid;
+            if (state.sheetDimsMap[oName]) { state.sheetDimsMap[nName] = state.sheetDimsMap[oName]; delete state.sheetDimsMap[oName]; }
             if (Array.isArray(state.sheets)) {
               for (var si = 0; si < state.sheets.length; si++) {
                 if (state.sheets[si] === oName) state.sheets[si] = nName;
@@ -1984,10 +2229,14 @@
               state.sheetSnapshot[nName] = state.sheetSnapshot[oName];
               delete state.sheetSnapshot[oName];
             }
+            syncSheetSelects();
+            updateInfoLabel();
+            updateSelectionLabel();
           });
           undoSnapshotMutators.push(function() {
             delete state.sheetIdMap[nName];
             state.sheetIdMap[oName] = sid;
+            if (state.sheetDimsMap[nName]) { state.sheetDimsMap[oName] = state.sheetDimsMap[nName]; delete state.sheetDimsMap[nName]; }
             if (Array.isArray(state.sheets)) {
               for (var si = 0; si < state.sheets.length; si++) {
                 if (state.sheets[si] === nName) state.sheets[si] = oName;
@@ -1999,6 +2248,9 @@
               state.sheetSnapshot[oName] = state.sheetSnapshot[nName];
               delete state.sheetSnapshot[nName];
             }
+            syncSheetSelects();
+            updateInfoLabel();
+            updateSelectionLabel();
           });
         })(rnOld, rnNew, rnSid);
         changed.push(rnOld + " → " + rnNew + " シート名変更");
@@ -2045,6 +2297,7 @@
         for (var apiIdx = 0; apiIdx < op.requests.length; apiIdx++) {
           requests.push(op.requests[apiIdx]);
         }
+        canUndo = false;
         changed.push(sheetName + " API直接操作(" + op.requests.length + "件)");
         whatList.push("api");
       } else {
@@ -2056,6 +2309,15 @@
     return {
       requests: requests,
       undoRequests: undoRequests,
+      canUndo: canUndo,
+      finalizeUndo: function(resJson) {
+        if (!canUndo) return [];
+        var out = undoRequests.slice();
+        for (var pb = 0; pb < postUndoBuilders.length; pb++) {
+          postUndoBuilders[pb](resJson, out);
+        }
+        return out;
+      },
       changed: changed,
       what: whatList.join("・"),
       applySnapshot: function(resJson) {
@@ -2110,22 +2372,27 @@
         var wallMs = performance.now() - t0;
         setBusy(false);
         plan.applySnapshot(resJson);
-        if (plan.undoRequests && plan.undoRequests.length) {
+        var finalUndoReqs = plan.finalizeUndo(resJson);
+        if (plan.canUndo && finalUndoReqs.length) {
           state.directUndoStack.push({
-            sheet: sheetName,
+            sheet: state.curSheet || sheetName,
             what: plan.what || "format",
-            requests: plan.undoRequests,
+            requests: finalUndoReqs,
             restoreSnapshot: plan.restoreSnapshot
           });
+          updateUndoBtnState(true, plan.what);
+        } else {
+          state.directUndoStack = [];
+          updateUndoBtnState(false);
         }
         var lines = [];
         if (isFromAsk) {
           lines.push("[棚ヒット] " + formatOpsShort(ops));
         }
-        lines.push("対象: " + (state.target.name || "(名前なし)") + " › " + sheetName);
+        lines.push("対象: " + (state.target.name || "(名前なし)") + " › " + (state.curSheet || sheetName));
         lines.push("直した所: " + plan.changed.slice(0, 2).join(" ／ "));
-        lines.push("控えなし（backup=OFF）");
-        checkNewErrorsAfterDirect(sheetName, ops, function(news) {
+        lines.push((plan.canUndo && finalUndoReqs.length) ? "直接控えあり（直前を取り消す で戻せます）" : "控えなし（取り消し不可・Ctrl+Z 推奨）");
+        checkNewErrorsAfterDirect(state.curSheet || sheetName, ops, function(news) {
           if (news.length) lines.push("⚠ 新しいエラー: " + news.slice(0, 5).join("・") + (news.length > 5 ? " ほか " + (news.length - 5) + " 件" : "") + "（直前を取り消すで戻せます）");
           recordExecution(true, label, lines.join("\n"), wallMs, 0, switchChat, true);
         });
@@ -2196,6 +2463,7 @@
         var wallMs = performance.now() - t0;
         setBusy(false);
         if (item.restoreSnapshot) item.restoreSnapshot();
+        updateUndoBtnState(false);
         var body = [
           "対象: " + (state.target.name || "(名前なし)") + " › " + item.sheet,
           "戻した: " + item.what + " を取り消しました（直接API戻し）"
@@ -2255,6 +2523,12 @@
 
         if (opts.onSuccess) opts.onSuccess(res, wallMs);
         applyServerState(res);
+        if (opts.fnName === "comboUndo") {
+          updateUndoBtnState(false);
+        } else if (opts.fnName === "comboRunOps" || opts.fnName === "comboRunAsk" || opts.fnName === "comboQuickRun") {
+          var canBack = !!(res.backup || res.fastUndo || res.snapped);
+          updateUndoBtnState(canBack, res.backup ? ("控え #" + res.backup) : (canBack ? "控えあり" : ""));
+        }
 
         if (!opts.silentSuccess) {
           recordExecution(true, opts.label, res.text || "完了", wallMs, res.gasMs, switchChat);
@@ -2268,13 +2542,15 @@
     );
   }
 
-  function onInit(silent) {
+  function onInit(silent, forceQuick) {
     runServerAction({
       fnName: "comboInit",
       payload: {
         targetId: state.target.id || "",
         sheet: state.curSheet || "",
-        assumeActive: true
+        assumeActive: true,
+        includeQuick: true,
+        forceQuick: !!forceQuick
       },
       label: "初期化 / 再読込",
       statusText: "読込中…",
@@ -2303,6 +2579,21 @@
 
   function hasSelectionPronoun(txt) {
     return /(ここ|このセル|選択範囲|選択セル|この行|この列|この範囲|今のセル)/.test(txt || "");
+  }
+
+  function formatUnfiredLocal(p) {
+    if (p && typeof p.message === "string" && p.message) return p.message;
+    var lines = ["このまま即実行できる命令に当てはまりませんでした。"];
+    if (p && Array.isArray(p.reasons) && p.reasons.length) {
+      lines.push("理由: " + p.reasons.join("／"));
+    } else if (p && p.reason) {
+      lines.push("理由: " + p.reason);
+    }
+    if (p && Array.isArray(p.missing) && p.missing.length) {
+      lines.push("不足している情報: " + p.missing.join("、"));
+    }
+    lines.push("「自動」タブのボタン、「一覧」タブのマクロ、または「B2:D10を太字」「見出し固定」のように入力してお試しください。");
+    return lines.join("\n");
   }
 
   function onRunAsk() {
@@ -2342,6 +2633,7 @@
       ops: fireOps,
       ok: !!els.chkOk.checked,
       backup: !!els.chkBackup.checked,
+      fastUndo: !els.chkBackup.checked,
       assumeActive: true,
       targetId: state.target.id || "",
       targetName: state.target.name || "",
@@ -2354,6 +2646,11 @@
     }
     if (suggestOps) {
       offerSuggest(txt, suggestOps, null);
+      return;
+    }
+    if (!fireOps && !liveSelPrompt) {
+      state.directUndoStack = [];
+      recordExecution(false, txt, formatUnfiredLocal(planRes), 0, 0, true);
       return;
     }
     if (fireOps && !liveSelPrompt && !els.chkBackup.checked) {
@@ -2401,17 +2698,13 @@
   }
   var quickSheetSyncAt = 0;
   function quickSyncSheetOnFocus() {
-    if (!hasGasBridge() || state.busy || !state.target || !state.target.id) return;
+    if (!hasGasBridge() || state.busy || !state.target || !state.target.id || !els.chkSync.checked) return;
     var now = Date.now();
     if (now - quickSheetSyncAt < 5000) return;
     quickSheetSyncAt = now;
-    callGas("comboPollSelection", { targetId: state.target.id || "", sheet: "" }, function(res) {
+    callGas("comboPollSelection", { targetId: state.target.id || "", sheet: "", prevSheet: state.curSheet || "" }, function(res) {
       if (!res || !res.ok) return;
-      var prevSheet = state.curSheet || "";
       applyServerState(res);
-      if (res.sheet && prevSheet && res.sheet !== prevSheet && !state.busy) {
-        onLook(res.sheet);
-      }
     }, function() {});
   }
   window.addEventListener("focus", function() { quickCheckBuild(false); quickSyncSheetOnFocus(); });
@@ -2461,11 +2754,12 @@
   var quickSaveTimer = {};
   function quickMove(dir) {
     var q = state.quick, items = q.items || [], it = items[q.sel];
-    if (!it || (els.askInput.value || "").trim()) return;
+    if (!it || (els.askInput.value || "").trim() || q.filter !== "all") return;
     var j = q.sel + dir, other = items[j];
-    if (!other || other.src !== it.src) return;
-    var group = items.filter(function(x) { return x.src === it.src; }).map(function(x) { return x.name; });
+    if (!other || other.src !== it.src || quickIsPinned(it) !== quickIsPinned(other)) return;
+    var group = quickAllItems().filter(function(x) { return x.src === it.src; }).map(function(x) { return x.name; });
     var a = group.indexOf(it.name), b = group.indexOf(other.name);
+    if (a < 0 || b < 0) return;
     group[a] = other.name; group[b] = it.name;
     q.order[it.src] = group;
     q.sel = j;
@@ -2481,14 +2775,22 @@
 
   function quickPinKey(it) { return it ? (it.src + ":" + it.name) : ""; }
   function quickIsPinned(it) { return !!(it && state.quick.pins && state.quick.pins[quickPinKey(it)]); }
+  var quickPinSaveTimer = null;
   function quickTogglePin(it) {
     if (!it) return;
     var k = quickPinKey(it);
     if (!state.quick.pins) state.quick.pins = {};
     if (state.quick.pins[k]) delete state.quick.pins[k];
     else state.quick.pins[k] = 1;
+    state.quick._pinsSynced = true;
     quickRememberLocal();
     renderQuickList();
+    if (hasGasBridge()) {
+      clearTimeout(quickPinSaveTimer);
+      quickPinSaveTimer = setTimeout(function() {
+        callGas("comboQuickSavePins", { pins: state.quick.pins }, function() {}, function() {});
+      }, 400);
+    }
   }
 
   function quickMoveButtons(idx) {
@@ -2511,7 +2813,7 @@
       b.textContent = d[0];
       b.title = d[1] < 0 ? "上へ（Alt+↑）" : "下へ（Alt+↓）";
       var nb = items[idx + d[1]];
-      b.disabled = filtering || !nb || nb.src !== it.src;
+      b.disabled = filtering || !nb || nb.src !== it.src || (quickIsPinned(nb) !== quickIsPinned(it));
       b.addEventListener("click", function(e) { e.stopPropagation(); quickMove(d[1]); });
       b.addEventListener("dblclick", function(e) { e.stopPropagation(); });
       box.appendChild(b);
@@ -2583,6 +2885,25 @@
       total += sc;
     }
     return Math.round(total / tokens.length) + 10;
+  }
+
+  function findQuickMacroMatch(txt) {
+    var q = String(txt || "").trim();
+    if (!q) return null;
+    var list = quickAllItems().filter(function(it) { return it && it.src !== "shelf"; });
+    var hits = [];
+    for (var i = 0; i < list.length; i++) {
+      var it = list[i];
+      var sc = quickScore(it, q);
+      if (sc >= 60) {
+        hits.push({ it: it, s: sc, p: quickIsPinned(it) ? 1 : 0, i: i });
+      }
+    }
+    if (!hits.length) return null;
+    hits.sort(function(a, b) {
+      return (b.s - a.s) || (b.p - a.p) || (a.i - b.i);
+    });
+    return hits[0].it;
   }
 
   function quickFiltered() {
@@ -2730,30 +3051,63 @@
     } catch (e) {}
   }
 
+  function applyQuickListRes(res) {
+    if (!res || typeof res !== "object" || res.ok === false) return;
+    var q = state.quick;
+    q.loaded = true;
+    q._fetchedOnce = true;
+    q.sheet = res.sheet || [];
+    if (res.order) {
+      q.order = {
+        sheet: res.order.sheet || [],
+        my: res.order.my || [],
+        shelf: res.order.shelf || []
+      };
+    }
+    q.my = res.my || [];
+    q.myId = res.myId || "";
+    q.myUrl = res.myUrl || "";
+    q.myStamp = res.myStamp || "";
+    if (res.pins && typeof res.pins === "object" && !Array.isArray(res.pins)) {
+      var srvPinKeys = Object.keys(res.pins);
+      var locPinKeys = Object.keys(q.pins || {});
+      if (srvPinKeys.length === 0 && !q._pinsSynced && locPinKeys.length > 0) {
+        q._pinsSynced = true;
+        if (hasGasBridge()) {
+          callGas("comboQuickSavePins", { pins: q.pins }, function() {}, function() {});
+        }
+      } else {
+        q.pins = res.pins;
+        q._pinsSynced = true;
+      }
+    }
+    if (typeof res.oauthToken === "string" && res.oauthToken) {
+      state.oauthToken = res.oauthToken;
+      state.oauthTokenAt = Date.now();
+    }
+    quickRememberLocal();
+    if (res.draft && !els.askInput.value) {
+      els.askInput.value = res.draft;
+    }
+    if (res.build && QUICK_SIDEBAR_BUILD && res.build !== QUICK_SIDEBAR_BUILD) {
+      quickCheckBuild(true);
+    }
+    els.quickNote.textContent = res.addonNote ? res.addonNote
+      : res.myError ? ("マイマクロを読めませんでした: " + res.myError)
+      : (q.myId ? "" : "「マイマクロを作る」を押すと、どのシートでも使える自分のマクロ置き場ができます");
+    renderQuickList();
+    updatePreview();
+  }
+
   function loadQuickList(force) {
     var isForce = force === true || !!state.quick._fetchedOnce;
     callGas("comboQuickList", isForce ? { force: true } : {}, function(res) {
-      var q = state.quick;
-      q.loaded = true;
+      state.quick.loaded = true;
       if (res && res.ok) {
-        q._fetchedOnce = true;
-        q.sheet = res.sheet || [];
-        if (res.order) q.order = { sheet: res.order.sheet || [], my: res.order.my || [], shelf: res.order.shelf || [] };
-        q.my = res.my || [];
-        q.myId = res.myId || "";
-        q.myUrl = res.myUrl || "";
-        q.myStamp = res.myStamp || "";
-        if (typeof res.oauthToken === "string" && res.oauthToken) {
-          state.oauthToken = res.oauthToken;
-          state.oauthTokenAt = Date.now();
-        }
-        quickRememberLocal();
-        if (res.draft && !els.askInput.value) { els.askInput.value = res.draft; updatePreview(); }
-        if (res.build && QUICK_SIDEBAR_BUILD && res.build !== QUICK_SIDEBAR_BUILD) { quickCheckBuild(true); }
-        els.quickNote.textContent = res.addonNote ? res.addonNote : res.myError ? ("マイマクロを読めませんでした: " + res.myError)
-          : (q.myId ? "" : "「マイマクロを作る」を押すと、どのシートでも使える自分のマクロ置き場ができます");
+        applyQuickListRes(res);
+      } else {
+        renderQuickList();
       }
-      renderQuickList();
     }, function(err) {
       state.quick.loaded = true;
       els.quickNote.textContent = "一覧を読めませんでした: " + formatError(err);
@@ -2865,6 +3219,7 @@
       return;
     }
     state.directUndoStack = [];
+    updateUndoBtnState(false);
     runServerAction({
       fnName: "comboQuickRun",
       payload: { src: it.src, name: it.name, myId: state.quick.myId, myStamp: state.quick.myStamp || "", backup: !!els.chkBackup.checked },
@@ -2872,6 +3227,10 @@
       statusText: it.name + " を実行中…",
       switchToChat: false,
       onSuccess: function(res, wallMs) {
+        if (res && res.myStamp) {
+          state.quick.myStamp = res.myStamp;
+          quickRememberLocal();
+        }
         var sec = typeof wallMs === "number" ? ("（" + (Math.max(0, wallMs / 1000)).toFixed(2) + "s）") : "";
         els.quickNote.textContent = (res.text || "完了") + sec;
       }
@@ -2911,6 +3270,7 @@
           ops: ops,
           ok: !!els.chkOk.checked,
           backup: !!els.chkBackup.checked,
+          fastUndo: !els.chkBackup.checked,
           assumeActive: true,
           targetId: state.target.id || "",
           targetName: state.target.name || "",
@@ -2971,23 +3331,17 @@
       onRunOps([{ shelf: "width", auto: cols }], "列幅自動");
       return;
     }
-    runServerAction({
-      fnName: "comboRunAsk",
-      payload: {
-        ask: "全ての列の幅を中身に合わせて",
-        ok: !!els.chkOk.checked,
-        backup: !!els.chkBackup.checked,
-        targetId: state.target.id || "",
-        targetName: state.target.name || "",
-        sheets: state.sheets || [],
-        sheet: state.curSheet || "",
-        selection: els.chkSync.checked ? (state.selection || "") : "",
-        table: state.table
-      },
-      label: "列幅自動",
-      statusText: "実行中…",
-      switchToChat: true
-    });
+    var dims = (state.curSheet && state.sheetDimsMap) ? state.sheetDimsMap[state.curSheet] : null;
+    var nCols = dims ? Math.min(26, Math.max(0, Number(dims.cols || 0))) : 0;
+    if (nCols > 0) {
+      var fallbackCols = [];
+      for (var ci = 0; ci < nCols; ci++) {
+        fallbackCols.push(String.fromCharCode(65 + ci));
+      }
+      onRunOps([{ shelf: "width", auto: fallbackCols }], "列幅自動");
+      return;
+    }
+    recordExecution(false, "列幅自動", "対象の列が見つかりません（シートにデータを入れてから「読込」を押してください）", 0, 0, true);
   }
 
   function onFreezeHeader() {
@@ -3052,12 +3406,27 @@
     return { lineIdx: lineIdx, totalLines: totalLines };
   }
 
+  function runPromptInput() {
+    if (state.activeTab === "list" && quickRunFromInput()) return;
+    var rawTxt = (els.askInput.value || "").trim();
+    var macroHit = findQuickMacroMatch(rawTxt);
+    if (macroHit) {
+      pushHistory(rawTxt);
+      els.askInput.value = "";
+      updatePreview();
+      state.quick.sel = -1;
+      renderQuickList();
+      quickRunItem(macroHit);
+      return;
+    }
+    onRunAsk();
+  }
+
   els.askInput.addEventListener("keydown", function(e) {
     if (e.isComposing || e.keyCode === 229) return;
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
-      if (state.activeTab === "list" && quickRunFromInput()) return;
-      onRunAsk();
+      runPromptInput();
       return;
     }
     if (e.altKey || e.ctrlKey || e.metaKey) return;
@@ -3110,13 +3479,12 @@
   els.askInput.addEventListener("keyup", updatePreview);
 
   // ---- ボタン・イベント配線 ----
-  els.btnRun.addEventListener("click", function() {
-    if (state.activeTab === "list" && quickRunFromInput()) return;
-    onRunAsk();
-  });
+  els.btnRun.addEventListener("click", runPromptInput);
   els.btnClear.addEventListener("click", function() {
     els.askInput.value = "";
     updatePreview();
+    state.quick.sel = -1;
+    renderQuickList();
     els.askInput.focus();
   });
 
@@ -3136,24 +3504,28 @@
   els.sheetSelect.addEventListener("change", function() {
     onLook(els.sheetSelect.value);
   });
-  els.settingsSheetSelect.addEventListener("change", function() {
-    onLook(els.settingsSheetSelect.value);
-  });
+  if (els.settingsDefaultTab) {
+    els.settingsDefaultTab.addEventListener("change", function() {
+      var tabVal = (els.settingsDefaultTab.value === "list") ? "list" : "auto";
+      state.config.defaultTab = tabVal;
+      if (hasGasBridge()) {
+        callGas("comboSaveConfig", { defaultTab: tabVal }, function() {}, function() {});
+      }
+      setStatus("起動タブ: " + (TAB_NAMES[tabVal] || tabVal), false);
+    });
+  }
   els.btnLook.addEventListener("click", function() { onLook(); });
-  els.btnRefresh.addEventListener("click", function() { onInit(true); });
 
   var tabBtns = document.querySelectorAll(".tab-btn");
   for (var t = 0; t < tabBtns.length; t++) {
     tabBtns[t].addEventListener("click", function() {
+      state._userSwitchedTab = true;
       switchTab(this.getAttribute("data-tab"));
     });
   }
 
   els.btnSeiri.addEventListener("click", function() {
     onRunOps([{ shelf: "seiri" }], "【一発整形】データ整理 ＋ 表を整える");
-  });
-  els.btnDocStyle.addEventListener("click", function() {
-    onRunOps([{ shelf: "doc.style" }], "【一発整形】文書の体裁を整える");
   });
 
   var quickBtns = document.querySelectorAll("#pane-auto .quick-grid .btn");
@@ -3202,9 +3574,28 @@
     }
     state.gotoWait = setTimeout(function() {
       state.gotoWait = null;
-      flashBtn(els.btnGoChanged, "移れません", "直した所");
-      appendLog(els.traceLog, "is-err", "[直した所] " + a1, "拡張から返事がありません（Chrome 拡張のサイドパネルで開いているときだけ効きます。拡張を chrome://extensions で再読み込み）");
-    }, 1500);
+      if (hasGasBridge()) {
+        callGas("comboGotoRange", {
+          range: a1,
+          sheet: state.curSheet || "",
+          targetId: state.target.id || "",
+          assumeActive: true
+        }, function(res) {
+          if (res && res.ok) {
+            flashBtn(els.btnGoChanged, "移りました", "直した所");
+          } else {
+            flashBtn(els.btnGoChanged, "移れません", "直した所");
+            appendLog(els.traceLog, "is-err", "[直した所] " + a1, (res && res.error) ? String(res.error) : "範囲へ移動できませんでした");
+          }
+        }, function(err) {
+          flashBtn(els.btnGoChanged, "移れません", "直した所");
+          appendLog(els.traceLog, "is-err", "[直した所] " + a1, formatError(err));
+        });
+      } else {
+        flashBtn(els.btnGoChanged, "移れません", "直した所");
+        appendLog(els.traceLog, "is-err", "[直した所] " + a1, "拡張から返事がありません（Chrome 拡張のサイドパネルか GAS 環境でお試しください）");
+      }
+    }, 350);
     try { window.top.postMessage({ type: "GAS_COMBO_GOTO", range: a1 }, "*"); } catch (e) {}
   });
   window.addEventListener("message", function(ev) {
@@ -3235,6 +3626,52 @@
       els.askInput.focus();
     }
   });
+  function openSaveStepsBar(picked) {
+    state.pendingSteps = picked.slice();
+    if (!els.saveStepsBar) return;
+    if (els.saveStepsInfo) {
+      els.saveStepsInfo.textContent = "手順(" + picked.length + "件): " + picked.join(" / ");
+    }
+    if (els.saveStepsName) {
+      els.saveStepsName.value = "手順_" + String(picked[0] || "").slice(0, 12);
+    }
+    els.saveStepsBar.style.display = "block";
+    if (els.saveStepsName) {
+      els.saveStepsName.focus();
+      if (els.saveStepsName.select) els.saveStepsName.select();
+    }
+  }
+
+  function closeSaveStepsBar() {
+    state.pendingSteps = [];
+    if (els.saveStepsBar) els.saveStepsBar.style.display = "none";
+    if (els.saveStepsName) els.saveStepsName.value = "";
+  }
+
+  function submitSaveSteps() {
+    var steps = (state.pendingSteps || []).slice();
+    var name = els.saveStepsName ? (els.saveStepsName.value || "").trim() : "";
+    if (!steps.length || !name) {
+      if (els.saveStepsName) els.saveStepsName.focus();
+      return;
+    }
+    runServerAction({
+      fnName: "comboQuickSaveSteps",
+      payload: { name: name, steps: steps },
+      label: "⚡手順マクロ保存: " + name,
+      statusText: "手順マクロを保存中…",
+      switchToChat: false,
+      onSuccess: function(res) {
+        closeSaveStepsBar();
+        state.checkedHist = {};
+        renderHistory();
+        els.quickNote.textContent = (res && res.text) || "手順マクロを保存しました";
+        loadQuickList(true);
+        switchTab("list");
+      }
+    });
+  }
+
   els.btnSaveSteps.addEventListener("click", function() {
     var picked = [];
     for (var hi = 0; hi < state.history.length; hi++) {
@@ -3250,38 +3687,32 @@
       flashBtn(els.btnSaveSteps, "履歴を選択", "⚡手順化");
       return;
     }
-    var defName = "手順_" + picked[0].slice(0, 12);
-    var name = window.prompt("マイマクロに保存する名前を入力してください\n手順(" + picked.length + "件): " + picked.join(" / "), defName);
-    if (!name || !name.trim()) return;
-    runServerAction({
-      fnName: "comboQuickSaveSteps",
-      payload: { name: name.trim(), steps: picked },
-      label: "⚡手順マクロ保存: " + name.trim(),
-      statusText: "手順マクロを保存中…",
-      switchToChat: false,
-      onSuccess: function(res) {
-        state.checkedHist = {};
-        renderHistory();
-        els.quickNote.textContent = (res && res.text) || "手順マクロを保存しました";
-        loadQuickList(true);
-        switchTab("list");
+    openSaveStepsBar(picked);
+  });
+  if (els.btnSaveStepsOk) {
+    els.btnSaveStepsOk.addEventListener("click", submitSaveSteps);
+  }
+  if (els.btnSaveStepsCancel) {
+    els.btnSaveStepsCancel.addEventListener("click", closeSaveStepsBar);
+  }
+  if (els.saveStepsName) {
+    els.saveStepsName.addEventListener("keydown", function(e) {
+      if (e.isComposing || e.keyCode === 229) return;
+      if (e.key === "Enter") {
+        e.preventDefault();
+        submitSaveSteps();
+      } else if (e.key === "Escape") {
+        e.preventDefault();
+        closeSaveStepsBar();
       }
     });
-  });
+  }
   els.btnRerunHist.addEventListener("click", function() {
     if (state.selectedHistIdx >= 0 && state.history[state.selectedHistIdx] !== undefined) {
       els.askInput.value = state.history[state.selectedHistIdx];
       updatePreview();
       onRunAsk();
     }
-  });
-
-  els.btnNewTalk.addEventListener("click", function() {
-    els.askInput.value = "";
-    updatePreview();
-    clearLogBox(els.chatLog, "実行結果がここに表示されます。");
-    switchTab("auto");
-    els.askInput.focus();
   });
   els.btnUndo.addEventListener("click", onUndo);
   els.btnQuickRun.addEventListener("click", function() {
@@ -3296,7 +3727,12 @@
       els.quickNote.textContent = "シートのマクロは メニューの「拡張機能 → Apps Script」で開いて直してください";
       return;
     }
-    if (q.myUrl) { window.open(q.myUrl, "_blank"); return; }
+    if (q.myUrl) {
+      q.myStamp = "";
+      quickRememberLocal();
+      window.open(q.myUrl, "_blank");
+      return;
+    }
     runServerAction({
       fnName: "comboQuickMake", payload: {}, label: "マイマクロを作る", statusText: "マイマクロを作っています…", switchToChat: false,
       onSuccess: function(res) {
@@ -3319,7 +3755,7 @@
       onSuccess: function(res) { els.quickNote.textContent = res.text || "写しました"; loadQuickList(); }
     });
   }
-  els.btnReload.addEventListener("click", function() { onInit(true); });
+  els.btnReload.addEventListener("click", function() { onInit(true, true); });
 
   if (els.quickFilterBar) {
     var qfBtns = els.quickFilterBar.querySelectorAll(".quick-filter-btn");
@@ -3344,18 +3780,26 @@
   }
   if (hasGasBridge()) {
     quickRestoreList();
-    loadQuickList();
     runServerAction({
       fnName: "comboInit",
-      payload: { targetId: "", sheet: "", assumeActive: true },
+      payload: { targetId: "", sheet: "", assumeActive: true, includeQuick: true },
       label: "初期化 / 再読込",
       statusText: "読込中…",
       switchToChat: false,
       silentSuccess: true,
       onSuccess: function(res) {
+        if (!res || !res.quick) loadQuickList();
         if (!res || !res.learned) loadLearned();
-        if (!res.config) {
-          callGas("comboGetConfig", undefined, function(cfg) { applyConfig(cfg); });
+        if (!res || !res.config) {
+          callGas("comboGetConfig", undefined, function(cfg) {
+            applyConfig(cfg);
+            if (state.config.defaultTab && !state._userSwitchedTab) switchTab(state.config.defaultTab);
+          });
+        }
+        var defTab = (res && res.config && (res.config.defaultTab === "list" || res.config.defaultTab === "auto"))
+          ? res.config.defaultTab : state.config.defaultTab;
+        if ((defTab === "list" || defTab === "auto") && !state._userSwitchedTab) {
+          switchTab(defTab);
         }
       }
     });
@@ -3364,13 +3808,6 @@
     els.infoLabel.textContent = "対象: GAS サイドバー環境で自動接続されます";
     updateSelectionLabel();
     updatePreview();
-  }
-  if (typeof globalThis !== "undefined") {
-    globalThis.__comboDirectTest = {
-      state: state,
-      els: els,
-      buildDirectBatchUpdate: buildDirectBatchUpdate
-    };
   }
 })();
 </script>
