@@ -36,7 +36,7 @@ return call_('post', 'https://sheets.googleapis.com/v4/spreadsheets/' + encodeUR
 }
 };
 })();
-var ENGINE_VERSION = 'ws-1+0d2b37c9';
+var ENGINE_VERSION = 'ws-1+e7d8f977';
 var BK_BOOK_NAME = 'GASマネージャー_控え';
 var BK_DOC_PREFIX = 'GASマネージャー_文書控え_';
 var BK_DOC_SLOTS = 5;
@@ -1497,6 +1497,7 @@ var CATALOG = {
 "doc.from.sheet": {"kind": "doc", "touch": ["値", "書式"], "backup": ["今"], "danger": ""},
 "doc.template": {"kind": "doc", "touch": ["シート構成"], "backup": ["今"], "danger": ""},
 "doc.copy": {"kind": "doc", "touch": ["シート構成"], "backup": ["今"], "danger": ""},
+"doc.export.pdf": {"kind": "doc", "touch": [], "backup": ["今"], "danger": ""},
 "tidy": {"kind": "sheet", "touch": ["書式", "幅", "固定"], "backup": ["今"], "danger": ""},
 "seiri": {"kind": "sheet", "touch": ["値", "書式", "幅", "固定"], "backup": ["今"], "danger": "消す"},
 "renumber": {"kind": "sheet", "touch": ["値"], "backup": ["今"], "danger": ""},
@@ -1538,6 +1539,9 @@ var CATALOG = {
 "drive.rename": {"kind": "sheet", "touch": [], "backup": ["なし"], "danger": ""},
 "drive.move": {"kind": "sheet", "touch": [], "backup": ["なし"], "danger": ""},
 "drive.trash": {"kind": "sheet", "touch": [], "backup": ["なし"], "danger": "消す"},
+"print.setup": {"kind": "sheet", "touch": ["書式"], "backup": ["今"], "danger": ""},
+"export.pdf": {"kind": "sheet", "touch": [], "backup": ["なし"], "danger": ""},
+"drive.share": {"kind": "sheet", "touch": [], "backup": ["なし"], "danger": ""},
 "format": {"kind": "sheet", "touch": ["書式"], "backup": ["今"], "danger": ""},
 "bg.clear": {"kind": "sheet", "touch": ["書式"], "backup": ["今"], "danger": ""},
 "width": {"kind": "sheet", "touch": ["幅"], "backup": ["今"], "danger": ""},
@@ -1567,6 +1571,9 @@ var CATALOG = {
 "date.fix": {"kind": "sheet", "touch": ["値"], "backup": ["今"], "danger": ""},
 "fill.date": {"kind": "sheet", "touch": ["値"], "backup": ["今"], "danger": "上書き"},
 "fill.down": {"kind": "sheet", "touch": ["値"], "backup": ["今"], "danger": "上書き"},
+"note.set": {"kind": "sheet", "touch": ["書式"], "backup": ["今"], "danger": ""},
+"note.clear": {"kind": "sheet", "touch": ["書式"], "backup": ["今"], "danger": ""},
+"link.set": {"kind": "sheet", "touch": ["値", "書式"], "backup": ["今"], "danger": ""},
 "rows": {"kind": "sheet", "touch": ["値", "書式"], "backup": ["今"], "danger": "消す"},
 "rows.insert": {"kind": "sheet", "touch": ["値", "書式"], "backup": ["今"], "danger": ""},
 "rows.delete": {"kind": "sheet", "touch": ["値", "書式"], "backup": ["今"], "danger": "消す"},
@@ -1590,7 +1597,9 @@ var CATALOG = {
 "sheet.copy": {"kind": "sheet", "touch": ["シート構成"], "backup": ["名前", "全部"], "danger": ""},
 "sheet.hide": {"kind": "sheet", "touch": ["隠し"], "backup": ["名前", "全部"], "danger": ""},
 "sheet.show": {"kind": "sheet", "touch": ["隠し"], "backup": ["名前", "全部"], "danger": ""},
-"sheet.color": {"kind": "sheet", "touch": ["タブ色"], "backup": ["今"], "danger": ""}
+"sheet.color": {"kind": "sheet", "touch": ["タブ色"], "backup": ["今"], "danger": ""},
+"sheet.merge": {"kind": "sheet", "touch": ["シート構成", "値"], "backup": ["名前", "全部"], "danger": ""},
+"sheet.split": {"kind": "sheet", "touch": ["シート構成", "値"], "backup": ["名前", "全部"], "danger": ""}
 };
 var API_TYPES = {"addBanding": {"touch": ["交互の色"], "danger": false, "deny": []}, "addChart": {"touch": ["グラフ"], "danger": false, "deny": []}, "addConditionalFormatRule": {"touch": ["条件付き"], "danger": false, "deny": []}, "addDimensionGroup": {"touch": ["グループ"], "danger": false, "deny": []}, "addNamedRange": {"touch": ["名前"], "danger": false, "deny": []}, "addProtectedRange": {"touch": ["保護"], "danger": false, "deny": []}, "clearBasicFilter": {"touch": ["フィルタ"], "danger": false, "deny": []}, "copyPaste": {"touch": ["値", "書式"], "danger": false, "deny": []}, "deleteConditionalFormatRule": {"touch": ["条件付き"], "danger": true, "deny": []}, "deleteDimension": {"touch": ["値", "書式"], "danger": true, "deny": []}, "deleteRange": {"touch": ["値", "書式"], "danger": true, "deny": []}, "findReplace": {"touch": ["値"], "danger": false, "deny": []}, "insertDimension": {"touch": ["値", "書式"], "danger": false, "deny": []}, "mergeCells": {"touch": ["書式"], "danger": false, "deny": []}, "repeatCell": {"touch": ["値", "書式"], "danger": false, "deny": []}, "setBasicFilter": {"touch": ["フィルタ"], "danger": false, "deny": []}, "setDataValidation": {"touch": ["入力規則"], "danger": false, "deny": []}, "sortRange": {"touch": ["値"], "danger": false, "deny": []}, "unmergeCells": {"touch": ["書式"], "danger": false, "deny": []}, "updateBorders": {"touch": ["書式"], "danger": false, "deny": []}, "updateCells": {"touch": ["値", "書式"], "danger": false, "deny": []}, "updateDimensionProperties": {"touch": ["隠し", "幅"], "danger": false, "deny": [{"when": {"range.dimension": "ROWS"}, "fields": ["pixelSize"]}]}, "updateSheetProperties": {"touch": ["シート構成", "固定", "タブ色", "隠し"], "danger": false, "deny": [{"fields": ["hideGridlines", "rightToLeft"]}]}};
 SHELF['api'] = function (ctx, op) {
@@ -1945,8 +1954,20 @@ f = full.createFilter();
 if (op.where) {
 need_(op.where, ['col']);
 var ci = colIndexOf_(t, op.where.col) - t.firstCol + 1;
-var crit = op.where.equals !== undefined ? SpreadsheetApp.newFilterCriteria().whenTextEqualTo(String(op.where.equals)).build()
-: SpreadsheetApp.newFilterCriteria().whenCellNotEmpty().build();
+var fb = SpreadsheetApp.newFilterCriteria();
+var wh = op.where.when ? String(op.where.when).toLowerCase() : '';
+var wv = op.where.value !== undefined ? op.where.value : op.where.equals;
+var crit;
+if (wh === 'blank') crit = fb.whenCellEmpty().build();
+else if (wh === 'notblank') crit = fb.whenCellNotEmpty().build();
+else if (wh === 'contains') crit = fb.whenTextContains(String(wv !== undefined ? wv : '')).build();
+else if (wh === 'ne') crit = fb.whenTextDoesNotContain(String(wv !== undefined ? wv : '')).build();
+else if (wh === 'gt') crit = fb.whenNumberGreaterThan(Number(wv)).build();
+else if (wh === 'ge') crit = fb.whenNumberGreaterThanOrEqualTo(Number(wv)).build();
+else if (wh === 'lt') crit = fb.whenNumberLessThan(Number(wv)).build();
+else if (wh === 'le') crit = fb.whenNumberLessThanOrEqualTo(Number(wv)).build();
+else if (wh === 'eq' || op.where.equals !== undefined) crit = fb.whenTextEqualTo(String(wv)).build();
+else crit = fb.whenCellNotEmpty().build();
 f.setColumnFilterCriteria(ci, crit);
 }
 chg_(ctx, sh, full.getA1Notation(), 'フィルタを設定');
@@ -1954,7 +1975,7 @@ chg_(ctx, sh, full.getA1Notation(), 'フィルタを設定');
 if (!op.col && !op.filter && !op.where) throw new ArgError('棚「sort」に col か filter が要ります');
 };
 SHELF['filter.where'] = function (ctx, op) {
-SHELF['sort'](ctx, { shelf: 'sort', where: { col: op.col, equals: op.equals }, sheet: op.sheet });
+SHELF['sort'](ctx, { shelf: 'sort', where: { col: op.col, equals: op.equals, when: op.when, value: op.value }, sheet: op.sheet });
 };
 SHELF['filter.on'] = function (ctx, op) {
 var sh = sheetCtx_(ctx, op);
@@ -2694,6 +2715,83 @@ guardDelete_(ctx, desc, target.isFolder, subN);
 target.obj.setTrashed(true);
 chg_(ctx, null, '', (target.isFolder ? 'フォルダ' : mimeLabel_(target.mime)) + '「' + target.name + '」をゴミ箱に入れました');
 };
+SHELF['print.setup'] = function (ctx, op) {
+var sh = sheetCtx_(ctx, op);
+var cfg = {
+paper: String(op.paper || 'A4').toUpperCase(),
+landscape: op.landscape !== false,
+fit_width: op.fit_width !== false,
+gridlines: op.gridlines === true,
+margins: String(op.margins || 'narrow').toLowerCase()
+};
+var key = 'ws_print_cfg_' + sh.getSheetId();
+PropertiesService.getDocumentProperties().setProperty(key, JSON.stringify(cfg));
+chg_(ctx, sh, '', '印刷設定を保存（' + cfg.paper + '・' + (cfg.landscape ? '横' : '縦') + '・幅1ページ:' + (cfg.fit_width ? 'ON' : 'OFF') + '・枠線:' + (cfg.gridlines ? 'ON' : 'OFF') + '・余白:' + cfg.margins + '）');
+};
+SHELF['export.pdf'] = function (ctx, op) {
+var ss = ctx.ss;
+var sh = op.sheet ? sheetOf_(ss, op.sheet, '') : sheetCtx_(ctx, op);
+var saved = {};
+try {
+var raw = PropertiesService.getDocumentProperties().getProperty('ws_print_cfg_' + sh.getSheetId());
+if (raw) saved = JSON.parse(raw);
+} catch (e) {}
+var paper = String(op.paper || saved.paper || 'A4').toUpperCase();
+var landscape = op.landscape !== undefined ? !!op.landscape : (saved.landscape !== undefined ? !!saved.landscape : true);
+var fitWidth = op.fit_width !== undefined ? !!op.fit_width : (saved.fit_width !== undefined ? !!saved.fit_width : true);
+var gridlines = op.gridlines !== undefined ? !!op.gridlines : (saved.gridlines === true);
+var margins = String(saved.margins || 'narrow').toLowerCase();
+var mg = margins === 'wide' ? '0.75' : (margins === 'normal' ? '0.5' : '0.25');
+SpreadsheetApp.flush();
+var url = 'https://docs.google.com/spreadsheets/d/' + ss.getId() + '/export?format=pdf'
++ '&gid=' + sh.getSheetId()
++ '&size=' + encodeURIComponent(paper)
++ '&portrait=' + (landscape ? 'false' : 'true')
++ '&fitw=' + (fitWidth ? 'true' : 'false')
++ '&gridlines=' + (gridlines ? 'true' : 'false')
++ '&sheetnames=false&printtitle=false&pagenumbers=false&fzr=true'
++ '&top_margin=' + mg + '&bottom_margin=' + mg + '&left_margin=' + mg + '&right_margin=' + mg;
+var resp = UrlFetchApp.fetch(url, {
+headers: { Authorization: 'Bearer ' + ScriptApp.getOAuthToken() },
+muteHttpExceptions: true
+});
+if (resp.getResponseCode() !== 200) {
+throw new ArgError('PDF出力に失敗しました（HTTP ' + resp.getResponseCode() + '）');
+}
+var fileName = String(op.name || (ss.getName() + '_' + sh.getName() + '.pdf')).trim();
+if (!/\.pdf$/i.test(fileName)) fileName += '.pdf';
+var blob = resp.getBlob().setName(fileName);
+var destFolder = op.folder ? resolveFolder_(op.folder, true).folder : null;
+var pdfFile = destFolder ? destFolder.createFile(blob) : DriveApp.createFile(blob);
+note_(ctx, 'PDF保存完了: ' + pdfFile.getName() + '\nID: ' + pdfFile.getId() + '\nURL: ' + pdfFile.getUrl());
+chg_(ctx, sh, '', 'PDFを作成: 「' + pdfFile.getName() + '」（' + paper + '・' + (landscape ? '横' : '縦') + '）');
+};
+SHELF['drive.share'] = function (ctx, op) {
+var target = op.item
+? resolveDriveItem_(op.item)
+: (ctx.file ? wrapDriveObj_(DriveApp.getFileById(ctx.file.getId()), false) : null);
+if (!target) throw new ArgError('共有する対象（item または target）を指定してください');
+var role = String(op.role || 'viewer').toLowerCase();
+var actions = [];
+if (op.anyone) {
+var perm = role === 'editor' ? DriveApp.Permission.EDIT : (role === 'commenter' ? DriveApp.Permission.COMMENT : DriveApp.Permission.VIEW);
+target.obj.setSharing(DriveApp.Access.ANYONE_WITH_LINK, perm);
+actions.push('リンクを知っている全員に ' + role + ' 権限を付与');
+}
+if (op.email) {
+var em = String(op.email).trim();
+if (role === 'editor') target.obj.addEditor(em);
+else if (role === 'commenter' && typeof target.obj.addCommenter === 'function') target.obj.addCommenter(em);
+else target.obj.addViewer(em);
+actions.push(em + ' に ' + role + ' 権限を付与');
+}
+if (!actions.length) {
+note_(ctx, '共有URL: ' + target.obj.getUrl());
+return;
+}
+note_(ctx, '共有URL: ' + target.obj.getUrl());
+chg_(ctx, null, '', '「' + target.name + '」を共有（' + actions.join(' / ') + '）');
+};
 SHELF['format'] = function (ctx, op) {
 var sh = sheetCtx_(ctx, op), t = null, rg;
 if (op.header) { t = needTable_(sh); rg = sh.getRange(t.headerRow, t.firstCol, 1, t.lastCol - t.firstCol + 1); }
@@ -3378,6 +3476,55 @@ firstRow.copyTo(rg.offset(r, 0, 1, rg.getNumColumns()));
 }
 chg_(ctx, sh, dest.getA1Notation(), '上のセルを下へ複写');
 };
+SHELF['note.set'] = function (ctx, op) {
+need_(op, ['range', 'text']);
+var sh = sheetCtx_(ctx, op);
+var rg = sh.getRange(op.range);
+rg.setNote(String(op.text));
+chg_(ctx, sh, rg.getA1Notation(), 'メモを設定: 「' + String(op.text).slice(0, 40) + '」');
+};
+SHELF['note.clear'] = function (ctx, op) {
+var sh = sheetCtx_(ctx, op);
+var rg = op.range ? sh.getRange(op.range) : sh.getDataRange();
+rg.clearNote();
+chg_(ctx, sh, rg.getA1Notation(), 'メモを消去');
+};
+SHELF['link.set'] = function (ctx, op) {
+var sh = sheetCtx_(ctx, op);
+if (op.col) {
+need_(op, ['url_col']);
+var t = needTable_(sh);
+var ci = colIndexOf_(t, op.col);
+var uci = colIndexOf_(t, op.url_col);
+var nr = t.lastData - t.firstData + 1;
+if (nr < 1) throw new ArgError('リンクを設定するデータ行がありません');
+var labelVals = sh.getRange(t.firstData, ci, nr, 1).getDisplayValues();
+var urlVals = sh.getRange(t.firstData, uci, nr, 1).getDisplayValues();
+var richRows = [];
+var linked = 0;
+for (var i = 0; i < nr; i++) {
+var lbl = String(labelVals[i][0] || '');
+var u = String(urlVals[i][0] || '').trim();
+var b = SpreadsheetApp.newRichTextValue().setText(lbl || u);
+if (u && /^https?:\/\//i.test(u)) {
+b.setLinkUrl(u);
+linked++;
+}
+richRows.push([b.build()]);
+}
+var rgCol = sh.getRange(t.firstData, ci, nr, 1);
+rgCol.setRichTextValues(richRows);
+chg_(ctx, sh, rgCol.getA1Notation(), op.col + '列にハイパーリンクを設定（' + linked + ' 件）');
+return;
+}
+need_(op, ['range', 'url']);
+var rg = sh.getRange(op.range);
+var url = String(op.url).trim();
+var label = op.text !== undefined && op.text !== '' ? String(op.text) : (rg.getDisplayValue() || url);
+var rtv = SpreadsheetApp.newRichTextValue().setText(label).setLinkUrl(url).build();
+rg.setRichTextValue(rtv);
+chg_(ctx, sh, rg.getA1Notation(), 'ハイパーリンクを設定（' + url + '）');
+};
 SHELF['rows'] = function (ctx, op) {
 var sh = sheetCtx_(ctx, op), act = op.action || (op.cols ? 'delete' : 'delete');
 var isCol = !!op.cols, list = (isCol ? op.cols : op.rows) || [];
@@ -3620,4 +3767,84 @@ var c = op.color;
 var hex = (c === 'なし' || c === 'none' || c === '') ? null : rgb_(c);
 s.setTabColor(hex);
 chg_(ctx, s, '', 'タブの色を「' + op.color + '」に変更');
+};
+SHELF['sheet.merge'] = function (ctx, op) {
+var ss = ctx.ss;
+var intoName = String(op.into || '統合').trim();
+var skipHeader = op.skip_header !== false;
+var srcSheets = [];
+if (op.sheets && op.sheets.length) {
+op.sheets.forEach(function (nm) {
+var s = sheetOf_(ss, nm, '');
+if (s.getName() !== intoName) srcSheets.push(s);
+});
+} else {
+ss.getSheets().forEach(function (s) {
+if (s.getName() !== intoName && !s.isSheetHidden()) srcSheets.push(s);
+});
+}
+if (!srcSheets.length) throw new ArgError('結合する元シートが見つかりません');
+var merged = [];
+var maxCols = 0;
+var usedCount = 0;
+srcSheets.forEach(function (s) {
+var lr = s.getLastRow(), lc = s.getLastColumn();
+if (lr < 1 || lc < 1) return;
+var vals = s.getRange(1, 1, lr, lc).getValues();
+var startIdx = (usedCount > 0 && skipHeader && vals.length > 1) ? 1 : 0;
+for (var r = startIdx; r < vals.length; r++) {
+merged.push(vals[r]);
+if (vals[r].length > maxCols) maxCols = vals[r].length;
+}
+usedCount++;
+});
+if (!merged.length || !maxCols) throw new ArgError('結合できるデータがありません');
+var normalized = merged.map(function (row) {
+var out = row.slice();
+while (out.length < maxCols) out.push('');
+return out;
+});
+var dest = ss.getSheetByName(intoName);
+if (!dest) {
+dest = ss.insertSheet(intoName, ss.getSheets().length);
+ctx.createdSheets.push(intoName);
+} else {
+dest.clearContents();
+}
+dest.getRange(1, 1, normalized.length, maxCols).setValues(normalized);
+ctx.curSheet = intoName;
+chg_(ctx, dest, a1_(1, 1, normalized.length, maxCols), usedCount + ' シートを縦結合（計 ' + normalized.length + ' 行）');
+};
+SHELF['sheet.split'] = function (ctx, op) {
+need_(op, ['col']);
+var ss = ctx.ss, sh = sheetCtx_(ctx, op), t = needTable_(sh);
+var ci = colIndexOf_(t, op.col);
+var nc = t.lastCol - t.firstCol + 1;
+var header = t.vals[t.headerRow - 1].slice(t.firstCol - 1, t.lastCol);
+var groups = {}, order = [];
+for (var r = t.firstData; r <= t.lastData; r++) {
+var row = t.vals[r - 1].slice(t.firstCol - 1, t.lastCol);
+if (row.every(isBlank_)) continue;
+var rawKey = t.vals[r - 1][ci - 1];
+var key = isBlank_(rawKey) ? '未分類' : String(rawKey).trim();
+if (!groups[key]) { groups[key] = []; order.push(key); }
+groups[key].push(row);
+}
+if (!order.length) throw new ArgError('分割できるデータ行がありません');
+var prefix = op.prefix ? String(op.prefix) : '';
+var createdNames = [];
+order.forEach(function (k) {
+var safeName = (prefix + k).replace(/[\\\/\?\*\[\]:]/g, '_').slice(0, 31) || '分割';
+var dst = ss.getSheetByName(safeName);
+if (!dst) {
+dst = ss.insertSheet(safeName, ss.getSheets().length);
+ctx.createdSheets.push(safeName);
+} else {
+dst.clearContents();
+}
+var out = [header].concat(groups[k]);
+dst.getRange(1, 1, out.length, nc).setValues(out);
+createdNames.push(safeName + '(' + groups[k].length + '件)');
+});
+chg_(ctx, sh, '', op.col + ' ごとに ' + order.length + ' シートへ分割: ' + createdNames.slice(0, 8).join('・') + (createdNames.length > 8 ? ' ほか' : ''));
 };

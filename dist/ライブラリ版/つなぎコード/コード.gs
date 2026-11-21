@@ -32,6 +32,7 @@ function comboQuickList(req) { return shuquickengine.comboQuickList(req, comboQu
 function comboQuickMake(req) { return shuquickengine.comboQuickMake(req); }
 function comboQuickBuild(req) { return shuquickengine.comboQuickBuild(req); }
 function comboQuickSaveOrder(req) { return shuquickengine.comboQuickSaveOrder(req); }
+function comboQuickSaveSteps(req) { return shuquickengine.comboQuickSaveSteps(req); }
 function comboQuickReopen(req) { return shuquickengine.comboQuickReopen(req); }
 function comboQuickImport(req) {
   var f = globalThis[String((req || {}).name || '')];
@@ -42,11 +43,20 @@ function comboQuickRun(req) {
   if (req.src === 'my') return shuquickengine.comboQuickRun(req);
   var t0 = Date.now(), name = String(req.name || ''), f = globalThis[name];
   if (typeof f !== 'function' || comboQuickSkip_(name)) return { ok: false, error: 'このシートに「' + name + '」がありません（一覧を更新してください）' };
+  var backupOn = req.backup === undefined ? true : !!req.backup;
+  var noBk = /\/\/\s*控えなし/.test(String(f).slice(0, 600));
   try {
-    var snapped = shuquickengine.comboQuickSnap(name);
+    var snapped = false;
+    if (backupOn && !noBk) {
+      snapped = shuquickengine.comboQuickSnap(name);
+    } else {
+      try { CacheService.getScriptCache().remove('COMBO_FAST_UNDO'); } catch (eDel) {}
+      try { PropertiesService.getScriptProperties().deleteProperty('COMBO_FAST_UNDO'); } catch (eDelP) {}
+    }
     var r = f();
     shuquickengine.comboQuickAfter();
-    return { ok: true, text: name + ' を実行しました' + (r !== undefined && r !== null && r !== '' ? '（' + String(r).slice(0, 200) + '）' : '') + (snapped ? '' : '（控えを取れませんでした。取り消しは Ctrl+Z で）'), gasMs: Date.now() - t0 };
+    var note = noBk ? '（控えなし指定）' : (backupOn ? (snapped ? '' : '（控えを取れませんでした。取り消しは Ctrl+Z で）') : '（控えなし・backup=OFF）');
+    return { ok: true, text: name + ' を実行しました' + (r !== undefined && r !== null && r !== '' && typeof r.then !== 'function' ? '（' + String(r).slice(0, 200) + '）' : '') + note, gasMs: Date.now() - t0 };
   } catch (e) {
     return { ok: false, error: name + ' でエラー: ' + String(e && e.message || e), gasMs: Date.now() - t0 };
   }

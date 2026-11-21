@@ -66,6 +66,7 @@ function comboQuickList(req) { return {lib}.comboQuickList(req, comboQuickSheetF
 function comboQuickMake(req) { return {lib}.comboQuickMake(req); }
 function comboQuickBuild(req) { return {lib}.comboQuickBuild(req); }
 function comboQuickSaveOrder(req) { return {lib}.comboQuickSaveOrder(req); }
+function comboQuickSaveSteps(req) { return {lib}.comboQuickSaveSteps(req); }
 function comboQuickReopen(req) { return {lib}.comboQuickReopen(req); }
 function comboQuickImport(req) {
   var f = globalThis[String((req || {}).name || '')];
@@ -76,11 +77,20 @@ function comboQuickRun(req) {
   if (req.src === 'my') return {lib}.comboQuickRun(req);
   var t0 = Date.now(), name = String(req.name || ''), f = globalThis[name];
   if (typeof f !== 'function' || comboQuickSkip_(name)) return { ok: false, error: 'このシートに「' + name + '」がありません（一覧を更新してください）' };
+  var backupOn = req.backup === undefined ? true : !!req.backup;
+  var noBk = /\\/\\/\\s*控えなし/.test(String(f).slice(0, 600));
   try {
-    var snapped = {lib}.comboQuickSnap(name);
+    var snapped = false;
+    if (backupOn && !noBk) {
+      snapped = {lib}.comboQuickSnap(name);
+    } else {
+      try { CacheService.getScriptCache().remove('COMBO_FAST_UNDO'); } catch (eDel) {}
+      try { PropertiesService.getScriptProperties().deleteProperty('COMBO_FAST_UNDO'); } catch (eDelP) {}
+    }
     var r = f();
     {lib}.comboQuickAfter();
-    return { ok: true, text: name + ' を実行しました' + (r !== undefined && r !== null && r !== '' ? '（' + String(r).slice(0, 200) + '）' : '') + (snapped ? '' : '（控えを取れませんでした。取り消しは Ctrl+Z で）'), gasMs: Date.now() - t0 };
+    var note = noBk ? '（控えなし指定）' : (backupOn ? (snapped ? '' : '（控えを取れませんでした。取り消しは Ctrl+Z で）') : '（控えなし・backup=OFF）');
+    return { ok: true, text: name + ' を実行しました' + (r !== undefined && r !== null && r !== '' && typeof r.then !== 'function' ? '（' + String(r).slice(0, 200) + '）' : '') + note, gasMs: Date.now() - t0 };
   } catch (e) {
     return { ok: false, error: name + ' でエラー: ' + String(e && e.message || e), gasMs: Date.now() - t0 };
   }
@@ -189,16 +199,24 @@ def write_dist():
     eng_dir.mkdir(parents=True)
     con_dir.mkdir(parents=True)
     out = []
-    for f in build_engine_files():
+    eng_files = build_engine_files()
+    build_id = ""
+    for f in eng_files:
         path = eng_dir / (f["name"] + ext[f["type"]])
         path.write_text(f["source"], encoding="utf-8")
         out.append("大元/" + path.name)
+        if f["name"] == "ComboServer":
+            m_b = re.search(r"var QUICK_BUILD = '([^']+)';", f["source"])
+            if m_b:
+                build_id = m_b.group(1)
     for f in connector_files("ここに大元のスクリプトIDを入れる", "1"):
         path = con_dir / (f["name"] + ext[f["type"]])
         path.write_text(f["source"], encoding="utf-8")
         out.append("つなぎコード/" + path.name)
+    from datetime import datetime
+    built_at = datetime.now().strftime("%Y/%m/%d %H:%M")
     (DIST_DIR / "はじめに.txt").write_text(
-        "GASクイック（ライブラリ版）の持ち込み方\n"
+        f"GASクイック（ライブラリ版）の持ち込み方  [版: {build_id or '-'} / 作成: {built_at}]\n"
         "\n"
         "【1 回だけ】大元を作る\n"
         "1. https://script.google.com で「新しいプロジェクト」→ 名前を「GASクイック 大元」\n"

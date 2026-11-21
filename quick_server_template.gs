@@ -298,6 +298,7 @@ function comboInit(req) {
       selection: selInfo.selection,
       scope: comboParseScope_(selInfo.selection),
       config: comboGetConfig(),
+      learned: comboGetLearned().learned,
       gasMs: Date.now() - t0
     };
   } catch (err) {
@@ -1380,17 +1381,21 @@ function quickSkip_(k) {
   return /_$/.test(k) || /^(combo|__gm|onOpen$|onEdit$|onInstall$|onSelectionChange$|onChange$|onFormSubmit$|doGet$|doPost$|showGasComboSidebar$|createComboSidebarHtml$)/.test(k);
 }
 
-// 関数本体（String(fn)）の { 直後にある先頭コメントから説明・棚キーワード・手順を拾う
+// 関数本体（String(fn)）の { 直後にある先頭コメントから説明・棚キーワード・手順・控えなしを拾う
 function quickFnBodyMeta_(fn) {
-  var desc = '', words = [], steps = [];
+  var desc = '', words = [], steps = [], noBackup = false;
   try {
     var s = String(fn || '');
     var idx = s.indexOf('{');
-    if (idx < 0) return { desc: '', words: [], steps: [] };
+    if (idx < 0) return { desc: '', words: [], steps: [], noBackup: false };
     var lines = s.slice(idx + 1).split('\n');
     for (var i = 0; i < lines.length; i++) {
       var ln = lines[i].trim();
       if (!ln) continue;
+      if (/^\/\/\s*控えなし(?:\s|$)/.test(ln)) {
+        noBackup = true;
+        continue;
+      }
       var mw = ln.match(/^\/\/\s*棚\s*[:：]\s*(.+)$/);
       if (mw) {
         words = mw[1].split(/[,、，]/).map(function (w) { return w.trim(); }).filter(String);
@@ -1409,7 +1414,7 @@ function quickFnBodyMeta_(fn) {
       break;
     }
   } catch (e) {}
-  return { desc: desc, words: words, steps: steps };
+  return { desc: desc, words: words, steps: steps, noBackup: noBackup };
 }
 
 // 1 枚版: 同じプロジェクトにある関数から、大元の物を除いた残り＝そのシートのマクロ
@@ -1419,7 +1424,7 @@ function quickSheetFnsHere_() {
   Object.keys(g).forEach(function (k) {
     if (typeof g[k] === 'function' && !skip[k] && !quickSkip_(k)) {
       var meta = quickFnBodyMeta_(g[k]);
-      out.push({ name: k, desc: meta.desc, words: meta.words, steps: meta.steps });
+      out.push({ name: k, desc: meta.desc, words: meta.words, steps: meta.steps, noBackup: !!meta.noBackup });
     }
   });
   return out;
@@ -1518,11 +1523,11 @@ function quickMyListCached_(id, optStamp) {
   if (raw && stamp) {
     try {
       var c = JSON.parse(raw);
-      if (c.stamp === stamp && c.v === 2) return c.list;
+      if (c.stamp === stamp && c.v === 3) return c.list;
     } catch (e2) {}
   }
   var list = quickParseFns_(quickMySourceCached_(id, stamp));
-  if (stamp) { try { cache.put(key, JSON.stringify({ v: 2, stamp: stamp, list: list }), 21600); } catch (e3) {} }
+  if (stamp) { try { cache.put(key, JSON.stringify({ v: 3, stamp: stamp, list: list }), 21600); } catch (e3) {} }
   return list;
 }
 
@@ -1563,9 +1568,10 @@ function quickInsertTop_(source, block) {
 }
 
 function quickParseFns_(src) {
-  var lines = String(src || '').split('\n'), out = [], words = [], desc = '', steps = [];
+  var lines = String(src || '').split('\n'), out = [], words = [], desc = '', steps = [], noBackup = false;
   for (var i = 0; i < lines.length; i++) {
     var ln = lines[i].trim();
+    if (/^\/\/\s*控えなし(?:\s|$)/.test(ln)) { noBackup = true; continue; }
     var mw = ln.match(/^\/\/\s*棚\s*[:：]\s*(.+)$/);
     if (mw) { words = mw[1].split(/[,、，]/).map(function (s) { return s.trim(); }).filter(String); continue; }
     var ms = ln.match(/^\/\/\s*手順\s*[:：]\s*(.+)$/);
@@ -1575,13 +1581,13 @@ function quickParseFns_(src) {
     var mf = top && (ln.match(/^(?:async\s+)?function\s+([^\s(]+)\s*\(/) ||
     ln.match(/^(?:const|let|var)\s+([^\s=]+)\s*=\s*(?:async\s+)?(?:function\s*\(|\([^)]*\)\s*=>|[\w$]+\s*=>)/));
     if (mf) {
-      if (!/_$/.test(mf[1])) out.push({ name: mf[1], words: words, desc: desc, steps: steps });
-      words = []; desc = ''; steps = [];
+      if (!/_$/.test(mf[1])) out.push({ name: mf[1], words: words, desc: desc, steps: steps, noBackup: noBackup });
+      words = []; desc = ''; steps = []; noBackup = false;
       continue;
     }
     var mc = ln.match(/^\/\/\s*(.+)$/);
     if (mc) { desc = mc[1].trim(); continue; }
-    if (ln) { words = []; desc = ''; steps = []; }
+    if (ln) { words = []; desc = ''; steps = []; noBackup = false; }
   }
   return out;
 }
@@ -1593,13 +1599,14 @@ function comboQuickList(req, sheetFns) {
   if (!sheetFns) sheetFns = quickSheetFnsHere_();
   var res = { ok: true, sheet: (sheetFns || []).map(function (f) {
     // ライブラリ版: つなぎコードが関数の頭（head）を渡すので、ここで説明・棚の言い方・手順を読む
-    if (f.head && (!f.desc || !Array.isArray(f.steps))) {
+    if (f.head && (!f.desc || !Array.isArray(f.steps) || f.noBackup === undefined)) {
       var hm = quickFnBodyMeta_(f.head);
       if (!f.desc) f.desc = hm.desc;
       if (!Array.isArray(f.words) || !f.words.length) f.words = hm.words;
       if (!Array.isArray(f.steps) || !f.steps.length) f.steps = hm.steps;
+      if (hm.noBackup) f.noBackup = true;
     }
-    return { name: f.name, desc: f.desc || '', words: Array.isArray(f.words) ? f.words : [], steps: Array.isArray(f.steps) ? f.steps : [] };
+    return { name: f.name, desc: f.desc || '', words: Array.isArray(f.words) ? f.words : [], steps: Array.isArray(f.steps) ? f.steps : [], noBackup: !!f.noBackup };
   }), my: [], myId: '', myUrl: '', myStamp: '',
     oauthToken: comboGetOAuthToken_(), build: QUICK_BUILD, draft: quickTakeDraft_(), order: quickGetOrders_() };
   try {
@@ -1683,9 +1690,28 @@ function quickRestoreSheetCopy_(ss, snap) {
            gasMs: Date.now() - t0 };
 }
 
-function quickUndoNote_(snapped, backupOn) {
+function quickUndoNote_(snapped, backupOn, noBackup) {
+  if (noBackup) return '（控えなし指定）';
   if (backupOn === false) return '（控えなし・backup=OFF）';
   return snapped ? '' : '（控えを取れませんでした。取り消しは Ctrl+Z で）';
+}
+
+// マイマクロのエラーから行番号の目安を添えて分かりやすく整形する
+function quickFormatMyErr_(name, err, isCompile) {
+  var msg = String(err && err.message || err);
+  if (isCompile) {
+    return 'マイマクロの構文エラーで実行できません: ' + msg + '（「編集」で赤い波線の箇所を確認してください）';
+  }
+  var lineHint = '';
+  try {
+    var st = String(err && err.stack || '');
+    var m = st.match(/<anonymous>:(\d+)(?::\d+)?/);
+    if (m) {
+      var ln = parseInt(m[1], 10);
+      if (ln > 2) lineHint = '（マイマクロ ' + (ln - 2) + ' 行目付近）';
+    }
+  } catch (e) {}
+  return name + ' でエラー' + lineHint + ': ' + msg;
 }
 
 /** マクロを撃った後に、表の読み込みの控え（キャッシュ）を捨てる。 */
@@ -1705,9 +1731,10 @@ function comboQuickRun(req) {
     if (typeof f !== 'function' || quickSkip_(name) || (QUICK_LIB_FNS || []).indexOf(name) >= 0) {
       return { ok: false, error: 'このシートに「' + name + '」がありません（一覧を更新してください）' };
     }
+    var noBkS = !!(quickFnBodyMeta_(f).noBackup);
     try {
       var snappedS = false;
-      if (backupOn) {
+      if (backupOn && !noBkS) {
         snappedS = comboQuickSnap(name);
       } else {
         try { CacheService.getScriptCache().remove(COMBO_PROP_FAST_UNDO); } catch (eDelS) {}
@@ -1715,7 +1742,7 @@ function comboQuickRun(req) {
       }
       var rs = f();
       comboQuickAfter();
-      return { ok: true, text: name + ' を実行しました' + (rs !== undefined && rs !== null && rs !== '' && typeof rs.then !== 'function' ? '（' + String(rs).slice(0, 200) + '）' : '') + quickUndoNote_(snappedS, backupOn), gasMs: Date.now() - t0 };
+      return { ok: true, text: name + ' を実行しました' + (rs !== undefined && rs !== null && rs !== '' && typeof rs.then !== 'function' ? '（' + String(rs).slice(0, 200) + '）' : '') + quickUndoNote_(snappedS, backupOn, noBkS), gasMs: Date.now() - t0 };
     } catch (eS) {
       return { ok: false, error: name + ' でエラー: ' + String(eS && eS.message || eS), gasMs: Date.now() - t0 };
     }
@@ -1724,15 +1751,23 @@ function comboQuickRun(req) {
     var id = req.myId || quickMyFind_();
     if (!id) return { ok: false, error: 'マイマクロがまだありません。一覧の「マイマクロを作る」を押してください' };
     var src = quickMySourceCached_(id, req.myStamp || undefined, true);
-    var names = quickParseFns_(src).map(function (f) { return f.name; });
-    if (names.indexOf(name) < 0) {
+    var parsed = quickParseFns_(src);
+    var hit = parsed.filter(function (f) { return f.name === name; })[0];
+    if (!hit) {
       src = quickMySourceCached_(id);
-      names = quickParseFns_(src).map(function (f) { return f.name; });
+      parsed = quickParseFns_(src);
+      hit = parsed.filter(function (f) { return f.name === name; })[0];
     }
-    if (names.indexOf(name) < 0) return { ok: false, error: 'マイマクロに「' + name + '」が見つかりません（一覧を更新してください）' };
-    var mod = new Function(src + '\nreturn {' + JSON.stringify(name) + ': ' + name + '};')();
+    if (!hit) return { ok: false, error: 'マイマクロに「' + name + '」が見つかりません（一覧を更新してください）' };
+    var mod;
+    try {
+      mod = new Function(src + '\nreturn {' + JSON.stringify(name) + ': ' + name + '};')();
+    } catch (eComp) {
+      return { ok: false, error: quickFormatMyErr_(name, eComp, true), gasMs: Date.now() - t0 };
+    }
+    var noBkM = !!hit.noBackup;
     var snapped = false;
-    if (backupOn) {
+    if (backupOn && !noBkM) {
       snapped = comboQuickSnap(name);
     } else {
       try { CacheService.getScriptCache().remove(COMBO_PROP_FAST_UNDO); } catch (eDelM) {}
@@ -1740,9 +1775,9 @@ function comboQuickRun(req) {
     }
     var r = mod[name]();
     comboQuickAfter();
-    return { ok: true, text: name + ' を実行しました' + (r !== undefined && r !== null && r !== '' && typeof r.then !== 'function' ? '（' + String(r).slice(0, 200) + '）' : '') + quickUndoNote_(snapped, backupOn), gasMs: Date.now() - t0 };
+    return { ok: true, text: name + ' を実行しました' + (r !== undefined && r !== null && r !== '' && typeof r.then !== 'function' ? '（' + String(r).slice(0, 200) + '）' : '') + quickUndoNote_(snapped, backupOn, noBkM), gasMs: Date.now() - t0 };
   } catch (e) {
-    return { ok: false, error: name + ' でエラー: ' + String(e && e.message || e), gasMs: Date.now() - t0 };
+    return { ok: false, error: quickFormatMyErr_(name, e, false), gasMs: Date.now() - t0 };
   }
 }
 
@@ -1847,5 +1882,44 @@ function comboQuickImport(req, src) {
     return { ok: true, myId: made.myId, myUrl: made.myUrl, text: name + ' をマイマクロに入れました' + note };
   } catch (e) {
     return { ok: false, error: name + ' を写せませんでした: ' + String(e && e.message || e) };
+  }
+}
+
+/** 履歴や入力から「⚡ 手順つきマクロ」をマイマクロの先頭へ直接保存する。 */
+function comboQuickSaveSteps(req) {
+  req = req || {};
+  try {
+    var rawName = String(req.name || '').trim();
+    var safeName = rawName.replace(/[\s　.,:;!?()\[\]{}'"`/\\+\-*=<>|&^%$#@~]+/g, '_').replace(/^_+|_+$/g, '');
+    if (!safeName) return { ok: false, error: 'マクロ名を入力してください' };
+    if (/^\d/.test(safeName)) safeName = '手順_' + safeName;
+    if (/_$/.test(safeName)) safeName = safeName.replace(/_+$/, '') + '実行';
+    var steps = Array.isArray(req.steps)
+      ? req.steps.map(function (s) { return String(s || '').trim().replace(/\r?\n/g, ' '); }).filter(String)
+      : String(req.steps || '').split(/[\/／\r\n]+/).map(function (s) { return s.trim(); }).filter(String);
+    if (!steps.length) return { ok: false, error: '手順が空です' };
+    var made = comboQuickMake({});
+    if (!made.ok) return made;
+    var content = quickMyContent_(made.myId);
+    var all = quickMySource_(content);
+    if (quickParseFns_(all).some(function (f) { return f.name === safeName; })) {
+      return { ok: false, error: 'マイマクロに同じ名前「' + safeName + '」があります（別の名前にしてください）' };
+    }
+    var file = (content.files || []).filter(function (f) { return f.type === 'server_js'; })[0];
+    if (!file) return { ok: false, error: 'マイマクロのコードファイルが見つかりません' };
+    var desc = String(req.desc || '').trim() || ('手順マクロ（' + Utilities.formatDate(new Date(), 'Asia/Tokyo', 'yyyy/MM/dd') + ' 登録）');
+    var block = [
+      '// ' + desc,
+      '// 手順: ' + steps.join(' / '),
+      'function ' + safeName + '() {',
+      '  // GASクイックの一覧から実行すると、上の手順を直結APIで高速実行します',
+      '}'
+    ].join('\n');
+    file.source = quickInsertTop_(file.source, block);
+    quickDrive_('patch', 'https://www.googleapis.com/upload/drive/v3/files/' + made.myId + '?uploadType=media', JSON.stringify(content), QUICK_SCRIPT_JSON);
+    quickMyInvalidate_(made.myId);
+    return { ok: true, name: safeName, myId: made.myId, myUrl: made.myUrl, text: '⚡ 手順マクロ「' + safeName + '」をマイマクロに保存しました' };
+  } catch (e) {
+    return { ok: false, error: '手順マクロを保存できませんでした: ' + String(e && e.message || e) };
   }
 }

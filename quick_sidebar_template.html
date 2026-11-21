@@ -422,9 +422,15 @@
 
   /* ---- 一覧タブ（GASクイック） ---- */
   #pane-list { overflow: hidden; }
+  .quick-filter-bar { display: flex; gap: 2px; margin-bottom: 4px; flex-shrink: 0; }
+  .quick-filter-btn { flex: 1; padding: 2px 3px; font-size: 10.7px; border: 1px solid var(--border); border-radius: 3px; background: #f4f5f7; color: #000000; cursor: pointer; text-align: center; white-space: nowrap; }
+  .quick-filter-btn:hover { background: #e8eef6; }
+  .quick-filter-btn.active { background: var(--accent); border-color: var(--accent-hover); color: #ffffff; text-shadow: none; font-weight: 700; }
   .quick-move { margin-left: auto; display: flex; gap: 2px; flex-shrink: 0; }
   .quick-move button { font-size: 10px; line-height: 1; padding: 1px 4px; border: 1px solid var(--border); border-radius: 2px; background: #fff; cursor: pointer; }
   .quick-move button:disabled { opacity: .35; cursor: default; }
+  .quick-move button.is-pinned { color: #b45309; border-color: #f59e0b; background: #fffbeb; }
+  .quick-pin-mark { flex-shrink: 0; font-size: 11px; color: #d97706; }
   .quick-item { display: flex; align-items: baseline; gap: 5px; white-space: nowrap; user-select: none; -webkit-user-select: none; }
   .quick-label { overflow: hidden; text-overflow: ellipsis; min-width: 0; }
   .quick-tag { flex-shrink: 0; font-size: 11px; padding: 0 4px; border-radius: 2px; background: #eef0f4; color: #000000; font-weight: 500; }
@@ -434,6 +440,9 @@
   .quick-bolt { flex-shrink: 0; font-size: 11px; color: #d97706; }
   .quick-desc { font-size: 11px; color: #000000; font-weight: 500; }
   .quick-note { font-size: 11px; color: #000000; margin-top: 4px; }
+  .hist-row { display: flex; align-items: flex-start; gap: 5px; }
+  .hist-row input[type="checkbox"] { margin: 2px 0 0 0; flex-shrink: 0; cursor: pointer; }
+  .hist-row-txt { flex: 1; min-width: 0; }
 
   /* ---- 設定タブ ---- */
   .conf-group {
@@ -533,6 +542,13 @@
     <div class="tab-body">
       <!-- 一覧タブ（GASクイック: このシートのマクロ・マイマクロ・棚） -->
       <div id="pane-list" class="tab-pane">
+        <div id="quickFilterBar" class="quick-filter-bar">
+          <button class="quick-filter-btn active" type="button" data-qfilter="all">すべて</button>
+          <button class="quick-filter-btn" type="button" data-qfilter="pin">★</button>
+          <button class="quick-filter-btn" type="button" data-qfilter="sheet">シート</button>
+          <button class="quick-filter-btn" type="button" data-qfilter="my">マイ</button>
+          <button class="quick-filter-btn" type="button" data-qfilter="shelf">棚</button>
+        </div>
         <div id="quickList" class="hist-list">
           <div class="log-empty">読込中…</div>
         </div>
@@ -610,6 +626,7 @@
         </div>
         <div class="pane-footer">
           <button id="btnUseHist" class="btn" type="button">入力欄へ</button>
+          <button id="btnSaveSteps" class="btn" type="button" title="チェックした履歴（または選択中の履歴）を⚡手順マクロとしてマイマクロへ保存">⚡手順化</button>
           <button id="btnRerunHist" class="btn btn-primary" type="button">再実行</button>
         </div>
       </div>
@@ -629,6 +646,9 @@
         </div>
         <div class="conf-group">
           <div id="settingsInfoLabel" class="conf-note">対象: 未読込</div>
+        </div>
+        <div class="conf-group">
+          <div id="settingsBuildLabel" class="conf-note">版: -</div>
         </div>
       </div>
     </div>
@@ -688,7 +708,7 @@
   var state = {
     activeTab: "auto",
     quick: { sheet: [], my: [], myId: "", myUrl: "", items: [], sel: -1, loaded: false, importMode: false,
-             order: { sheet: [], my: [], shelf: [] } },
+             filter: "all", pins: {}, order: { sheet: [], my: [], shelf: [] } },
     busy: false,
     target: { id: "", name: "", kind: "sheet", url: "", sheet: "" },
     sheets: [],
@@ -703,6 +723,7 @@
     history: [],
     histIdx: -1,
     selectedHistIdx: -1,
+    checkedHist: {},
     oauthToken: "",
     sheetIdMap: {},
     sheetSnapshot: {},
@@ -735,13 +756,16 @@
     btnGoChanged: document.getElementById("btnGoChanged"),
     histList: document.getElementById("histList"),
     btnUseHist: document.getElementById("btnUseHist"),
+    btnSaveSteps: document.getElementById("btnSaveSteps"),
     btnRerunHist: document.getElementById("btnRerunHist"),
     traceLog: document.getElementById("traceLog"),
     settingsSheetSelect: document.getElementById("settingsSheetSelect"),
     settingsInfoLabel: document.getElementById("settingsInfoLabel"),
+    settingsBuildLabel: document.getElementById("settingsBuildLabel"),
     btnNewTalk: document.getElementById("btnNewTalk"),
     btnUndo: document.getElementById("btnUndo"),
     btnReload: document.getElementById("btnReload"),
+    quickFilterBar: document.getElementById("quickFilterBar"),
     quickList: document.getElementById("quickList"),
     quickNote: document.getElementById("quickNote"),
     btnQuickRun: document.getElementById("btnQuickRun"),
@@ -1071,6 +1095,9 @@
     if (res.config) {
       applyConfig(res.config);
     }
+    if (res.learned && typeof res.learned === "object" && Planner.setLearned) {
+      Planner.setLearned(res.learned);
+    }
     if (typeof res.oauthToken === "string" && res.oauthToken) {
       state.oauthToken = res.oauthToken;
       state.oauthTokenAt = Date.now();
@@ -1107,6 +1134,25 @@
     }
   }
 
+  var QUICK_HIST_KEY = "gasquick_hist_v1";
+  function loadHistoryLocal() {
+    try {
+      var raw = window.localStorage.getItem(QUICK_HIST_KEY);
+      if (raw) {
+        var arr = JSON.parse(raw);
+        if (Array.isArray(arr)) {
+          state.history = arr.map(String).filter(Boolean).slice(-30);
+          state.histIdx = state.history.length;
+        }
+      }
+    } catch (e) {}
+  }
+  function saveHistoryLocal() {
+    try {
+      window.localStorage.setItem(QUICK_HIST_KEY, JSON.stringify((state.history || []).slice(-30)));
+    } catch (e) {}
+  }
+
   function renderHistory() {
     els.histList.innerHTML = "";
     if (!state.history.length) {
@@ -1119,8 +1165,21 @@
     for (var i = 0; i < state.history.length; i++) {
       (function(idx) {
         var item = document.createElement("div");
-        item.className = "hist-item" + (state.selectedHistIdx === idx ? " selected" : "");
-        item.textContent = state.history[idx];
+        item.className = "hist-item hist-row" + (state.selectedHistIdx === idx ? " selected" : "");
+        var chk = document.createElement("input");
+        chk.type = "checkbox";
+        chk.checked = !!state.checkedHist[idx];
+        chk.title = "チェックして「⚡手順化」でまとめて手順マクロにできます";
+        chk.addEventListener("click", function(e) { e.stopPropagation(); });
+        chk.addEventListener("change", function() {
+          if (chk.checked) state.checkedHist[idx] = true;
+          else delete state.checkedHist[idx];
+        });
+        var span = document.createElement("span");
+        span.className = "hist-row-txt";
+        span.textContent = state.history[idx];
+        item.appendChild(chk);
+        item.appendChild(span);
         item.addEventListener("click", function() {
           state.selectedHistIdx = idx;
           renderHistory();
@@ -1141,7 +1200,12 @@
     if (!txt) return;
     if (!state.history.length || state.history[state.history.length - 1] !== txt) {
       state.history.push(txt);
+      if (state.history.length > 30) {
+        state.history = state.history.slice(-30);
+        state.checkedHist = {};
+      }
       state.selectedHistIdx = state.history.length - 1;
+      saveHistoryLocal();
       renderHistory();
     }
     state.histIdx = state.history.length;
@@ -2216,8 +2280,8 @@
       statusText: "読込中…",
       switchToChat: false,
       silentSuccess: !!silent,
-      onSuccess: function() {
-        loadLearned();
+      onSuccess: function(res) {
+        if (!res || !res.learned) loadLearned();
       }
     });
   }
@@ -2335,8 +2399,23 @@
       }
     });
   }
-  window.addEventListener("focus", function() { quickCheckBuild(false); });
-  document.addEventListener("visibilitychange", function() { if (!document.hidden) quickCheckBuild(false); });
+  var quickSheetSyncAt = 0;
+  function quickSyncSheetOnFocus() {
+    if (!hasGasBridge() || state.busy || !state.target || !state.target.id) return;
+    var now = Date.now();
+    if (now - quickSheetSyncAt < 5000) return;
+    quickSheetSyncAt = now;
+    callGas("comboPollSelection", { targetId: state.target.id || "", sheet: "" }, function(res) {
+      if (!res || !res.ok) return;
+      var prevSheet = state.curSheet || "";
+      applyServerState(res);
+      if (res.sheet && prevSheet && res.sheet !== prevSheet && !state.busy) {
+        onLook(res.sheet);
+      }
+    }, function() {});
+  }
+  window.addEventListener("focus", function() { quickCheckBuild(false); quickSyncSheetOnFocus(); });
+  document.addEventListener("visibilitychange", function() { if (!document.hidden) { quickCheckBuild(false); quickSyncSheetOnFocus(); } });
 
   // ===== GASクイック: 一覧 =====
   function quickShelfItems() {
@@ -2400,11 +2479,32 @@
     }, 700);
   }
 
+  function quickPinKey(it) { return it ? (it.src + ":" + it.name) : ""; }
+  function quickIsPinned(it) { return !!(it && state.quick.pins && state.quick.pins[quickPinKey(it)]); }
+  function quickTogglePin(it) {
+    if (!it) return;
+    var k = quickPinKey(it);
+    if (!state.quick.pins) state.quick.pins = {};
+    if (state.quick.pins[k]) delete state.quick.pins[k];
+    else state.quick.pins[k] = 1;
+    quickRememberLocal();
+    renderQuickList();
+  }
+
   function quickMoveButtons(idx) {
     var items = state.quick.items || [], it = items[idx];
     var box = document.createElement("span");
     box.className = "quick-move";
-    var filtering = !!(els.askInput.value || "").trim();
+    var pinBtn = document.createElement("button");
+    pinBtn.type = "button";
+    var pinned = quickIsPinned(it);
+    pinBtn.textContent = pinned ? "★" : "☆";
+    pinBtn.title = pinned ? "ピン留めを外す" : "ピン留め（★）";
+    if (pinned) pinBtn.className = "is-pinned";
+    pinBtn.addEventListener("click", function(e) { e.stopPropagation(); quickTogglePin(it); });
+    pinBtn.addEventListener("dblclick", function(e) { e.stopPropagation(); });
+    box.appendChild(pinBtn);
+    var filtering = !!(els.askInput.value || "").trim() || state.quick.filter !== "all";
     [["▲", -1], ["▼", 1]].forEach(function(d) {
       var b = document.createElement("button");
       b.type = "button";
@@ -2447,11 +2547,17 @@
     }
   });
 
-  function quickNorm(t) { return String(t || "").toLowerCase().replace(/[\s　]+/g, ""); }
+  function quickNorm(t) {
+    var s = String(t || "");
+    if (typeof s.normalize === "function") s = s.normalize("NFKC");
+    // カタカナをひらがなに統一して日本語の表記ゆれを吸収
+    s = s.replace(/[\u30a1-\u30f6]/g, function(ch) { return String.fromCharCode(ch.charCodeAt(0) - 0x60); });
+    return s.toLowerCase().replace(/[\s　]+/g, "");
+  }
 
-  function quickScore(item, txt) {
-    if (!txt) return 1;
-    var t = quickNorm(txt), best = 0;
+  function quickScoreToken(item, t) {
+    if (!t) return 1;
+    var best = 0;
     [item.label, item.name].concat(item.words || []).forEach(function(w) {
       var n = quickNorm(w);
       if (!n) return;
@@ -2460,17 +2566,45 @@
       else if (t.indexOf(n) >= 0 && n.length >= 2) best = Math.max(best, 40 + Math.min(n.length, 20));
     });
     if (!best && item.desc && quickNorm(item.desc).indexOf(t) >= 0) best = 30;
+    if (!best && item.steps && item.steps.length && quickNorm(item.steps.join(" ")).indexOf(t) >= 0) best = 25;
     return best;
+  }
+
+  function quickScore(item, txt) {
+    if (!txt) return 1;
+    var raw = String(txt || "").trim();
+    var tokens = raw.split(/[\s　]+/).map(quickNorm).filter(Boolean);
+    if (!tokens.length) return 1;
+    if (tokens.length === 1) return quickScoreToken(item, tokens[0]);
+    var total = 0;
+    for (var i = 0; i < tokens.length; i++) {
+      var sc = quickScoreToken(item, tokens[i]);
+      if (!sc) return 0;
+      total += sc;
+    }
+    return Math.round(total / tokens.length) + 10;
   }
 
   function quickFiltered() {
     var txt = (els.askInput.value || "").trim();
-    var all = quickAllItems();
-    if (!txt) return all;
+    var f = state.quick.filter || "all";
+    var all = quickAllItems().filter(function(it) {
+      if (f === "all") return true;
+      if (f === "pin") return quickIsPinned(it);
+      return it.src === f;
+    });
+    if (!txt) {
+      if (f === "all" && state.quick.pins && Object.keys(state.quick.pins).length) {
+        var pinned = all.filter(quickIsPinned);
+        var rest = all.filter(function(it) { return !quickIsPinned(it); });
+        return pinned.concat(rest);
+      }
+      return all;
+    }
     var srcRank = { sheet: 2, my: 2, shelf: 1 };
-    return all.map(function(it, i) { return { it: it, s: quickScore(it, txt), i: i }; })
+    return all.map(function(it, i) { return { it: it, s: quickScore(it, txt), p: quickIsPinned(it) ? 1 : 0, i: i }; })
       .filter(function(x) { return x.s > 0; })
-      .sort(function(a, b) { return (b.s - a.s) || (srcRank[b.it.src] - srcRank[a.it.src]) || (a.i - b.i); })
+      .sort(function(a, b) { return (b.s - a.s) || (b.p - a.p) || (srcRank[b.it.src] - srcRank[a.it.src]) || (a.i - b.i); })
       .map(function(x) { return x.it; });
   }
 
@@ -2496,6 +2630,13 @@
       lab.className = "quick-label";
       lab.textContent = it.label;
       row.appendChild(tag);
+      if (quickIsPinned(it)) {
+        var pinMk = document.createElement("span");
+        pinMk.className = "quick-pin-mark";
+        pinMk.textContent = "★";
+        pinMk.title = "ピン留め済み";
+        row.appendChild(pinMk);
+      }
       if (it.steps && it.steps.length) {
         var bolt = document.createElement("span");
         bolt.className = "quick-bolt";
@@ -2574,6 +2715,7 @@
         // シートのマクロはシートごとに違うので覚えから出さない（マイマクロはどのシートでも同じ）
         q.my = c.my || []; q.myId = c.myId || ""; q.myUrl = c.myUrl || ""; q.myStamp = c.myStamp || "";
         if (c.order) { q.order.my = c.order.my || []; q.order.shelf = c.order.shelf || []; }
+        if (c.pins && typeof c.pins === "object") q.pins = c.pins;
       }
     } catch (e) {}
     state.quick.loaded = true;
@@ -2584,7 +2726,7 @@
     var q = state.quick;
     try {
       window.localStorage.setItem(QUICK_LS_KEY, JSON.stringify({ my: q.my || [], myId: q.myId || "", myUrl: q.myUrl || "", myStamp: q.myStamp || "",
-        order: { my: q.order.my || [], shelf: q.order.shelf || [] } }));
+        order: { my: q.order.my || [], shelf: q.order.shelf || [] }, pins: q.pins || {} }));
     } catch (e) {}
   }
 
@@ -2706,11 +2848,12 @@
     if (!it) return;
     if (it.src === "shelf") {
       if (it.needArgs) {
-        els.askInput.value = it.label;
+        els.askInput.value = it.example || it.label;
         els.askInput.focus();
+        if (els.askInput.select) els.askInput.select();
         updatePreview();
         els.quickNote.textContent = it.example
-          ? ("棚「" + it.label + "」は言葉を足してから実行してください（例: " + it.example + "）")
+          ? ("例「" + it.example + "」を入力しました。書き換えて Enter で実行できます")
           : ("棚「" + it.label + "」は言葉を足してから実行してください（例: どの列・何色）");
         return;
       }
@@ -2967,7 +3110,10 @@
   els.askInput.addEventListener("keyup", updatePreview);
 
   // ---- ボタン・イベント配線 ----
-  els.btnRun.addEventListener("click", onRunAsk);
+  els.btnRun.addEventListener("click", function() {
+    if (state.activeTab === "list" && quickRunFromInput()) return;
+    onRunAsk();
+  });
   els.btnClear.addEventListener("click", function() {
     els.askInput.value = "";
     updatePreview();
@@ -2981,7 +3127,10 @@
   els.chkBackup.addEventListener("change", function() {
     var on = !!els.chkBackup.checked;
     state.config.backupDefault = on;
-    onRunOps([{ shelf: "backup", on: on }], "控え切替(" + (on ? "ON" : "OFF") + ")");
+    if (hasGasBridge()) {
+      callGas("comboSaveConfig", { backupDefault: on }, function() {}, function() {});
+    }
+    setStatus("控え: " + (on ? "ON" : "OFF"), false);
   });
 
   els.sheetSelect.addEventListener("change", function() {
@@ -3086,6 +3235,39 @@
       els.askInput.focus();
     }
   });
+  els.btnSaveSteps.addEventListener("click", function() {
+    var picked = [];
+    for (var hi = 0; hi < state.history.length; hi++) {
+      if (state.checkedHist[hi]) picked.push(state.history[hi]);
+    }
+    if (!picked.length && state.selectedHistIdx >= 0 && state.history[state.selectedHistIdx]) {
+      picked.push(state.history[state.selectedHistIdx]);
+    }
+    if (!picked.length && (els.askInput.value || "").trim()) {
+      picked.push((els.askInput.value || "").trim());
+    }
+    if (!picked.length) {
+      flashBtn(els.btnSaveSteps, "履歴を選択", "⚡手順化");
+      return;
+    }
+    var defName = "手順_" + picked[0].slice(0, 12);
+    var name = window.prompt("マイマクロに保存する名前を入力してください\n手順(" + picked.length + "件): " + picked.join(" / "), defName);
+    if (!name || !name.trim()) return;
+    runServerAction({
+      fnName: "comboQuickSaveSteps",
+      payload: { name: name.trim(), steps: picked },
+      label: "⚡手順マクロ保存: " + name.trim(),
+      statusText: "手順マクロを保存中…",
+      switchToChat: false,
+      onSuccess: function(res) {
+        state.checkedHist = {};
+        renderHistory();
+        els.quickNote.textContent = (res && res.text) || "手順マクロを保存しました";
+        loadQuickList(true);
+        switchTab("list");
+      }
+    });
+  });
   els.btnRerunHist.addEventListener("click", function() {
     if (state.selectedHistIdx >= 0 && state.history[state.selectedHistIdx] !== undefined) {
       els.askInput.value = state.history[state.selectedHistIdx];
@@ -3139,7 +3321,27 @@
   }
   els.btnReload.addEventListener("click", function() { onInit(true); });
 
+  if (els.quickFilterBar) {
+    var qfBtns = els.quickFilterBar.querySelectorAll(".quick-filter-btn");
+    for (var qfi = 0; qfi < qfBtns.length; qfi++) {
+      qfBtns[qfi].addEventListener("click", function() {
+        var f = this.getAttribute("data-qfilter") || "all";
+        state.quick.filter = f;
+        state.quick.sel = -1;
+        for (var j = 0; j < qfBtns.length; j++) {
+          qfBtns[j].classList.toggle("active", qfBtns[j].getAttribute("data-qfilter") === f);
+        }
+        renderQuickList();
+      });
+    }
+  }
+
   // ---- 初期起動 ----
+  loadHistoryLocal();
+  renderHistory();
+  if (els.settingsBuildLabel) {
+    els.settingsBuildLabel.textContent = "版: " + (QUICK_SIDEBAR_BUILD || "ローカル");
+  }
   if (hasGasBridge()) {
     quickRestoreList();
     loadQuickList();
@@ -3151,7 +3353,7 @@
       switchToChat: false,
       silentSuccess: true,
       onSuccess: function(res) {
-        loadLearned();
+        if (!res || !res.learned) loadLearned();
         if (!res.config) {
           callGas("comboGetConfig", undefined, function(cfg) { applyConfig(cfg); });
         }
