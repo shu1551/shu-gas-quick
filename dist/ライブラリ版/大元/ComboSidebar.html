@@ -548,7 +548,7 @@
 <div class="app">
   <!-- 上部入力欄 -->
   <div class="top-input">
-    <textarea id="askInput" class="ask-textarea" rows="3" placeholder="頼みを入力（例: 見出しを太字に）するか、「一覧」から選ぶ"></textarea>
+    <textarea id="askInput" class="ask-textarea" rows="3" placeholder="頼みを入力 ／ 一覧を絞り込み（例: 太字）"></textarea>
     <div class="top-btns">
       <button id="btnRun" class="btn btn-primary btn-run" type="button">実 行</button>
       <button id="btnClear" class="btn btn-clear" type="button">クリア(×)</button>
@@ -4980,7 +4980,7 @@ module.exports = ComboPlanner;
 
   // ===== GASクイック: 直したら自分で開き直す =====
   // 組み立てのときに quick.py がこの操作窓の版の印を埋める。大元の印と違えば、新しい操作窓に入れ替える
-  var QUICK_SIDEBAR_BUILD = "6f2674cc71";
+  var QUICK_SIDEBAR_BUILD = "cb5d9b0f03";
   var quickBuildAt = 0;
   function quickCheckBuild(force) {
     if (!QUICK_SIDEBAR_BUILD || !hasGasBridge()) return;
