@@ -36,7 +36,7 @@ function 選んだ所を太字() {
 1. [GASクイック 大元をコピーする](https://docs.google.com/spreadsheets/d/1qXITXBGfveSytYLff49J4danMFdob0ax_tXneghCmhA/copy) を開いて「コピーを作成」
 2. コピーした大元で「拡張機能 → Apps Script」→ 右上「デプロイ → 新しいデプロイ」→ 左上の歯車から **「ライブラリ」** を選んで「デプロイ」（初回 1 回だけ）
 3. 大元シートに戻り、メニュー **「⚡ GASクイック → つなぎ用 JSON を表示（コピー）」** →「JSON をコピー」を押す
-4. 大元シートの `はじめに` にあるリンクから [GASクイック テンプレートをコピーする](https://docs.google.com/spreadsheets/d/1jskvI-zVB1Anrtwvxp0AXeiXSZF4N1cEDqt2K3TWO5I/copy)
+4. 大元シートの `はじめに` にあるリンクから [GASクイック テンプレートをコピーする](https://docs.google.com/spreadsheets/d/1j2Ad0F3fB0yW7klZodQG-6lUxpRbfGRmtqEPu9yV-ms/copy)
 5. テンプレートの「拡張機能 → Apps Script」→「プロジェクトの設定」で `appsscript.json` を表示し、全選択して手順 3 の JSON を貼り付けて保存 → テンプレートを F5 で再読込すれば完了！
 6. 2 枚目以降は、テンプレートの **「設定」タブ →「新規ファイルを作成」** からボタン一発で作れます
 
