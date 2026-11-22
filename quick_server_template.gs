@@ -31,6 +31,8 @@ function onOpen(e) {
       .createMenu('⚡ GASクイック')
       .addItem('操作窓を開く', 'showGasComboSidebar')
       .addItem('直前を取り消す', 'comboMenuUndo')
+      .addSeparator()
+      .addItem('つなぎ用 JSON を表示（コピー）', 'showConnectorJsonDialog')
       .addToUi();
   } catch (err) {
     // トリガー外（APIテスト等）でのエラーは無視する
@@ -51,6 +53,65 @@ function createComboSidebarHtml() {
  */
 function showGasComboSidebar() {
   SpreadsheetApp.getUi().showSidebar(createComboSidebarHtml());
+}
+
+/**
+ * 大元シートのメニューから、自分の大元 ID が埋まったつなぎ用 appsscript.json のコピー窓を表示する。
+ */
+function showConnectorJsonDialog() {
+  var engineId = '';
+  try { engineId = ScriptApp.getScriptId(); } catch (e) {}
+  var jsonStr = JSON.stringify({
+    timeZone: 'Asia/Tokyo',
+    exceptionLogging: 'STACKDRIVER',
+    runtimeVersion: 'V8',
+    dependencies: {
+      libraries: [
+        { userSymbol: 'shuquickengine', version: '1', libraryId: engineId, developmentMode: false }
+      ],
+      enabledAdvancedServices: [
+        { userSymbol: 'Drive', serviceId: 'drive', version: 'v3' },
+        { userSymbol: 'Sheets', serviceId: 'sheets', version: 'v4' }
+      ]
+    },
+    oauthScopes: [
+      'https://www.googleapis.com/auth/spreadsheets',
+      'https://www.googleapis.com/auth/drive',
+      'https://www.googleapis.com/auth/drive.scripts',
+      'https://www.googleapis.com/auth/script.container.ui',
+      'https://www.googleapis.com/auth/script.external_request'
+    ],
+    webapp: { executeAs: 'USER_DEPLOYING', access: 'MYSELF' }
+  }, null, 2);
+  var esc = jsonStr.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  var html = '<!doctype html><html><head><meta charset="utf-8"><style>'
+    + 'body{font-family:sans-serif;margin:12px;font-size:13px;color:#1e293b;}'
+    + 'textarea{width:100%;height:230px;font-family:monospace;font-size:11px;box-sizing:border-box;padding:8px;border:1px solid #cbd5e1;border-radius:4px;}'
+    + '.row{display:flex;gap:8px;align-items:center;margin-top:10px;}'
+    + 'button{padding:7px 14px;border:none;border-radius:4px;background:#2563eb;color:#fff;font-weight:bold;cursor:pointer;}'
+    + 'button.sub{background:#e2e8f0;color:#1e293b;font-weight:normal;}'
+    + '#msg{font-size:12px;color:#15803d;font-weight:bold;}'
+    + '</style></head><body>'
+    + '<div style="margin-bottom:6px;">テンプレートの <b>appsscript.json</b> を全選択して、下の内容を貼り付けて保存してください。</div>'
+    + '<textarea id="j" readonly>' + esc + '</textarea>'
+    + '<div class="row">'
+    + '<button id="cp" type="button">JSON をコピー</button>'
+    + '<button class="sub" type="button" onclick="google.script.host.close()">閉じる</button>'
+    + '<span id="msg"></span></div>'
+    + '<script>'
+    + 'var ta=document.getElementById("j"),msg=document.getElementById("msg");'
+    + 'ta.focus();ta.select();'
+    + 'document.getElementById("cp").onclick=function(){'
+    + '  ta.focus();ta.select();'
+    + '  if(navigator.clipboard&&navigator.clipboard.writeText){'
+    + '    navigator.clipboard.writeText(ta.value).then(function(){msg.textContent="コピーしました！";}).catch(function(){document.execCommand("copy");msg.textContent="コピーしました！";});'
+    + '  }else{document.execCommand("copy");msg.textContent="コピーしました！";}'
+    + '};'
+    + '</script></body></html>';
+  SpreadsheetApp.getUi().showModalDialog(
+    HtmlService.createHtmlOutput(html).setWidth(480).setHeight(340),
+    'つなぎ用 appsscript.json（大元 ID 入り）'
+  );
 }
 
 /**
@@ -316,6 +377,9 @@ function comboInit(req, sheetFns) {
     };
     if (req.includeQuick) {
       out.quick = comboQuickList({ force: !!req.forceQuick, _skipToken: true }, sheetFns);
+    }
+    if (sheetFns === undefined) {
+      try { out.engineScriptId = ScriptApp.getScriptId(); } catch (eSid) {}
     }
     out.gasMs = Date.now() - t0;
     return out;
@@ -2162,5 +2226,171 @@ function comboQuickSaveSteps(req) {
     return { ok: true, name: safeName, myId: made.myId, myUrl: made.myUrl, text: '⚡ 手順マクロ「' + safeName + '」をマイマクロに保存しました' };
   } catch (e) {
     return { ok: false, error: '手順マクロを保存できませんでした: ' + String(e && e.message || e) };
+  }
+}
+
+/** 今開いているブックのつなぎコード（大元 ID 付き）を引き継いだ、真っ新な新規スプレッドシートを作成する。 */
+function comboQuickNewBook(req) {
+  req = req || {};
+  try {
+    var name = String(req.name || '').trim() || ('GASクイック 新規シート ' + Utilities.formatDate(new Date(), 'Asia/Tokyo', 'yyyyMMdd_HHmm'));
+    var src = SpreadsheetApp.getActive();
+    if (!src) return { ok: false, error: '元のスプレッドシートが見つかりません' };
+    var srcFile = DriveApp.getFileById(src.getId());
+    var parents = srcFile.getParents();
+    var copyFile = parents.hasNext() ? srcFile.makeCopy(name, parents.next()) : srcFile.makeCopy(name);
+    var newSs = SpreadsheetApp.openById(copyFile.getId());
+    var tmpName = '_tmp_init_' + Date.now();
+    var fresh = newSs.insertSheet(tmpName);
+    var sheets = newSs.getSheets();
+    for (var i = 0; i < sheets.length; i++) {
+      if (sheets[i].getSheetId() !== fresh.getSheetId()) {
+        newSs.deleteSheet(sheets[i]);
+      }
+    }
+    fresh.setName('シート1');
+    return { ok: true, id: newSs.getId(), url: newSs.getUrl(), name: name, text: '「' + name + '」を作成しました' };
+  } catch (e) {
+    return { ok: false, error: '新規ファイルを作成できませんでした: ' + String(e && e.message || e) };
+  }
+}
+
+/** ソースコードから指定関数（直上の連続コメント含む）の [start, end] 文字位置を返す。見つからなければ null。 */
+function quickFindFnSpan_(src, name) {
+  src = String(src || '');
+  var esc = String(name || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  if (!esc) return null;
+  var re = new RegExp('^(?:async\\s+)?function\\s+' + esc + '\\s*\\(|^(?:const|let|var)\\s+' + esc + '\\s*=\\s*(?:async\\s+)?(?:function\\s*\\(|\\([^)]*\\)\\s*=>|[\\w$]+\\s*=>)', 'm');
+  var m = re.exec(src);
+  if (!m) return null;
+  var defStart = m.index;
+  // 直上の連続する // コメント行を含める
+  var start = defStart;
+  while (start > 0) {
+    var prevNl = src.lastIndexOf('\n', start - 2);
+    var lineStart = prevNl < 0 ? 0 : prevNl + 1;
+    var prevLine = src.slice(lineStart, start - 1);
+    if (/^\s*\/\//.test(prevLine)) {
+      start = lineStart;
+    } else {
+      break;
+    }
+  }
+  // 関数本体の { ... } の対応を辿る（文字列・コメントをスキップ）
+  var i = defStart, n = src.length, depth = 0, opened = false;
+  var inStr = '', inLineCom = false, inBlkCom = false;
+  for (; i < n; i++) {
+    var ch = src[i], nx = i + 1 < n ? src[i + 1] : '';
+    if (inLineCom) { if (ch === '\n') inLineCom = false; continue; }
+    if (inBlkCom) { if (ch === '*' && nx === '/') { inBlkCom = false; i++; } continue; }
+    if (inStr) {
+      if (ch === '\\') { i++; continue; }
+      if (ch === inStr) inStr = '';
+      continue;
+    }
+    if (ch === '/' && nx === '/') { inLineCom = true; i++; continue; }
+    if (ch === '/' && nx === '*') { inBlkCom = true; i++; continue; }
+    if (ch === "'" || ch === '"' || ch === '`') { inStr = ch; continue; }
+    if (ch === '{') { depth++; opened = true; }
+    else if (ch === '}') {
+      depth--;
+      if (opened && depth === 0) {
+        var end = i + 1;
+        if (src[end] === ';') end++;
+        return { start: start, end: end };
+      }
+    }
+  }
+  return null;
+}
+
+/** マイマクロから指定関数のコードだけを抜き出して返す。 */
+function comboQuickGetFn(req) {
+  req = req || {};
+  var name = String(req.name || '').trim();
+  if (!name) return { ok: false, error: '関数名が指定されていません' };
+  try {
+    var id = quickMyFind_();
+    if (!id) return { ok: false, error: 'マイマクロが見つかりません' };
+    var content = quickMyContent_(id);
+    var files = (content.files || []).filter(function (f) { return f.type === 'server_js'; });
+    for (var i = 0; i < files.length; i++) {
+      var sp = quickFindFnSpan_(files[i].source, name);
+      if (sp) {
+        return { ok: true, name: name, fileName: files[i].name, code: files[i].source.slice(sp.start, sp.end), myUrl: quickMyUrl_(id) };
+      }
+    }
+    return { ok: false, error: 'マイマクロ内に「' + name + '」が見つかりませんでした' };
+  } catch (e) {
+    return { ok: false, error: 'コードを読めませんでした: ' + String(e && e.message || e) };
+  }
+}
+
+/** マイマクロの指定関数だけを編集後のコードでピンポイント上書き保存する。 */
+function comboQuickSaveFn(req) {
+  req = req || {};
+  var name = String(req.name || '').trim();
+  var code = String(req.code || '').replace(/\r\n/g, '\n').replace(/\s*$/, '');
+  if (!name) return { ok: false, error: '関数名が指定されていません' };
+  if (!code) return { ok: false, error: 'コードが空です' };
+  try {
+    new Function(code);
+  } catch (eSyn) {
+    return { ok: false, error: '構文エラーがあります: ' + String(eSyn && eSyn.message || eSyn) };
+  }
+  try {
+    var id = quickMyFind_();
+    if (!id) return { ok: false, error: 'マイマクロが見つかりません' };
+    var content = quickMyContent_(id);
+    var files = (content.files || []).filter(function (f) { return f.type === 'server_js'; });
+    for (var i = 0; i < files.length; i++) {
+      var sp = quickFindFnSpan_(files[i].source, name);
+      if (sp) {
+        files[i].source = files[i].source.slice(0, sp.start) + code + files[i].source.slice(sp.end);
+        quickDrive_('patch', 'https://www.googleapis.com/upload/drive/v3/files/' + id + '?uploadType=media', JSON.stringify(content), QUICK_SCRIPT_JSON);
+        quickMyInvalidate_(id);
+        return { ok: true, name: name, text: '「' + name + '」を保存しました' };
+      }
+    }
+    return { ok: false, error: 'マイマクロ内に「' + name + '」が見つかりませんでした' };
+  } catch (e) {
+    return { ok: false, error: '保存できませんでした: ' + String(e && e.message || e) };
+  }
+}
+
+/** チャット AI 等で作った新しい関数をマイマクロの先頭へ追加する（未作成なら自動作成）。 */
+function comboQuickAddFn(req) {
+  req = req || {};
+  var code = String(req.code || '').replace(/\r\n/g, '\n').replace(/^\s*\n+/, '').replace(/\s*$/, '');
+  if (!code) return { ok: false, error: 'コードが空です' };
+  try {
+    new Function(code);
+  } catch (eSyn) {
+    return { ok: false, error: '構文エラーがあります: ' + String(eSyn && eSyn.message || eSyn) };
+  }
+  var parsed = quickParseFns_(code);
+  if (!parsed.length) {
+    return { ok: false, error: '関数定義（function 名前() { ... }）が見つかりません' };
+  }
+  try {
+    var made = comboQuickMake({});
+    if (!made.ok) return made;
+    var content = quickMyContent_(made.myId);
+    var all = quickMySource_(content);
+    var existing = {};
+    quickParseFns_(all).forEach(function (f) { existing[f.name] = true; });
+    var dup = parsed.filter(function (f) { return existing[f.name]; }).map(function (f) { return f.name; });
+    if (dup.length) {
+      return { ok: false, error: '同じ名前「' + dup.join('・') + '」がすでにあります（編集から直すか別の名前にしてください）' };
+    }
+    var file = (content.files || []).filter(function (f) { return f.type === 'server_js'; })[0];
+    if (!file) return { ok: false, error: 'マイマクロのコードファイルが見つかりません' };
+    file.source = quickInsertTop_(file.source, code);
+    quickDrive_('patch', 'https://www.googleapis.com/upload/drive/v3/files/' + made.myId + '?uploadType=media', JSON.stringify(content), QUICK_SCRIPT_JSON);
+    quickMyInvalidate_(made.myId);
+    var names = parsed.map(function (f) { return f.name; });
+    return { ok: true, names: names, myId: made.myId, myUrl: made.myUrl, text: '「' + names.join('・') + '」をマイマクロに追加しました' };
+  } catch (e) {
+    return { ok: false, error: '追加できませんでした: ' + String(e && e.message || e) };
   }
 }

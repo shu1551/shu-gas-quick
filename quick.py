@@ -70,6 +70,10 @@ function comboQuickSaveOrder(req) { return {lib}.comboQuickSaveOrder(req); }
 function comboQuickSavePins(req) { return {lib}.comboQuickSavePins(req); }
 function comboQuickSaveSteps(req) { return {lib}.comboQuickSaveSteps(req); }
 function comboQuickReopen(req) { return {lib}.comboQuickReopen(req); }
+function comboQuickNewBook(req) { return {lib}.comboQuickNewBook(req); }
+function comboQuickGetFn(req) { return {lib}.comboQuickGetFn(req); }
+function comboQuickSaveFn(req) { return {lib}.comboQuickSaveFn(req); }
+function comboQuickAddFn(req) { return {lib}.comboQuickAddFn(req); }
 function comboQuickImport(req) {
   var f = globalThis[String((req || {}).name || '')];
   return {lib}.comboQuickImport(req, typeof f === 'function' ? String(f) : '');
@@ -326,11 +330,42 @@ def template(client=None, new=False, force=False, dev=None):
     return res
 
 
+def engine_sheet(client=None, new=False):
+    """配布用の「大元シート」（スプレッドシートに大元 4 ファイルを内蔵した版）を作る・更新する。"""
+    client = client or _client()
+    st = _load_state()
+    ss_id = str(st.get("engine_sheet_ss_id") or "").strip()
+    sid = str(st.get("engine_sheet_sid") or "").strip()
+    if new or not ss_id:
+        ss_id, _ = C._create_spreadsheet("GASクイック 大元", client)
+        sid = ""
+        st["engine_sheet_ss_id"] = ss_id
+        st["engine_sheet_sid"] = ""
+        _save_state(st)
+    if not sid:
+        sid = str(client.create_project("GASクイック 大元", parent_id=ss_id)["scriptId"]).strip()
+        st["engine_sheet_sid"] = sid
+        _save_state(st)
+    files = build_engine_files()
+    client._put_content(sid, files)
+    C._clear_runner_cache(client, sid)
+    return {
+        "ok": True,
+        "mode": "engine-sheet",
+        "spreadsheetId": ss_id,
+        "scriptId": sid,
+        "url": f"https://docs.google.com/spreadsheets/d/{ss_id}/edit",
+        "copy_url": f"https://docs.google.com/spreadsheets/d/{ss_id}/copy",
+    }
+
+
 def main(argv=None):
     p = argparse.ArgumentParser(description="GASクイック の組み立てと入れ方")
     sub = p.add_subparsers(dest="cmd", required=True)
     e = sub.add_parser("engine", help="大元ライブラリを作る・入れ直す")
     e.add_argument("--force", action="store_true")
+    es = sub.add_parser("engine-sheet", help="配布用の「大元シート」を作る・入れ直す")
+    es.add_argument("--new", action="store_true")
     c = sub.add_parser("connect", help="スプレッドシートにつなぎコードを置く")
     c.add_argument("sheet")
     c.add_argument("--force", action="store_true")
@@ -346,6 +381,8 @@ def main(argv=None):
     if a.cmd == "engine":
         sid, ver = ensure_engine(force=a.force)
         out = {"ok": True, "engineId": sid, "engineVersion": ver}
+    elif a.cmd == "engine-sheet":
+        out = engine_sheet(new=a.new)
     elif a.cmd == "connect":
         out = connect(a.sheet, force=a.force, dev=True if a.dev else (False if a.release else None))
     elif a.cmd == "dist":

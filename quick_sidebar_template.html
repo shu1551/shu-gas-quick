@@ -596,6 +596,7 @@
         </div>
         <div class="pane-footer">
           <button id="btnQuickRun" class="btn btn-primary" type="button">実行</button>
+          <button id="btnQuickAdd" class="btn" type="button" title="チャット AI 等で作った新しい関数を貼り付けて追加">＋追加</button>
           <button id="btnQuickEdit" class="btn" type="button">編集</button>
           <button id="btnQuickImport" class="btn" type="button">マイマクロへ</button>
           <button id="btnQuickReload" class="btn" type="button">更新</button>
@@ -670,6 +671,28 @@
 
       <!-- 設定タブ -->
       <div id="pane-conf" class="tab-pane">
+        <div id="settingsEngineBox" class="conf-group" style="display:none;">
+          <label class="conf-label">大元セットアップ（初回接続用）</label>
+          <div id="settingsEngineIdLabel" class="conf-note" style="margin-bottom:6px;word-break:break-all;">大元ID: -</div>
+          <div style="display:flex;gap:6px;">
+            <button id="btnCopyConnectorJson" class="btn btn-primary" type="button" style="flex:1;">つなぎ用 JSON をコピー</button>
+            <button id="btnCopyEngineId" class="btn" type="button">IDコピー</button>
+          </div>
+          <div id="settingsEngineStatus" class="conf-note" style="margin-top:4px;">テンプレートの appsscript.json にそのまま貼り付けて保存してください。</div>
+        </div>
+        <div id="settingsNewBookBox" class="conf-group">
+          <label class="conf-label" for="settingsNewBookName">新規ファイルを作成（GASクイック入り）</label>
+          <input id="settingsNewBookName" class="conf-control" type="text" placeholder="ブック名（空欄で自動命名）">
+          <div style="margin-top:6px;">
+            <button id="btnSettingsNewBook" class="btn btn-primary" type="button" style="width:100%;">新規ファイルを作成</button>
+          </div>
+          <div id="settingsNewBookStatus" class="conf-note" style="margin-top:4px;"></div>
+        </div>
+        <div class="conf-group">
+          <label class="conf-label">マイマクロ（全シート共通）</label>
+          <div id="settingsMyStatus" class="conf-note" style="margin-bottom:6px;">確認中…</div>
+          <button id="btnSettingsMyMacro" class="btn" type="button" style="width:100%;">マイマクロを作る</button>
+        </div>
         <div class="conf-group">
           <label class="conf-label" for="settingsDefaultTab">起動時に開くタブ</label>
           <select id="settingsDefaultTab" class="conf-control">
@@ -694,6 +717,23 @@
   <div class="bottom-bar">
     <button id="btnUndo" class="btn" type="button">直前を取り消す</button>
     <button id="btnReload" class="btn" type="button">再読込</button>
+  </div>
+</div>
+
+<!-- マイマクロ関数ピンポイント編集オーバーレイ -->
+<div id="quickEditModal" style="display:none;position:fixed;inset:0;z-index:999;background:#f8fafc;flex-direction:column;padding:10px;box-sizing:border-box;">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
+    <strong id="quickEditTitle" style="font-size:13px;color:#0f172a;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">編集</strong>
+    <button id="btnQuickEditClose" class="btn" type="button" style="padding:2px 8px;">✕</button>
+  </div>
+  <textarea id="quickEditCode" spellcheck="false" style="flex:1;width:100%;font-family:Consolas,monospace;font-size:12px;line-height:1.45;padding:8px;border:1px solid #cbd5e1;border-radius:4px;box-sizing:border-box;resize:none;"></textarea>
+  <div id="quickEditStatus" style="font-size:11px;color:#475569;margin-top:6px;min-height:16px;"></div>
+  <div style="display:flex;gap:6px;margin-top:6px;">
+    <button id="btnQuickEditCopy" class="btn" type="button" style="flex:1;">コピー</button>
+    <button id="btnQuickEditPaste" class="btn" type="button" style="flex:1;">貼り付け</button>
+  </div>
+  <div style="margin-top:6px;">
+    <button id="btnQuickEditSave" class="btn btn-primary" type="button" style="width:100%;">保存</button>
   </div>
 </div>
 
@@ -800,6 +840,17 @@
     btnSaveSteps: document.getElementById("btnSaveSteps"),
     btnRerunHist: document.getElementById("btnRerunHist"),
     traceLog: document.getElementById("traceLog"),
+    settingsEngineBox: document.getElementById("settingsEngineBox"),
+    settingsEngineIdLabel: document.getElementById("settingsEngineIdLabel"),
+    btnCopyConnectorJson: document.getElementById("btnCopyConnectorJson"),
+    btnCopyEngineId: document.getElementById("btnCopyEngineId"),
+    settingsEngineStatus: document.getElementById("settingsEngineStatus"),
+    settingsNewBookBox: document.getElementById("settingsNewBookBox"),
+    settingsNewBookName: document.getElementById("settingsNewBookName"),
+    btnSettingsNewBook: document.getElementById("btnSettingsNewBook"),
+    settingsNewBookStatus: document.getElementById("settingsNewBookStatus"),
+    settingsMyStatus: document.getElementById("settingsMyStatus"),
+    btnSettingsMyMacro: document.getElementById("btnSettingsMyMacro"),
     settingsDefaultTab: document.getElementById("settingsDefaultTab"),
     settingsInfoLabel: document.getElementById("settingsInfoLabel"),
     settingsBuildLabel: document.getElementById("settingsBuildLabel"),
@@ -809,9 +860,18 @@
     quickList: document.getElementById("quickList"),
     quickNote: document.getElementById("quickNote"),
     btnQuickRun: document.getElementById("btnQuickRun"),
+    btnQuickAdd: document.getElementById("btnQuickAdd"),
     btnQuickEdit: document.getElementById("btnQuickEdit"),
     btnQuickImport: document.getElementById("btnQuickImport"),
-    btnQuickReload: document.getElementById("btnQuickReload")
+    btnQuickReload: document.getElementById("btnQuickReload"),
+    quickEditModal: document.getElementById("quickEditModal"),
+    quickEditTitle: document.getElementById("quickEditTitle"),
+    quickEditCode: document.getElementById("quickEditCode"),
+    quickEditStatus: document.getElementById("quickEditStatus"),
+    btnQuickEditCopy: document.getElementById("btnQuickEditCopy"),
+    btnQuickEditPaste: document.getElementById("btnQuickEditPaste"),
+    btnQuickEditSave: document.getElementById("btnQuickEditSave"),
+    btnQuickEditClose: document.getElementById("btnQuickEditClose")
   };
 
   function hasGasBridge() {
@@ -2683,6 +2743,7 @@
       switchToChat: false,
       silentSuccess: !!silent,
       onSuccess: function(res) {
+        updateEngineSetupUI(res && res.engineScriptId);
         if (!res || !res.learned) loadLearned();
       }
     });
@@ -3122,6 +3183,32 @@
     els.btnQuickImport.textContent = q.importMode ? "やめる" : "マイマクロへ";
     els.quickList.style.outline = q.importMode ? "2px solid #16a34a" : "";
     els.btnQuickEdit.textContent = q.myId ? "編集" : "マイマクロを作る";
+    updateQuickEditBtnState();
+    updateSettingsMyMacroUI();
+  }
+
+  function updateQuickEditBtnState() {
+    var q = state.quick, it = (q.items || [])[q.sel];
+    if (!q.myId) {
+      els.btnQuickEdit.disabled = false;
+      els.btnQuickEdit.textContent = "マイマクロを作る";
+      return;
+    }
+    els.btnQuickEdit.textContent = "編集";
+    // 「棚」または未選択のときは編集不可（「マイ」「シート」選択時のみ有効）
+    els.btnQuickEdit.disabled = !(it && (it.src === "my" || it.src === "sheet"));
+  }
+
+  function updateSettingsMyMacroUI() {
+    var q = state.quick;
+    if (els.settingsMyStatus) {
+      els.settingsMyStatus.textContent = q.myId
+        ? "作成済み（どのシートでも一覧に並びます）"
+        : "未作成です。下のボタンから自動で作成できます";
+    }
+    if (els.btnSettingsMyMacro) {
+      els.btnSettingsMyMacro.textContent = q.myId ? "マイマクロを開く（編集）" : "マイマクロを作る";
+    }
   }
 
   // 選んだ印だけを付け替える（一覧を描き直すと、ダブルクリックの 2 回目が別の行に当たって撃てなくなる）
@@ -3133,6 +3220,7 @@
       if (mv && i !== idx) mv.parentNode.removeChild(mv);
       if (i === idx && !mv) rows[i].appendChild(quickMoveButtons(idx));
     }
+    updateQuickEditBtnState();
   }
 
   // 一覧の選択位置を移して画面内へスクロールし、下の欄に説明を出す（-1 で選択解除）
@@ -3847,27 +3935,272 @@
     if (!quickRunFromInput() && (els.askInput.value || "").trim()) onRunAsk();
   });
   els.btnQuickReload.addEventListener("click", function() { loadQuickList(); });
+  var quickEditState = { mode: "edit", name: "", myUrl: "" };
+  function closeQuickEditModal() {
+    if (els.quickEditModal) els.quickEditModal.style.display = "none";
+    quickEditState = { mode: "edit", name: "", myUrl: "" };
+  }
+  if (els.btnQuickAdd) {
+    els.btnQuickAdd.addEventListener("click", function() {
+      quickEditState = { mode: "add", name: "", myUrl: state.quick.myUrl || "" };
+      if (els.quickEditTitle) els.quickEditTitle.textContent = "新規マイマクロを追加";
+      if (els.quickEditCode) {
+        els.quickEditCode.value = "";
+        els.quickEditCode.placeholder = "// 説明\nfunction 自分のマクロ名() {\n  // ここに処理を書く\n}";
+      }
+      if (els.quickEditStatus) els.quickEditStatus.textContent = "Gemini 等で作った GAS の関数を「貼り付け」→「保存」してください";
+      if (els.quickEditModal) els.quickEditModal.style.display = "flex";
+      if (els.quickEditCode) els.quickEditCode.focus();
+    });
+  }
+  if (els.btnQuickEditClose) {
+    els.btnQuickEditClose.addEventListener("click", closeQuickEditModal);
+  }
+  if (els.btnQuickEditCopy) {
+    els.btnQuickEditCopy.addEventListener("click", function() {
+      var code = els.quickEditCode ? els.quickEditCode.value : "";
+      copyToClipboard(code).then(function() {
+        if (els.quickEditStatus) els.quickEditStatus.textContent = "コードをコピーしました（Gemini などに貼って修正できます）";
+      }).catch(function() {
+        if (els.quickEditCode) { els.quickEditCode.focus(); els.quickEditCode.select(); }
+        if (els.quickEditStatus) els.quickEditStatus.textContent = "全選択しました。Ctrl+C でコピーしてください";
+      });
+    });
+  }
+  function stripCodeFence(txt) {
+    var s = String(txt || "").trim();
+    var m = s.match(/^```(?:javascript|js|gs)?\r?\n([\s\S]*?)\r?\n?```$/i);
+    return m ? m[1].trim() : s;
+  }
+  if (els.btnQuickEditPaste) {
+    els.btnQuickEditPaste.addEventListener("click", function() {
+      if (navigator.clipboard && navigator.clipboard.readText) {
+        navigator.clipboard.readText().then(function(txt) {
+          if (!txt || !String(txt).trim()) {
+            if (els.quickEditStatus) els.quickEditStatus.textContent = "クリップボードが空です";
+            return;
+          }
+          if (els.quickEditCode) els.quickEditCode.value = stripCodeFence(txt);
+          if (els.quickEditStatus) els.quickEditStatus.textContent = "貼り付けました。確認して「保存」を押してください";
+        }).catch(function() {
+          if (els.quickEditCode) { els.quickEditCode.focus(); els.quickEditCode.select(); }
+          if (els.quickEditStatus) els.quickEditStatus.textContent = "全選択しました。そのまま Ctrl+V で貼り付けてください";
+        });
+      } else {
+        if (els.quickEditCode) { els.quickEditCode.focus(); els.quickEditCode.select(); }
+        if (els.quickEditStatus) els.quickEditStatus.textContent = "全選択しました。そのまま Ctrl+V で貼り付けてください";
+      }
+    });
+  }
+  if (els.btnQuickEditSave) {
+    els.btnQuickEditSave.addEventListener("click", function() {
+      var mode = quickEditState.mode || "edit";
+      var nm = quickEditState.name || "";
+      var code = els.quickEditCode ? els.quickEditCode.value : "";
+      if (mode === "add") {
+        if (els.quickEditStatus) els.quickEditStatus.textContent = "マイマクロへ追加しています…";
+        runServerAction({
+          fnName: "comboQuickAddFn", payload: { code: code },
+          label: "新規マイマクロを追加", statusText: "マイマクロへ追加しています…", switchToChat: false,
+          onSuccess: function(res) {
+            if (res && res.myId) { state.quick.myId = res.myId; state.quick.myUrl = res.myUrl || ""; }
+            closeQuickEditModal();
+            els.quickNote.textContent = (res && res.text) || "マイマクロに追加しました";
+            state.quick.myStamp = "";
+            quickRememberLocal();
+            updateSettingsMyMacroUI();
+            loadQuickList(true);
+          },
+          onError: function(err) {
+            if (els.quickEditStatus) els.quickEditStatus.textContent = "エラー: " + String(err && err.message || err || "");
+          }
+        });
+        return;
+      }
+      if (!nm) return;
+      if (els.quickEditStatus) els.quickEditStatus.textContent = "保存しています…";
+      runServerAction({
+        fnName: "comboQuickSaveFn", payload: { name: nm, code: code },
+        label: "マイマクロを保存", statusText: "保存しています…", switchToChat: false,
+        onSuccess: function(res) {
+          closeQuickEditModal();
+          els.quickNote.textContent = (res && res.text) || ("「" + nm + "」を保存しました");
+          state.quick.myStamp = "";
+          quickRememberLocal();
+          loadQuickList(true);
+        },
+        onError: function(err) {
+          if (els.quickEditStatus) els.quickEditStatus.textContent = "エラー: " + String(err && err.message || err || "");
+        }
+      });
+    });
+  }
+
   els.btnQuickEdit.addEventListener("click", function() {
     var q = state.quick, it = q.items[q.sel];
-    if (it && it.src === "sheet") {
+    if (!q.myId) {
+      runServerAction({
+        fnName: "comboQuickMake", payload: {}, label: "マイマクロを作る", statusText: "マイマクロを作っています…", switchToChat: false,
+        onSuccess: function(res) {
+          q.myId = res.myId || ""; q.myUrl = res.myUrl || "";
+          els.quickNote.textContent = (res.text || "") + "。「編集」で開いて、エディタの Gemini に作ってもらえます";
+          updateSettingsMyMacroUI();
+          loadQuickList();
+        }
+      });
+      return;
+    }
+    if (!it || it.src === "shelf") {
+      els.quickNote.textContent = "「棚」は大元本体の機能のため編集できません";
+      return;
+    }
+    if (it.src === "sheet") {
       els.quickNote.textContent = "シートのマクロは メニューの「拡張機能 → Apps Script」で開いて直してください";
       return;
     }
-    if (q.myUrl) {
-      q.myStamp = "";
-      quickRememberLocal();
-      window.open(q.myUrl, "_blank");
-      return;
-    }
+    // 「マイ」選択時：その関数だけを抜き出してピンポイント編集窓を開く
     runServerAction({
-      fnName: "comboQuickMake", payload: {}, label: "マイマクロを作る", statusText: "マイマクロを作っています…", switchToChat: false,
+      fnName: "comboQuickGetFn", payload: { name: it.name },
+      label: "コード読込: " + it.name, statusText: "コードを読み込んでいます…", switchToChat: false,
       onSuccess: function(res) {
-        q.myId = res.myId || ""; q.myUrl = res.myUrl || "";
-        els.quickNote.textContent = (res.text || "") + "。「編集」で開いて、エディタの Gemini に作ってもらえます";
-        loadQuickList();
+        quickEditState = { mode: "edit", name: it.name, myUrl: (res && res.myUrl) || q.myUrl || "" };
+        if (els.quickEditTitle) els.quickEditTitle.textContent = "編集: " + it.name;
+        if (els.quickEditCode) els.quickEditCode.value = (res && res.code) || "";
+        if (els.quickEditStatus) els.quickEditStatus.textContent = "書き換えて「保存」を押すと、この関数だけ更新されます";
+        if (els.quickEditModal) els.quickEditModal.style.display = "flex";
+        if (els.quickEditCode) els.quickEditCode.focus();
       }
     });
   });
+  if (els.btnSettingsMyMacro) {
+    els.btnSettingsMyMacro.addEventListener("click", function() {
+      var q = state.quick;
+      if (q.myUrl) {
+        q.myStamp = "";
+        quickRememberLocal();
+        window.open(q.myUrl, "_blank");
+        return;
+      }
+      runServerAction({
+        fnName: "comboQuickMake", payload: {}, label: "マイマクロを作る", statusText: "マイマクロを作っています…", switchToChat: false,
+        onSuccess: function(res) {
+          q.myId = res.myId || ""; q.myUrl = res.myUrl || "";
+          if (els.settingsMyStatus) {
+            els.settingsMyStatus.textContent = (res.text || "作成しました") + "。もう一度押すと開けます";
+          }
+          updateSettingsMyMacroUI();
+          loadQuickList();
+        }
+      });
+    });
+  }
+  if (els.btnSettingsNewBook) {
+    els.btnSettingsNewBook.addEventListener("click", function() {
+      var name = els.settingsNewBookName ? String(els.settingsNewBookName.value || "").trim() : "";
+      if (els.settingsNewBookStatus) els.settingsNewBookStatus.textContent = "新しいファイルを作成しています…";
+      runServerAction({
+        fnName: "comboQuickNewBook", payload: { name: name }, label: "新規ファイルを作成", statusText: "新しいファイルを作成しています…", switchToChat: false,
+        onSuccess: function(res) {
+          if (els.settingsNewBookName) els.settingsNewBookName.value = "";
+          if (els.settingsNewBookStatus) {
+            els.settingsNewBookStatus.textContent = (res.text || "作成しました") + " ";
+            if (res.url) {
+              var a = document.createElement("a");
+              a.href = res.url;
+              a.target = "_blank";
+              a.rel = "noopener noreferrer";
+              a.textContent = "新しいファイルを開く";
+              els.settingsNewBookStatus.appendChild(a);
+            }
+          }
+        },
+        onError: function(err) {
+          if (els.settingsNewBookStatus) {
+            els.settingsNewBookStatus.textContent = "作成失敗: " + String(err && err.message || err || "");
+          }
+        }
+      });
+    });
+  }
+
+  function buildConnectorManifestJson(engineId) {
+    return JSON.stringify({
+      timeZone: "Asia/Tokyo",
+      exceptionLogging: "STACKDRIVER",
+      runtimeVersion: "V8",
+      dependencies: {
+        libraries: [
+          {
+            userSymbol: "shuquickengine",
+            version: "1",
+            libraryId: String(engineId || ""),
+            developmentMode: false
+          }
+        ],
+        enabledAdvancedServices: [
+          { userSymbol: "Drive", serviceId: "drive", version: "v3" },
+          { userSymbol: "Sheets", serviceId: "sheets", version: "v4" }
+        ]
+      },
+      oauthScopes: [
+        "https://www.googleapis.com/auth/spreadsheets",
+        "https://www.googleapis.com/auth/drive",
+        "https://www.googleapis.com/auth/drive.scripts",
+        "https://www.googleapis.com/auth/script.container.ui",
+        "https://www.googleapis.com/auth/script.external_request"
+      ],
+      webapp: {
+        executeAs: "USER_DEPLOYING",
+        access: "MYSELF"
+      }
+    }, null, 2);
+  }
+
+  function updateEngineSetupUI(engineId) {
+    var id = String(engineId || "").trim();
+    state.engineScriptId = id;
+    if (els.settingsEngineBox) {
+      els.settingsEngineBox.style.display = id ? "" : "none";
+    }
+    if (els.settingsNewBookBox) {
+      els.settingsNewBookBox.style.display = id ? "none" : "";
+    }
+    if (els.settingsEngineIdLabel) {
+      els.settingsEngineIdLabel.textContent = "大元ID: " + (id || "-");
+    }
+  }
+
+  if (els.btnCopyConnectorJson) {
+    els.btnCopyConnectorJson.addEventListener("click", function() {
+      var id = state.engineScriptId || "";
+      if (!id) return;
+      var jsonTxt = buildConnectorManifestJson(id);
+      copyToClipboard(jsonTxt).then(function() {
+        if (els.settingsEngineStatus) {
+          els.settingsEngineStatus.textContent = "つなぎ用 appsscript.json をコピーしました。テンプレートの appsscript.json を全選択して貼り付け・保存してください。";
+        }
+      }).catch(function() {
+        if (els.settingsEngineStatus) {
+          els.settingsEngineStatus.textContent = "コピーに失敗しました。";
+        }
+      });
+    });
+  }
+  if (els.btnCopyEngineId) {
+    els.btnCopyEngineId.addEventListener("click", function() {
+      var id = state.engineScriptId || "";
+      if (!id) return;
+      copyToClipboard(id).then(function() {
+        if (els.settingsEngineStatus) {
+          els.settingsEngineStatus.textContent = "大元IDをコピーしました。";
+        }
+      }).catch(function() {
+        if (els.settingsEngineStatus) {
+          els.settingsEngineStatus.textContent = "コピーに失敗しました。";
+        }
+      });
+    });
+  }
   // 「マイマクロへ」を押す → 写したいシートのマクロを押す（撃たずに写す）。もう一度押すとやめる
   function setQuickImportMode(on) {
     state.quick.importMode = !!on;
@@ -3914,6 +4247,7 @@
       switchToChat: false,
       silentSuccess: true,
       onSuccess: function(res) {
+        updateEngineSetupUI(res && res.engineScriptId);
         if (!res || !res.quick) loadQuickList();
         if (!res || !res.learned) loadLearned();
         if (!res || !res.config) {
