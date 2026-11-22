@@ -41,6 +41,7 @@ function comboQuickGetFn(req) { return shuquickengine.comboQuickGetFn(req); }
 function comboQuickSaveFn(req) { return shuquickengine.comboQuickSaveFn(req); }
 function comboQuickAddFn(req) { return shuquickengine.comboQuickAddFn(req); }
 function comboQuickDeleteFn(req) { return shuquickengine.comboQuickDeleteFn(req); }
+function comboCall(name, req) { return shuquickengine.comboCall(name, req); }
 function comboQuickImport(req) {
   var f = globalThis[String((req || {}).name || '')];
   return shuquickengine.comboQuickImport(req, typeof f === 'function' ? String(f) : '');

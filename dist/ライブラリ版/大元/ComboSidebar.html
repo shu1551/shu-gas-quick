@@ -3002,6 +3002,10 @@ module.exports = ComboPlanner;
       .withSuccessHandler(function(res) { if (onOk) onOk(res); })
       .withFailureHandler(function(err) { if (onErr) onErr(err); });
     if (typeof runner[fnName] !== "function") {
+      if (typeof runner.comboCall === "function") {
+        runner.comboCall(fnName, arg === undefined ? {} : arg);
+        return;
+      }
       if (onErr) onErr(new Error("サーバー関数が見つかりません: " + fnName));
       return;
     }
@@ -4985,7 +4989,7 @@ module.exports = ComboPlanner;
 
   // ===== GASクイック: 直したら自分で開き直す =====
   // 組み立てのときに quick.py がこの操作窓の版の印を埋める。大元の印と違えば、新しい操作窓に入れ替える
-  var QUICK_SIDEBAR_BUILD = "e6c78986d7";
+  var QUICK_SIDEBAR_BUILD = "30019530ff";
   var quickBuildAt = 0;
   function quickCheckBuild(force) {
     if (!QUICK_SIDEBAR_BUILD || !hasGasBridge()) return;

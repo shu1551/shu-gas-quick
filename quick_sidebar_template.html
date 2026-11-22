@@ -894,6 +894,10 @@
       .withSuccessHandler(function(res) { if (onOk) onOk(res); })
       .withFailureHandler(function(err) { if (onErr) onErr(err); });
     if (typeof runner[fnName] !== "function") {
+      if (typeof runner.comboCall === "function") {
+        runner.comboCall(fnName, arg === undefined ? {} : arg);
+        return;
+      }
       if (onErr) onErr(new Error("サーバー関数が見つかりません: " + fnName));
       return;
     }

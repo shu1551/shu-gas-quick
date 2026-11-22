@@ -2435,3 +2435,16 @@ function comboQuickDeleteFn(req) {
     return { ok: false, error: '削除できませんでした: ' + String(e && e.message || e) };
   }
 }
+
+/** 万能の窓口：許可された combo* 関数だけを安全に呼び出す（今後の新機能でつなぎコード更新を不要にする）。 */
+function comboCall(name, req) {
+  var fnName = String(name || '').trim();
+  if (!/^combo[A-Z]\w*$/.test(fnName) || fnName === 'comboCall') {
+    return { ok: false, error: '呼び出せない関数です: ' + fnName };
+  }
+  var f = globalThis[fnName];
+  if (typeof f !== 'function') {
+    return { ok: false, error: '大元に関数が見つかりません: ' + fnName };
+  }
+  return f(req);
+}
