@@ -728,12 +728,16 @@
   </div>
   <textarea id="quickEditCode" spellcheck="false" style="flex:1;width:100%;font-family:Consolas,monospace;font-size:12px;line-height:1.45;padding:8px;border:1px solid #cbd5e1;border-radius:4px;box-sizing:border-box;resize:none;"></textarea>
   <div id="quickEditStatus" style="font-size:11px;color:#475569;margin-top:6px;min-height:16px;"></div>
+  <div id="quickEditPromptRow" style="display:none;margin-top:6px;">
+    <button id="btnQuickEditPrompt" class="btn" type="button" style="width:100%;">AI に頼む型（プロンプト）をコピー</button>
+  </div>
   <div style="display:flex;gap:6px;margin-top:6px;">
     <button id="btnQuickEditCopy" class="btn" type="button" style="flex:1;">コピー</button>
     <button id="btnQuickEditPaste" class="btn" type="button" style="flex:1;">貼り付け</button>
   </div>
-  <div style="margin-top:6px;">
-    <button id="btnQuickEditSave" class="btn btn-primary" type="button" style="width:100%;">保存</button>
+  <div style="display:flex;gap:6px;margin-top:6px;">
+    <button id="btnQuickEditSave" class="btn btn-primary" type="button" style="flex:1;">保存</button>
+    <button id="btnQuickEditDelete" class="btn" type="button" style="display:none;color:#dc2626;border-color:#fca5a5;">削除</button>
   </div>
 </div>
 
@@ -2976,9 +2980,12 @@ module.exports = ComboPlanner;
     quickEditTitle: document.getElementById("quickEditTitle"),
     quickEditCode: document.getElementById("quickEditCode"),
     quickEditStatus: document.getElementById("quickEditStatus"),
+    quickEditPromptRow: document.getElementById("quickEditPromptRow"),
+    btnQuickEditPrompt: document.getElementById("btnQuickEditPrompt"),
     btnQuickEditCopy: document.getElementById("btnQuickEditCopy"),
     btnQuickEditPaste: document.getElementById("btnQuickEditPaste"),
     btnQuickEditSave: document.getElementById("btnQuickEditSave"),
+    btnQuickEditDelete: document.getElementById("btnQuickEditDelete"),
     btnQuickEditClose: document.getElementById("btnQuickEditClose")
   };
 
@@ -4973,7 +4980,7 @@ module.exports = ComboPlanner;
 
   // ===== GASクイック: 直したら自分で開き直す =====
   // 組み立てのときに quick.py がこの操作窓の版の印を埋める。大元の印と違えば、新しい操作窓に入れ替える
-  var QUICK_SIDEBAR_BUILD = "b6c124b66d";
+  var QUICK_SIDEBAR_BUILD = "6f2674cc71";
   var quickBuildAt = 0;
   function quickCheckBuild(force) {
     if (!QUICK_SIDEBAR_BUILD || !hasGasBridge()) return;
@@ -6043,15 +6050,78 @@ module.exports = ComboPlanner;
     if (!quickRunFromInput() && (els.askInput.value || "").trim()) onRunAsk();
   });
   els.btnQuickReload.addEventListener("click", function() { loadQuickList(); });
-  var quickEditState = { mode: "edit", name: "", myUrl: "" };
+  var quickEditState = { mode: "edit", name: "", myUrl: "", delArmed: false };
+  function resetQuickDeleteBtn() {
+    quickEditState.delArmed = false;
+    if (els.btnQuickEditDelete) {
+      els.btnQuickEditDelete.textContent = "削除";
+      els.btnQuickEditDelete.style.background = "";
+      els.btnQuickEditDelete.style.color = "#dc2626";
+    }
+  }
   function closeQuickEditModal() {
     if (els.quickEditModal) els.quickEditModal.style.display = "none";
-    quickEditState = { mode: "edit", name: "", myUrl: "" };
+    quickEditState = { mode: "edit", name: "", myUrl: "", delArmed: false };
+    resetQuickDeleteBtn();
+  }
+  if (els.btnQuickEditPrompt) {
+    els.btnQuickEditPrompt.addEventListener("click", function() {
+      var promptTxt = [
+        "Google スプレッドシート（GASクイックのマイマクロ）用の Google Apps Script の関数を 1 つ作ってください。",
+        "",
+        "【ルール】",
+        "・関数名は分かりやすい日本語（引数なし）にする（例: function 選んだ所を黄色に() { ... }）",
+        "・関数のすぐ上の行に「// 説明」を 1 行書く",
+        "・アクティブなスプレッドシートは SpreadsheetApp.getActive() で取得する",
+        "・コードのみ出力する",
+        "",
+        "【やりたいこと】",
+        "（ここにやりたい作業を書いてください）"
+      ].join("\n");
+      copyToClipboard(promptTxt).then(function() {
+        if (els.quickEditStatus) els.quickEditStatus.textContent = "AI へ頼む型をコピーしました。Gemini 等に貼って【やりたいこと】を書き換えてください";
+      }).catch(function() {
+        if (els.quickEditStatus) els.quickEditStatus.textContent = "コピーに失敗しました";
+      });
+    });
+  }
+  if (els.btnQuickEditDelete) {
+    els.btnQuickEditDelete.addEventListener("click", function() {
+      var nm = quickEditState.name || "";
+      if (!nm || quickEditState.mode !== "edit") return;
+      if (!quickEditState.delArmed) {
+        quickEditState.delArmed = true;
+        els.btnQuickEditDelete.textContent = "本当に削除";
+        els.btnQuickEditDelete.style.background = "#dc2626";
+        els.btnQuickEditDelete.style.color = "#ffffff";
+        if (els.quickEditStatus) els.quickEditStatus.textContent = "「" + nm + "」を削除します。よろしければもう一度「本当に削除」を押してください";
+        return;
+      }
+      if (els.quickEditStatus) els.quickEditStatus.textContent = "削除しています…";
+      runServerAction({
+        fnName: "comboQuickDeleteFn", payload: { name: nm },
+        label: "マイマクロを削除", statusText: "削除しています…", switchToChat: false,
+        onSuccess: function(res) {
+          closeQuickEditModal();
+          els.quickNote.textContent = (res && res.text) || ("「" + nm + "」を削除しました");
+          state.quick.myStamp = "";
+          quickRememberLocal();
+          loadQuickList(true);
+        },
+        onError: function(err) {
+          resetQuickDeleteBtn();
+          if (els.quickEditStatus) els.quickEditStatus.textContent = "削除エラー: " + String(err && err.message || err || "");
+        }
+      });
+    });
   }
   if (els.btnQuickAdd) {
     els.btnQuickAdd.addEventListener("click", function() {
-      quickEditState = { mode: "add", name: "", myUrl: state.quick.myUrl || "" };
+      quickEditState = { mode: "add", name: "", myUrl: state.quick.myUrl || "", delArmed: false };
+      resetQuickDeleteBtn();
       if (els.quickEditTitle) els.quickEditTitle.textContent = "新規マイマクロを追加";
+      if (els.quickEditPromptRow) els.quickEditPromptRow.style.display = "";
+      if (els.btnQuickEditDelete) els.btnQuickEditDelete.style.display = "none";
       if (els.quickEditCode) {
         els.quickEditCode.value = "";
         els.quickEditCode.placeholder = "// 説明\nfunction 自分のマクロ名() {\n  // ここに処理を書く\n}";
@@ -6171,7 +6241,10 @@ module.exports = ComboPlanner;
       fnName: "comboQuickGetFn", payload: { name: it.name },
       label: "コード読込: " + it.name, statusText: "コードを読み込んでいます…", switchToChat: false,
       onSuccess: function(res) {
-        quickEditState = { mode: "edit", name: it.name, myUrl: (res && res.myUrl) || q.myUrl || "" };
+        quickEditState = { mode: "edit", name: it.name, myUrl: (res && res.myUrl) || q.myUrl || "", delArmed: false };
+        resetQuickDeleteBtn();
+        if (els.quickEditPromptRow) els.quickEditPromptRow.style.display = "none";
+        if (els.btnQuickEditDelete) els.btnQuickEditDelete.style.display = "";
         if (els.quickEditTitle) els.quickEditTitle.textContent = "編集: " + it.name;
         if (els.quickEditCode) els.quickEditCode.value = (res && res.code) || "";
         if (els.quickEditStatus) els.quickEditStatus.textContent = "書き換えて「保存」を押すと、この関数だけ更新されます";

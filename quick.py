@@ -74,6 +74,7 @@ function comboQuickNewBook(req) { return {lib}.comboQuickNewBook(req); }
 function comboQuickGetFn(req) { return {lib}.comboQuickGetFn(req); }
 function comboQuickSaveFn(req) { return {lib}.comboQuickSaveFn(req); }
 function comboQuickAddFn(req) { return {lib}.comboQuickAddFn(req); }
+function comboQuickDeleteFn(req) { return {lib}.comboQuickDeleteFn(req); }
 function comboQuickImport(req) {
   var f = globalThis[String((req || {}).name || '')];
   return {lib}.comboQuickImport(req, typeof f === 'function' ? String(f) : '');

@@ -1302,7 +1302,7 @@ return comboSetTestTarget((req && (req.targetId || req.ssId)) || '');
 };
 }
 var QUICK_MY_TITLE = 'GASクイック マイマクロ';
-var QUICK_BUILD = 'b6c124b66d';
+var QUICK_BUILD = '6f2674cc71';
 var QUICK_DRAFT_KEY = 'QUICK_DRAFT';
 function comboQuickBuild() {
 return { ok: true, build: QUICK_BUILD, oauthToken: comboGetOAuthToken_() };
@@ -1372,7 +1372,7 @@ if (d) c.remove(QUICK_DRAFT_KEY);
 return d || '';
 } catch (e) { return ''; }
 }
-var QUICK_LIB_FNS = ["ArgError", "Blocked", "a1_", "actDo_", "actUndo_", "activeDriveList_", "activeFiles_", "activeFolders_", "apiColor_", "apiDefaultSheet_", "apiDig_", "apiGrid_", "apiScan_", "apiSheetId_", "apiSheetNames_", "apiWalk_", "backupDoc_", "backupSheetsLite_", "backupSheets_", "batchRetry_", "bkBook_", "bkLap_", "bkTabName_", "byId_", "call_", "capList_", "captureSide_", "chg_", "clearBody_", "colIndexOf_", "colLetter_", "colNum_", "colRuns_", "colWidths_", "comboCacheGet_", "comboCacheInvalidate_", "comboCachePut_", "comboComputeTitleA1_", "comboDecodeCellVal_", "comboEncodeCellVal_", "comboFastUndoClear_", "comboFastUndoKey_", "comboFastUndoLoadRaw_", "comboFastUndoRestore_", "comboFastUndoSave_", "comboFind", "comboFormatDoText_", "comboFormatLookText_", "comboFormatOpsShort_", "comboGetConfig", "comboGetLearned", "comboGetOAuthToken_", "comboGetRawConfig_", "comboGetSelectionInfo_", "comboGotoRange", "comboInit", "comboKeepsShape_", "comboLearn", "comboLook", "comboMenuUndo", "comboOpenSs_", "comboParseScope_", "comboPing", "comboPollSelection", "comboQuickAddFn", "comboQuickAfter", "comboQuickBuild", "comboQuickClearFastUndo", "comboQuickGetFn", "comboQuickImport", "comboQuickList", "comboQuickMake", "comboQuickNewBook", "comboQuickReopen", "comboQuickRun", "comboQuickSaveFn", "comboQuickSaveOrder", "comboQuickSavePins", "comboQuickSaveSteps", "comboQuickSnap", "comboRenderUnfired_", "comboRunAsk", "comboRunOps", "comboSaveConfig", "comboSetTestTarget", "comboSheetInfos_", "comboTblCacheKey_", "comboUndo", "copyBody_", "countFolderChildren_", "createComboSidebarHtml", "dataRange_", "deleteRowRuns_", "digest_", "discardBackup_", "docBkIds_", "docBkSlotDoc_", "docStructure_", "errReport_", "errScanNeeded_", "errScan_", "extractDriveId_", "filterChanged_", "filterSpanOf_", "findTable_", "fingerDoc_", "fingerOnly_", "fingerSheet_", "folderLabel_", "getJson_", "gridA1_", "guardDelete_", "guardOverwrite_", "guardWide_", "headerNames_", "hexColor_", "hiddenRuns_", "isAncestorFolder_", "isBlank_", "isNoCol_", "isNoop_", "isNumberCol_", "json_", "lap_", "ledgerBrief_", "ledgerSave_", "ledger_", "liteTouch_", "loadSide_", "lookSide_", "matchRowCond_", "mimeLabel_", "msOut_", "needTable_", "need_", "normJson_", "note_", "numRuns_", "onOpen", "openTarget_", "packDim_", "packRects_", "packSide_", "parseDateText_", "pickSlot_", "props_", "pruneTabs_", "q_", "qs_", "quickDrive_", "quickDropBackup_", "quickFindFnSpan_", "quickFindHelperRefs_", "quickFnBodyMeta_", "quickFormatMyErr_", "quickGetOrders_", "quickGetPins_", "quickInsertTop_", "quickMyContent_", "quickMyFind_", "quickMyInvalidate_", "quickMyListCached_", "quickMySourceCached_", "quickMySource_", "quickMyStamp_", "quickMyUrl_", "quickOrderKey_", "quickParseFns_", "quickRestoreSheetCopy_", "quickSheetFnsHere_", "quickSkip_", "quickSplitSteps_", "quickTakeDraft_", "quickUndoNote_", "quickVisibleSheets_", "resetNew_", "resolveDriveItem_", "resolveFolder_", "restoreAll_", "restoreChartApp_", "restoreDoc_", "restoreFilter_", "restoreSheet_", "restoreSide_", "rgb_", "runDo_", "sameFinger_", "sameTable_", "saveSide_", "setJson_", "sheetCtx_", "sheetOf_", "shiftFormula_", "showConnectorJsonDialog", "showGasComboSidebar", "sideFields_", "sideItems_", "stripId_", "stripSide_", "summarizeOps_", "tableOfSheet_", "tableOut_", "tgt_", "tidyColSpec_", "tidyNumText_", "tidyRangeLegacy_", "tidyRange_", "titleRange_", "touchedSheets_", "touchesItem_", "validationLabel_", "wideRange_", "wideRowCount_", "wlen_", "wrapDriveObj_"];
+var QUICK_LIB_FNS = ["ArgError", "Blocked", "a1_", "actDo_", "actUndo_", "activeDriveList_", "activeFiles_", "activeFolders_", "apiColor_", "apiDefaultSheet_", "apiDig_", "apiGrid_", "apiScan_", "apiSheetId_", "apiSheetNames_", "apiWalk_", "backupDoc_", "backupSheetsLite_", "backupSheets_", "batchRetry_", "bkBook_", "bkLap_", "bkTabName_", "byId_", "call_", "capList_", "captureSide_", "chg_", "clearBody_", "colIndexOf_", "colLetter_", "colNum_", "colRuns_", "colWidths_", "comboCacheGet_", "comboCacheInvalidate_", "comboCachePut_", "comboComputeTitleA1_", "comboDecodeCellVal_", "comboEncodeCellVal_", "comboFastUndoClear_", "comboFastUndoKey_", "comboFastUndoLoadRaw_", "comboFastUndoRestore_", "comboFastUndoSave_", "comboFind", "comboFormatDoText_", "comboFormatLookText_", "comboFormatOpsShort_", "comboGetConfig", "comboGetLearned", "comboGetOAuthToken_", "comboGetRawConfig_", "comboGetSelectionInfo_", "comboGotoRange", "comboInit", "comboKeepsShape_", "comboLearn", "comboLook", "comboMenuUndo", "comboOpenSs_", "comboParseScope_", "comboPing", "comboPollSelection", "comboQuickAddFn", "comboQuickAfter", "comboQuickBuild", "comboQuickClearFastUndo", "comboQuickDeleteFn", "comboQuickGetFn", "comboQuickImport", "comboQuickList", "comboQuickMake", "comboQuickNewBook", "comboQuickReopen", "comboQuickRun", "comboQuickSaveFn", "comboQuickSaveOrder", "comboQuickSavePins", "comboQuickSaveSteps", "comboQuickSnap", "comboRenderUnfired_", "comboRunAsk", "comboRunOps", "comboSaveConfig", "comboSetTestTarget", "comboSheetInfos_", "comboTblCacheKey_", "comboUndo", "copyBody_", "countFolderChildren_", "createComboSidebarHtml", "dataRange_", "deleteRowRuns_", "digest_", "discardBackup_", "docBkIds_", "docBkSlotDoc_", "docStructure_", "errReport_", "errScanNeeded_", "errScan_", "extractDriveId_", "filterChanged_", "filterSpanOf_", "findTable_", "fingerDoc_", "fingerOnly_", "fingerSheet_", "folderLabel_", "getJson_", "gridA1_", "guardDelete_", "guardOverwrite_", "guardWide_", "headerNames_", "hexColor_", "hiddenRuns_", "isAncestorFolder_", "isBlank_", "isNoCol_", "isNoop_", "isNumberCol_", "json_", "lap_", "ledgerBrief_", "ledgerSave_", "ledger_", "liteTouch_", "loadSide_", "lookSide_", "matchRowCond_", "mimeLabel_", "msOut_", "needTable_", "need_", "normJson_", "note_", "numRuns_", "onOpen", "openTarget_", "packDim_", "packRects_", "packSide_", "parseDateText_", "pickSlot_", "props_", "pruneTabs_", "q_", "qs_", "quickDrive_", "quickDropBackup_", "quickFindFnSpan_", "quickFindHelperRefs_", "quickFnBodyMeta_", "quickFormatMyErr_", "quickGetOrders_", "quickGetPins_", "quickInsertTop_", "quickMyContent_", "quickMyFind_", "quickMyInvalidate_", "quickMyListCached_", "quickMySourceCached_", "quickMySource_", "quickMyStamp_", "quickMyUrl_", "quickOrderKey_", "quickParseFns_", "quickRestoreSheetCopy_", "quickSheetFnsHere_", "quickSkip_", "quickSplitSteps_", "quickTakeDraft_", "quickUndoNote_", "quickVisibleSheets_", "resetNew_", "resolveDriveItem_", "resolveFolder_", "restoreAll_", "restoreChartApp_", "restoreDoc_", "restoreFilter_", "restoreSheet_", "restoreSide_", "rgb_", "runDo_", "sameFinger_", "sameTable_", "saveSide_", "setJson_", "sheetCtx_", "sheetOf_", "shiftFormula_", "showConnectorJsonDialog", "showGasComboSidebar", "sideFields_", "sideItems_", "stripId_", "stripSide_", "summarizeOps_", "tableOfSheet_", "tableOut_", "tgt_", "tidyColSpec_", "tidyNumText_", "tidyRangeLegacy_", "tidyRange_", "titleRange_", "touchedSheets_", "touchesItem_", "validationLabel_", "wideRange_", "wideRowCount_", "wlen_", "wrapDriveObj_"];
 function quickSkip_(k) {
 return /_$/.test(k) || /^(combo|__gm|onOpen$|onEdit$|onInstall$|onSelectionChange$|onChange$|onFormSubmit$|doGet$|doPost$|showGasComboSidebar$|createComboSidebarHtml$)/.test(k);
 }
@@ -1814,6 +1814,20 @@ var guide = [
 "  var isBold = first && first.getFontWeight() === 'bold';",
 "  list.setFontWeight(isBold ? 'normal' : 'bold');",
 '}',
+'',
+'// 選んでいる範囲の背景色を消す',
+'// 棚: 色を消す, 選んだ所の色を消す, 背景色を消す',
+'function 選んだ所の色を消す() {',
+'  SpreadsheetApp.getActive().getActiveRangeList().setBackground(null);',
+'}',
+'',
+'// 1 行目（見出し）の背景を薄い黄色にする',
+'// 棚: 見出しを黄色に, 見出しに色を付ける',
+'function 見出しを黄色に() {',
+'  var sh = SpreadsheetApp.getActiveSheet();',
+'  var lastCol = Math.max(1, sh.getLastColumn());',
+"  sh.getRange(1, 1, 1, lastCol).setBackground('#fef08a');",
+'}',
 ''
 ].join('\n');
 var content = { files: [
@@ -2095,5 +2109,30 @@ var names = parsed.map(function (f) { return f.name; });
 return { ok: true, names: names, myId: made.myId, myUrl: made.myUrl, text: '「' + names.join('・') + '」をマイマクロに追加しました' };
 } catch (e) {
 return { ok: false, error: '追加できませんでした: ' + String(e && e.message || e) };
+}
+}
+function comboQuickDeleteFn(req) {
+req = req || {};
+var name = String(req.name || '').trim();
+if (!name) return { ok: false, error: '関数名が指定されていません' };
+try {
+var id = quickMyFind_();
+if (!id) return { ok: false, error: 'マイマクロが見つかりません' };
+var content = quickMyContent_(id);
+var files = (content.files || []).filter(function (f) { return f.type === 'server_js'; });
+for (var i = 0; i < files.length; i++) {
+var sp = quickFindFnSpan_(files[i].source, name);
+if (sp) {
+var before = files[i].source.slice(0, sp.start).replace(/\n+$/, '');
+var after = files[i].source.slice(sp.end).replace(/^\n+/, '');
+files[i].source = (before && after) ? (before + '\n\n' + after) : (before || after) + '\n';
+quickDrive_('patch', 'https://www.googleapis.com/upload/drive/v3/files/' + id + '?uploadType=media', JSON.stringify(content), QUICK_SCRIPT_JSON);
+quickMyInvalidate_(id);
+return { ok: true, name: name, text: '「' + name + '」をマイマクロから削除しました' };
+}
+}
+return { ok: false, error: 'マイマクロ内に「' + name + '」が見つかりませんでした' };
+} catch (e) {
+return { ok: false, error: '削除できませんでした: ' + String(e && e.message || e) };
 }
 }

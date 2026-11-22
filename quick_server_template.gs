@@ -2092,6 +2092,20 @@ function comboQuickMake(req) {
       "  var isBold = first && first.getFontWeight() === 'bold';",
       "  list.setFontWeight(isBold ? 'normal' : 'bold');",
       '}',
+      '',
+      '// 選んでいる範囲の背景色を消す',
+      '// 棚: 色を消す, 選んだ所の色を消す, 背景色を消す',
+      'function 選んだ所の色を消す() {',
+      '  SpreadsheetApp.getActive().getActiveRangeList().setBackground(null);',
+      '}',
+      '',
+      '// 1 行目（見出し）の背景を薄い黄色にする',
+      '// 棚: 見出しを黄色に, 見出しに色を付ける',
+      'function 見出しを黄色に() {',
+      '  var sh = SpreadsheetApp.getActiveSheet();',
+      '  var lastCol = Math.max(1, sh.getLastColumn());',
+      "  sh.getRange(1, 1, 1, lastCol).setBackground('#fef08a');",
+      '}',
       ''
     ].join('\n');
     var content = { files: [
@@ -2392,5 +2406,32 @@ function comboQuickAddFn(req) {
     return { ok: true, names: names, myId: made.myId, myUrl: made.myUrl, text: '「' + names.join('・') + '」をマイマクロに追加しました' };
   } catch (e) {
     return { ok: false, error: '追加できませんでした: ' + String(e && e.message || e) };
+  }
+}
+
+/** マイマクロから指定関数を削除する。 */
+function comboQuickDeleteFn(req) {
+  req = req || {};
+  var name = String(req.name || '').trim();
+  if (!name) return { ok: false, error: '関数名が指定されていません' };
+  try {
+    var id = quickMyFind_();
+    if (!id) return { ok: false, error: 'マイマクロが見つかりません' };
+    var content = quickMyContent_(id);
+    var files = (content.files || []).filter(function (f) { return f.type === 'server_js'; });
+    for (var i = 0; i < files.length; i++) {
+      var sp = quickFindFnSpan_(files[i].source, name);
+      if (sp) {
+        var before = files[i].source.slice(0, sp.start).replace(/\n+$/, '');
+        var after = files[i].source.slice(sp.end).replace(/^\n+/, '');
+        files[i].source = (before && after) ? (before + '\n\n' + after) : (before || after) + '\n';
+        quickDrive_('patch', 'https://www.googleapis.com/upload/drive/v3/files/' + id + '?uploadType=media', JSON.stringify(content), QUICK_SCRIPT_JSON);
+        quickMyInvalidate_(id);
+        return { ok: true, name: name, text: '「' + name + '」をマイマクロから削除しました' };
+      }
+    }
+    return { ok: false, error: 'マイマクロ内に「' + name + '」が見つかりませんでした' };
+  } catch (e) {
+    return { ok: false, error: '削除できませんでした: ' + String(e && e.message || e) };
   }
 }
