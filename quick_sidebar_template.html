@@ -548,7 +548,7 @@
 <div class="app">
   <!-- 上部入力欄 -->
   <div class="top-input">
-    <textarea id="askInput" class="ask-textarea" rows="3" placeholder="頼みを入力 ／ 一覧を絞り込み（例: 太字）"></textarea>
+    <textarea id="askInput" class="ask-textarea" rows="3" placeholder="頼みを入力（例: 見出しを太字に）"></textarea>
     <div class="top-btns">
       <button id="btnRun" class="btn btn-primary btn-run" type="button">実 行</button>
       <button id="btnClear" class="btn btn-clear" type="button">クリア(×)</button>
@@ -969,6 +969,11 @@
     var panes = document.querySelectorAll(".tab-pane");
     for (var j = 0; j < panes.length; j++) {
       panes[j].classList.toggle("active", panes[j].id === "pane-" + tabKey);
+    }
+    if (els.askInput) {
+      els.askInput.placeholder = (tabKey === "list")
+        ? "一覧を絞り込み検索（例: 太字）"
+        : "頼みを入力（例: 見出しを太字に）";
     }
     if (!state.busy) {
       setStatus("表示中: " + TAB_NAMES[tabKey], false);
