@@ -4985,7 +4985,7 @@ module.exports = ComboPlanner;
 
   // ===== GASクイック: 直したら自分で開き直す =====
   // 組み立てのときに quick.py がこの操作窓の版の印を埋める。大元の印と違えば、新しい操作窓に入れ替える
-  var QUICK_SIDEBAR_BUILD = "66a1cf2598";
+  var QUICK_SIDEBAR_BUILD = "e6c78986d7";
   var quickBuildAt = 0;
   function quickCheckBuild(force) {
     if (!QUICK_SIDEBAR_BUILD || !hasGasBridge()) return;
@@ -5273,9 +5273,8 @@ module.exports = ComboPlanner;
         row.appendChild(bolt);
       }
       row.appendChild(lab);
-      // 一覧は 1 行ずつ。説明は指したとき（マウスを載せる）に下の欄と吹き出しに出す
+      // 一覧は 1 行ずつ。説明はマウスを載せたときに下の欄にだけ出す（吹き出しは邪魔になるため出さない）
       var tip = quickItemTip(it);
-      row.title = tip;
       row.addEventListener("mouseenter", function() { if (!state.quick.importMode) els.quickNote.textContent = tip; });
       // 1 回押せば選ぶ・2 回押せば撃つ（選んでから「実行」でも撃てる）
       row.addEventListener("click", function() {

@@ -3165,9 +3165,8 @@
         row.appendChild(bolt);
       }
       row.appendChild(lab);
-      // 一覧は 1 行ずつ。説明は指したとき（マウスを載せる）に下の欄と吹き出しに出す
+      // 一覧は 1 行ずつ。説明はマウスを載せたときに下の欄にだけ出す（吹き出しは邪魔になるため出さない）
       var tip = quickItemTip(it);
-      row.title = tip;
       row.addEventListener("mouseenter", function() { if (!state.quick.importMode) els.quickNote.textContent = tip; });
       // 1 回押せば選ぶ・2 回押せば撃つ（選んでから「実行」でも撃てる）
       row.addEventListener("click", function() {
