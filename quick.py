@@ -75,6 +75,7 @@ function comboQuickGetFn(req) { return {lib}.comboQuickGetFn(req); }
 function comboQuickSaveFn(req) { return {lib}.comboQuickSaveFn(req); }
 function comboQuickAddFn(req) { return {lib}.comboQuickAddFn(req); }
 function comboQuickDeleteFn(req) { return {lib}.comboQuickDeleteFn(req); }
+function comboQuickClearFastUndo(ssId) { return {lib}.comboQuickClearFastUndo(ssId); }
 function comboCall(name, req) { return {lib}.comboCall(name, req); }
 function comboQuickImport(req) {
   var f = globalThis[String((req || {}).name || '')];
@@ -150,8 +151,28 @@ def build_engine_files():
     # 大元の関数名を埋める（1 枚版で、シートのマクロと大元の関数を見分ける）
     names = set()
     for f in files:
+        if f["name"] == "appsscript":
+            manifest = json.loads(f["source"])
+            manifest["oauthScopes"] = list(SCOPES)
+            f["source"] = json.dumps(manifest, ensure_ascii=False, indent=2)
         if f["type"] == "SERVER_JS":
             names.update(re.findall(r"^function\s+([^\s(]+)", f["source"], re.M))
+    # 画面側 COMBO_CATALOG_DATA から既定値の重複キーを削り、読込と配布サイズを軽くする
+    for f in files:
+        if f["name"] == "ComboSidebar":
+            prefix = "var COMBO_CATALOG_DATA = "
+            pos = f["source"].find(prefix)
+            if pos >= 0:
+                cat_obj, end_pos = json.JSONDecoder().raw_decode(f["source"], pos + len(prefix))
+                for sh in cat_obj.get("shelves") or []:
+                    if sh.get("args"):
+                        sh["args"] = [
+                            {k: v for k, v in a.items()
+                             if not ((k == "req" and v is False) or (k in ("default", "choices") and v is None))}
+                            for a in sh["args"]
+                        ]
+                compact = json.dumps(cat_obj, ensure_ascii=False, separators=(",", ":")).replace("</", "<\\/")
+                f["source"] = f["source"][:pos + len(prefix)] + compact + f["source"][end_pos:]
     import hashlib
     build = hashlib.sha1("".join(f["source"] for f in files).encode("utf-8")).hexdigest()[:10]
     for f in files:
@@ -169,7 +190,7 @@ def build_engine_files():
     return files
 
 
-def ensure_engine(client=None, force=False, dev=False):
+def ensure_engine(client=None, force=False, dev=True):
     client = client or _client()
     st = _load_state()
     files = build_engine_files()
@@ -185,7 +206,7 @@ def ensure_engine(client=None, force=False, dev=False):
             C._clear_runner_cache(client, sid)
             st.update({"engine_sid": sid, "engine_head_hash": fhash})
             _save_state(st)
-        return sid, ver or "1"
+        return sid, "0"
     if force or st.get("engine_hash") != fhash or st.get("engine_sid") != sid or not ver:
         client._put_content(sid, files)
         C._clear_runner_cache(client, sid)
@@ -216,7 +237,7 @@ def write_dist():
             m_b = re.search(r"var QUICK_BUILD = '([^']+)';", f["source"])
             if m_b:
                 build_id = m_b.group(1)
-    for f in connector_files("ここに大元のスクリプトIDを入れる", "1"):
+    for f in connector_files("ここに大元のスクリプトIDを入れる", "0", dev=True):
         path = con_dir / (f["name"] + ext[f["type"]])
         path.write_text(f["source"], encoding="utf-8")
         out.append("つなぎコード/" + path.name)
@@ -230,20 +251,20 @@ def write_dist():
         "2. 左の「プロジェクトの設定（歯車）」で「appsscript.json をエディタで表示する」に印\n"
         "3. appsscript.json を 大元/appsscript.json の中身に貼り替える\n"
         "4. 「＋ → スクリプト」で Engine と ComboServer を作り、大元/ の同じ名前の .gs を貼る（最初の コード.gs は消す）\n"
-        "5. 「＋ → HTML」で ComboSidebar を作り、大元/ComboSidebar.html を貼る\n"
-        "6. 「デプロイ → 新しいデプロイ → 種類: ライブラリ」でデプロイ（版 1 ができる）\n"
-        "7. 「プロジェクトの設定」のスクリプト ID を写しておく\n"
+        "5. 「＋ → HTML」で ComboSidebar を作り、大元/ComboSidebar.html を貼る → 保存（デプロイ不要）\n"
+        "6. 「プロジェクトの設定」のスクリプト ID を写しておく\n"
         "\n"
         "【使うシートごと】つなぎコードを置く\n"
         "1. シートで「拡張機能 → Apps Script」\n"
         "2. 「プロジェクトの設定」で「appsscript.json をエディタで表示する」に印\n"
-        "3. appsscript.json を つなぎコード/appsscript.json の中身に貼り、「ここに大元のスクリプトIDを入れる」を 7 の ID に替える\n"
+        "3. appsscript.json を つなぎコード/appsscript.json の中身に貼り、「ここに大元のスクリプトIDを入れる」を 6 の ID に替える\n"
         "4. コード.gs を つなぎコード/コード.gs の中身に貼り替える\n"
         "5. 保存 → シートを読み込み直す（F5）→「⚡ GASクイック」→「操作窓を開く」→ 初回の許可\n"
         "\n"
         "【マイマクロ】操作窓の「マイマクロを作る」→「編集」で開き、家のマイマクロの中身を貼り替える\n"
         "\n"
-        "大元を直したら: 大元のプロジェクトで「デプロイを管理」→ 新しい版、つなぎコードの appsscript.json の version を その版の番号に替える\n",
+        "大元を直したら: 大元のプロジェクトでコードを書き換えて保存するだけで全シートに即反映されます（デプロイや version の書き換えは不要です）\n"
+        "※大元の編集権限がない他人へシートを直接共有する場合のみ、大元でライブラリをデプロイし appsscript.json の developmentMode を false、version をその版番号にしてください。\n",
         encoding="utf-8")
     return out
 
@@ -280,7 +301,7 @@ def connect(ss_url_or_id, client=None, title="GASクイック", force=False, dev
     # 開発モードかどうかはシートごとに覚える（一度 --dev でつないだシートは、次からも最新のコードのまま）
     devs = st.get("dev_sheets") or {}
     if dev is None:
-        dev = bool(devs.get(ss_id))
+        dev = bool(devs.get(ss_id, True))
     lib_id, ver = ensure_engine(client, force=force, dev=dev)
     st = _load_state()
     devs = st.get("dev_sheets") or {}
@@ -364,8 +385,9 @@ def engine_sheet(client=None, new=False):
 def main(argv=None):
     p = argparse.ArgumentParser(description="GASクイック の組み立てと入れ方")
     sub = p.add_subparsers(dest="cmd", required=True)
-    e = sub.add_parser("engine", help="大元ライブラリを作る・入れ直す")
+    e = sub.add_parser("engine", help="大元ライブラリを作る・入れ直す（既定は版を増やさず最新コードのみ反映）")
     e.add_argument("--force", action="store_true")
+    e.add_argument("--release", action="store_true", help="新しい版を発行する（他人共有向け）")
     es = sub.add_parser("engine-sheet", help="配布用の「大元シート」を作る・入れ直す")
     es.add_argument("--new", action="store_true")
     c = sub.add_parser("connect", help="スプレッドシートにつなぎコードを置く")
@@ -381,8 +403,8 @@ def main(argv=None):
     t.add_argument("--release", action="store_true", help="版でつなぐ（人に配る前に必ず）")
     a = p.parse_args(argv)
     if a.cmd == "engine":
-        sid, ver = ensure_engine(force=a.force)
-        out = {"ok": True, "engineId": sid, "engineVersion": ver}
+        sid, ver = ensure_engine(force=a.force, dev=not a.release)
+        out = {"ok": True, "engineId": sid, "engineVersion": ver if a.release else "最新のコード（開発モード）"}
     elif a.cmd == "engine-sheet":
         out = engine_sheet(new=a.new)
     elif a.cmd == "connect":

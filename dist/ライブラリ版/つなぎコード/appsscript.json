@@ -6,9 +6,9 @@
     "libraries": [
       {
         "userSymbol": "shuquickengine",
-        "version": "1",
+        "version": "0",
         "libraryId": "ここに大元のスクリプトIDを入れる",
-        "developmentMode": false
+        "developmentMode": true
       }
     ],
     "enabledAdvancedServices": [

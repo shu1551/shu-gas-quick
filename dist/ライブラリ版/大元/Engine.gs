@@ -36,7 +36,7 @@ return call_('post', 'https://sheets.googleapis.com/v4/spreadsheets/' + encodeUR
 }
 };
 })();
-var ENGINE_VERSION = 'ws-1+ca236e6b';
+var ENGINE_VERSION = 'ws-1+8344ba3c';
 var BK_BOOK_NAME = 'GASマネージャー_控え';
 var BK_DOC_PREFIX = 'GASマネージャー_文書控え_';
 var BK_DOC_SLOTS = 5;
@@ -414,6 +414,7 @@ var gz = Utilities.base64Encode(Utilities.gzip(Utilities.newBlob(s, 'application
 props_().setProperty('SIDE_' + n, JSON.stringify({ __gz: gz }));
 }
 function backupSheetsLite_(ss, sheets, n, items) {
+void n;
 if (!sheets.length) return [];
 var tb = Date.now();
 var want = {}; items.forEach(function (i) { want[i] = 1; });
@@ -1078,6 +1079,7 @@ _TBL_CACHE = null;
 }
 var FINGER_ITEMS_ = ['値', 'シート構成', '固定'];
 function fingerOnly_(ops, kind) {
+void kind;
 return ops.every(function (o) {
 var c = CATALOG[o.shelf];
 return !!c && c.touch.some(function (t) { return FINGER_ITEMS_.indexOf(t) >= 0; });
@@ -1136,7 +1138,17 @@ return sameFinger_(entry.beforeDoc, entry.afterDoc);
 var ERR_SCAN_SKIP = /^(format|width|bg\.clear|banding\.|cf\.|freeze|unfreeze|filter\.|tidy|sheet\.(color|hide|show|move|rename)|cols\.(hide|show)|rows\.(hide|show)|validation\.|checkbox|protect\.|name\.list|drive\.|folder|backup|find|cf\.list)/;
 var ERR_RE = /^#(REF!|VALUE!|DIV\/0!|N\/A|NAME\?|NUM!|NULL!|ERROR!)/;
 var FORMULA_DROP_OK = /^(rows\.delete|cols\.delete|dedupe|seiri|clear\.|sheet\.delete|formula\.tovalue|copy\.values|write|replace)/;
-function errScanNeeded_(ops) { return ops.some(function (o) { return !ERR_SCAN_SKIP.test(String(o.shelf || '')); }); }
+function errScanNeeded_(ops) {
+return ops.some(function (o) {
+var nm = String(o.shelf || '');
+if (ERR_SCAN_SKIP.test(nm)) return false;
+if (typeof CATALOG !== 'undefined' && CATALOG && CATALOG[nm]) {
+var touch = CATALOG[nm].touch || [];
+if (touch.indexOf('値') < 0 && touch.indexOf('シート構成') < 0) return false;
+}
+return true;
+});
+}
 function errScan_(ss) {
 var out = {};
 ss.getSheets().forEach(function (sh) {
@@ -1468,7 +1480,11 @@ throw new ArgError('知らない色の名前です: 「' + str + '」');
 }
 function shiftFormula_(f, off) {
 if (!off || typeof f !== 'string' || f.charAt(0) !== '=') return f;
-return f.replace(/(\$?[A-Z]{1,3}\$?)(\d+)/g, function (m, c, r) { return c.indexOf('$') >= 0 && /\$$/.test(c) ? m : c + (parseInt(r) + off); });
+return f.replace(/(?:'[^']*'|[^\s(,+\-*\/=<>!&|:'"]+?)!\$?[A-Z]{1,3}\$?\d+(?::\$?[A-Z]{1,3}\$?\d+)?|"[^"]*"|(\$?[A-Z]{1,3}\$?)(\d+)/g, function (m, c, r, idx, full) {
+if (!c) return m;
+if (idx > 0 && /[A-Za-z0-9_']/.test(full.charAt(idx - 1))) return m;
+return c.indexOf('$') >= 0 && /\$$/.test(c) ? m : c + (parseInt(r, 10) + off);
+});
 }
 var CATALOG = {
 "api": {"kind": "sheet", "touch": ["隠し", "グループ", "保護", "名前", "タブ色", "グラフ", "フィルタ"], "backup": ["今"], "danger": "消す"},
@@ -1511,6 +1527,12 @@ var CATALOG = {
 "filter.extract": {"kind": "sheet", "touch": ["シート構成", "値"], "backup": ["先"], "danger": ""},
 "audit.check": {"kind": "sheet", "touch": [], "backup": ["なし"], "danger": ""},
 "top.n": {"kind": "sheet", "touch": ["シート構成", "値"], "backup": ["先"], "danger": ""},
+"rows.trim": {"kind": "sheet", "touch": ["シート構成"], "backup": ["今"], "danger": ""},
+"blank.rows.delete": {"kind": "sheet", "touch": ["値"], "backup": ["今"], "danger": "消す"},
+"text.clean": {"kind": "sheet", "touch": ["値"], "backup": ["今"], "danger": ""},
+"zero.pad": {"kind": "sheet", "touch": ["値", "書式"], "backup": ["今"], "danger": ""},
+"rows.sample": {"kind": "sheet", "touch": ["シート構成", "値", "書式"], "backup": ["先"], "danger": ""},
+"split.rows": {"kind": "sheet", "touch": ["値", "書式"], "backup": ["今"], "danger": "上書き"},
 "calc.col": {"kind": "sheet", "touch": ["値", "書式"], "backup": ["今"], "danger": ""},
 "calc.percent": {"kind": "sheet", "touch": ["値", "書式"], "backup": ["今"], "danger": ""},
 "stat.row": {"kind": "sheet", "touch": ["値", "書式"], "backup": ["今"], "danger": ""},
@@ -1527,6 +1549,14 @@ var CATALOG = {
 "text.join": {"kind": "sheet", "touch": ["値", "書式"], "backup": ["今"], "danger": ""},
 "text.case": {"kind": "sheet", "touch": ["値"], "backup": ["今"], "danger": "上書き"},
 "text.affix": {"kind": "sheet", "touch": ["値"], "backup": ["今"], "danger": ""},
+"calc.if": {"kind": "sheet", "touch": ["値", "書式"], "backup": ["今"], "danger": ""},
+"date.diff": {"kind": "sheet", "touch": ["値", "書式"], "backup": ["今"], "danger": ""},
+"unique.list": {"kind": "sheet", "touch": ["シート構成", "値", "書式"], "backup": ["先"], "danger": ""},
+"crosstab": {"kind": "sheet", "touch": ["シート構成", "値", "書式"], "backup": ["先"], "danger": ""},
+"formula.list": {"kind": "sheet", "touch": ["シート構成", "値", "書式"], "backup": ["先"], "danger": ""},
+"date.age": {"kind": "sheet", "touch": ["値", "書式"], "backup": ["今"], "danger": ""},
+"calc.tax": {"kind": "sheet", "touch": ["値", "書式"], "backup": ["今"], "danger": ""},
+"col.compare": {"kind": "sheet", "touch": ["値", "書式"], "backup": ["今"], "danger": ""},
 "validation.list": {"kind": "sheet", "touch": ["入力規則"], "backup": ["今"], "danger": ""},
 "validation.number": {"kind": "sheet", "touch": ["入力規則"], "backup": ["今"], "danger": ""},
 "validation.date": {"kind": "sheet", "touch": ["入力規則"], "backup": ["今"], "danger": ""},
@@ -1549,6 +1579,9 @@ var CATALOG = {
 "export.csv": {"kind": "sheet", "touch": [], "backup": ["なし"], "danger": ""},
 "drive.share": {"kind": "sheet", "touch": [], "backup": ["なし"], "danger": ""},
 "protect.list": {"kind": "sheet", "touch": [], "backup": ["なし"], "danger": ""},
+"checkbox.toggle": {"kind": "sheet", "touch": ["値"], "backup": ["今"], "danger": ""},
+"export.xlsx": {"kind": "sheet", "touch": [], "backup": ["なし"], "danger": ""},
+"protect.formulas": {"kind": "sheet", "touch": ["保護"], "backup": ["今"], "danger": ""},
 "format": {"kind": "sheet", "touch": ["書式"], "backup": ["今"], "danger": ""},
 "bg.clear": {"kind": "sheet", "touch": ["書式"], "backup": ["今"], "danger": ""},
 "width": {"kind": "sheet", "touch": ["幅"], "backup": ["今"], "danger": ""},
@@ -1560,12 +1593,17 @@ var CATALOG = {
 "banding.add": {"kind": "sheet", "touch": ["交互の色"], "backup": ["今"], "danger": ""},
 "banding.remove": {"kind": "sheet", "touch": ["交互の色"], "backup": ["今"], "danger": ""},
 "sheet.gridlines": {"kind": "sheet", "touch": ["書式"], "backup": ["今"], "danger": ""},
+"cf.weekend": {"kind": "sheet", "touch": ["条件付き"], "backup": ["今"], "danger": ""},
+"format.negred": {"kind": "sheet", "touch": ["書式"], "backup": ["今"], "danger": ""},
+"font.unify": {"kind": "sheet", "touch": ["書式"], "backup": ["今"], "danger": ""},
+"rows.highlight": {"kind": "sheet", "touch": ["書式"], "backup": ["今"], "danger": ""},
 "table.new": {"kind": "sheet", "touch": ["値", "書式", "シート構成", "固定"], "backup": ["今"], "danger": ""},
 "total": {"kind": "sheet", "touch": ["値", "書式"], "backup": ["今"], "danger": ""},
 "summary": {"kind": "sheet", "touch": ["値", "書式", "シート構成"], "backup": ["今", "先"], "danger": "消す"},
 "pivot.new": {"kind": "sheet", "touch": ["シート構成", "値"], "backup": ["先"], "danger": ""},
 "chart.new": {"kind": "sheet", "touch": ["グラフ"], "backup": ["今"], "danger": ""},
 "chart.delete": {"kind": "sheet", "touch": ["グラフ"], "backup": ["今"], "danger": "消す"},
+"table.template": {"kind": "sheet", "touch": ["値", "書式", "シート構成", "固定", "入力規則"], "backup": ["今"], "danger": ""},
 "write": {"kind": "sheet", "touch": ["値"], "backup": ["今"], "danger": ""},
 "replace": {"kind": "sheet", "touch": ["値"], "backup": ["今"], "danger": ""},
 "find": {"kind": "sheet", "touch": [], "backup": ["なし"], "danger": ""},
@@ -1589,6 +1627,12 @@ var CATALOG = {
 "link.clear": {"kind": "sheet", "touch": ["値", "書式"], "backup": ["今"], "danger": ""},
 "link.extract": {"kind": "sheet", "touch": ["値"], "backup": ["今"], "danger": ""},
 "note.list": {"kind": "sheet", "touch": ["シート構成", "値"], "backup": ["先"], "danger": ""},
+"blank.fill.zero": {"kind": "sheet", "touch": ["値"], "backup": ["今"], "danger": ""},
+"text.mask": {"kind": "sheet", "touch": ["値"], "backup": ["今"], "danger": "上書き"},
+"text.extract": {"kind": "sheet", "touch": ["値", "書式"], "backup": ["今"], "danger": ""},
+"rows.reverse": {"kind": "sheet", "touch": ["値"], "backup": ["今"], "danger": ""},
+"date.today": {"kind": "sheet", "touch": ["値", "書式"], "backup": ["今"], "danger": ""},
+"text.kana": {"kind": "sheet", "touch": ["値"], "backup": ["今"], "danger": ""},
 "rows": {"kind": "sheet", "touch": ["値", "書式"], "backup": ["今"], "danger": "消す"},
 "rows.insert": {"kind": "sheet", "touch": ["値", "書式"], "backup": ["今"], "danger": ""},
 "rows.delete": {"kind": "sheet", "touch": ["値", "書式"], "backup": ["今"], "danger": "消す"},
@@ -2028,7 +2072,7 @@ if (forms[r][c] || typeof v !== 'string') continue;
 var nv = v;
 if (doHalf) { var h = nv.replace(/[！-～]/g, function (ch) { return String.fromCharCode(ch.charCodeAt(0) - 0xFEE0); }).replace(/　/g, ' '); if (h !== nv) { nv = h; nHalf++; } }
 if (doTrim) { var tr = nv.replace(/^[\s　]+|[\s　]+$/g, ''); if (tr !== nv) { nv = tr; nTrim++; } }
-if (doNum && r > 0 && /^-?[\d,]+(\.\d+)?$/.test(nv) && !/^-?0\d/.test(nv)) { nv = Number(nv.replace(/,/g, '')); nNum++; }
+if (doNum && r > 0 && /^-?(?:\d+|\d{1,3}(?:,\d{3})+)(?:\.\d+)?$/.test(nv) && !/^-?0\d/.test(nv)) { nv = Number(nv.replace(/,/g, '')); nNum++; }
 else if (doDate && r > 0 && typeof nv === 'string') { var dt = parseDateText_(nv); if (dt) { nv = dt; nDate++; } }
 if (nv !== v) { vals[r][c] = nv; fixed.push(a1_(t.headerRow + r, t.firstCol + c)); }
 }
@@ -2122,20 +2166,32 @@ var f = sh.getFilter(); if (f) f.remove();
 f = full.createFilter();
 if (op.where) {
 need_(op.where, ['col']);
-var ci = colIndexOf_(t, op.where.col) - t.firstCol + 1;
+var absCi = colIndexOf_(t, op.where.col);
+var ci = absCi - t.firstCol + 1;
 var fb = SpreadsheetApp.newFilterCriteria();
 var wh = op.where.when ? String(op.where.when).toLowerCase() : '';
 var wv = op.where.value !== undefined ? op.where.value : op.where.equals;
+var wvStr = String(wv !== undefined && wv !== null ? wv : '');
+var wvNumStr = wvStr.replace(/,/g, '').trim();
+var isNumWv = wvNumStr !== '' && isFinite(Number(wvNumStr));
 var crit;
 if (wh === 'blank') crit = fb.whenCellEmpty().build();
 else if (wh === 'notblank') crit = fb.whenCellNotEmpty().build();
-else if (wh === 'contains') crit = fb.whenTextContains(String(wv !== undefined ? wv : '')).build();
-else if (wh === 'ne') crit = fb.whenTextDoesNotContain(String(wv !== undefined ? wv : '')).build();
-else if (wh === 'gt') crit = fb.whenNumberGreaterThan(Number(wv)).build();
-else if (wh === 'ge') crit = fb.whenNumberGreaterThanOrEqualTo(Number(wv)).build();
-else if (wh === 'lt') crit = fb.whenNumberLessThan(Number(wv)).build();
-else if (wh === 'le') crit = fb.whenNumberLessThanOrEqualTo(Number(wv)).build();
-else if (wh === 'eq' || op.where.equals !== undefined) crit = fb.whenTextEqualTo(String(wv)).build();
+else if (wh === 'contains') crit = fb.whenTextContains(wvStr).build();
+else if (wh === 'ne') {
+if (wvStr === '') crit = fb.whenCellNotEmpty().build();
+else if (isNumWv && typeof fb.whenNumberNotEqualTo === 'function') crit = fb.whenNumberNotEqualTo(Number(wvNumStr)).build();
+else if (isNumWv) crit = fb.whenFormulaSatisfied('=' + colLetter_(absCi) + t.firstData + '<>' + Number(wvNumStr)).build();
+else crit = fb.whenFormulaSatisfied('=' + colLetter_(absCi) + t.firstData + '<>"' + wvStr.replace(/"/g, '""') + '"').build();
+}
+else if (wh === 'gt') crit = fb.whenNumberGreaterThan(Number(wvNumStr)).build();
+else if (wh === 'ge') crit = fb.whenNumberGreaterThanOrEqualTo(Number(wvNumStr)).build();
+else if (wh === 'lt') crit = fb.whenNumberLessThan(Number(wvNumStr)).build();
+else if (wh === 'le') crit = fb.whenNumberLessThanOrEqualTo(Number(wvNumStr)).build();
+else if (wh === 'eq' || op.where.equals !== undefined) {
+if (isNumWv && typeof fb.whenNumberEqualTo === 'function') crit = fb.whenNumberEqualTo(Number(wvNumStr)).build();
+else crit = fb.whenTextEqualTo(wvStr).build();
+}
 else crit = fb.whenCellNotEmpty().build();
 f.setColumnFilterCriteria(ci, crit);
 }
@@ -2210,6 +2266,9 @@ var extraCols = maxParts - 1;
 if (op.insert) {
 sh.insertColumnsAfter(ci, extraCols);
 } else {
+if (ci + extraCols > sh.getMaxColumns()) {
+sh.insertColumnsAfter(sh.getMaxColumns(), (ci + extraCols) - sh.getMaxColumns());
+}
 var checkRg = sh.getRange(t.firstData, ci + 1, numRows, extraCols);
 guardOverwrite_(ctx, checkRg, '分割先「' + checkRg.getA1Notation() + '」');
 }
@@ -2418,6 +2477,196 @@ dst.getRange(1, 1, 1, nc).setBackground(STYLE.headBg).setFontColor(STYLE.headFg)
 ctx.curSheet = intoName;
 chg_(ctx, dst, a1_(1, 1, out.length, nc), op.col + ' の' + (op.bottom ? '下位' : '上位') + picked.length + '件を抽出');
 };
+SHELF['rows.trim'] = function (ctx, op) {
+var sh = sheetCtx_(ctx, op);
+var keepR = op.keep_rows !== undefined ? Math.max(0, parseInt(op.keep_rows, 10) || 0) : 5;
+var keepC = op.keep_cols !== undefined ? Math.max(0, parseInt(op.keep_cols, 10) || 0) : 2;
+var lr = Math.max(1, sh.getLastRow()), lc = Math.max(1, sh.getLastColumn());
+var mr = sh.getMaxRows(), mc = sh.getMaxColumns();
+var wantR = Math.min(mr, lr + keepR);
+var wantC = Math.min(mc, lc + keepC);
+var msgs = [];
+if (mr > wantR) {
+sh.deleteRows(wantR + 1, mr - wantR);
+msgs.push('空行 ' + (mr - wantR) + ' 行削除');
+}
+if (mc > wantC) {
+sh.deleteColumns(wantC + 1, mc - wantC);
+msgs.push('空列 ' + (mc - wantC) + ' 列削除');
+}
+if (!msgs.length) {
+note_(ctx, '削る余分な空行・空列はありませんでした（変更なし）');
+return;
+}
+chg_(ctx, sh, '', msgs.join('・'));
+};
+SHELF['blank.rows.delete'] = function (ctx, op) {
+var sh = sheetCtx_(ctx, op), t = needTable_(sh);
+var blanks = [];
+for (var r = t.firstData; r <= t.lastData; r++) {
+var row = t.vals[r - 1].slice(t.firstCol - 1, t.lastCol);
+if (row.every(isBlank_)) blanks.push(r);
+}
+if (!blanks.length) {
+note_(ctx, '表の途中に空行はありませんでした（変更なし）');
+return;
+}
+guardDelete_(ctx, '表内の空行 ' + blanks.slice(0, 6).join('・') + (blanks.length > 6 ? ' ほか' : '') + ' 行目を削除します', wideRowCount_(t, blanks.length), blanks.length + ' 行');
+deleteRowRuns_(sh, blanks);
+chg_(ctx, sh, blanks.slice(0, 6).join('・') + (blanks.length > 6 ? ' ほか' : '') + ' 行目', '空行を一括削除（' + blanks.length + ' 行）');
+};
+SHELF['text.clean'] = function (ctx, op) {
+var sh = sheetCtx_(ctx, op), rg;
+if (op.col) {
+var t = needTable_(sh), ci = colIndexOf_(t, op.col);
+rg = sh.getRange(t.firstData, ci, Math.max(1, t.lastData - t.firstData + 1), 1);
+} else if (op.range) {
+rg = sh.getRange(op.range);
+} else {
+rg = dataRange_(needTable_(sh));
+}
+var vals = rg.getValues(), forms = rg.getFormulas(), changed = 0;
+var nlRepl = op.newline !== undefined ? String(op.newline) : ' ';
+for (var r = 0; r < vals.length; r++) {
+for (var c = 0; c < vals[r].length; c++) {
+var f = forms[r][c], v = vals[r][c];
+if (f) { vals[r][c] = f; continue; }
+if (typeof v !== 'string') continue;
+var cleaned = v
+.replace(/[\u200B-\u200D\uFEFF\u00AD\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '')
+.replace(/\r?\n/g, nlRepl)
+.replace(/[ \t\u3000]+/g, ' ')
+.trim();
+if (cleaned !== v) {
+vals[r][c] = cleaned;
+changed++;
+}
+}
+}
+if (!changed) {
+note_(ctx, '掃除が必要な文字列はありませんでした（' + rg.getA1Notation() + '）');
+return;
+}
+rg.setValues(vals);
+chg_(ctx, sh, rg.getA1Notation(), '改行・連続空白・不可視文字を掃除（' + changed + ' 件）');
+};
+SHELF['zero.pad'] = function (ctx, op) {
+need_(op, ['digits']);
+var digits = Math.max(1, Math.min(20, parseInt(op.digits, 10) || 5));
+var sh = sheetCtx_(ctx, op), rg;
+if (op.col) {
+var t = needTable_(sh), ci = colIndexOf_(t, op.col);
+rg = sh.getRange(t.firstData, ci, Math.max(1, t.lastData - t.firstData + 1), 1);
+} else if (op.range) {
+rg = sh.getRange(op.range);
+} else {
+rg = dataRange_(needTable_(sh));
+}
+var vals = rg.getValues(), forms = rg.getFormulas(), fmts = rg.getNumberFormats(), changed = 0;
+for (var r = 0; r < vals.length; r++) {
+for (var c = 0; c < vals[r].length; c++) {
+var f = forms[r][c], v = vals[r][c];
+if (f) { vals[r][c] = f; continue; }
+if (isBlank_(v)) continue;
+var s = (typeof v === 'number' && isFinite(v) && v >= 0 && Math.floor(v) === v)
+? String(v)
+: (typeof v === 'string' ? v.trim() : '');
+if (!s || !/^\d+$/.test(s)) continue;
+var padded = s;
+while (padded.length < digits) padded = '0' + padded;
+if (v !== padded || fmts[r][c] !== '@') {
+vals[r][c] = padded;
+fmts[r][c] = '@';
+changed++;
+}
+}
+}
+if (!changed) {
+note_(ctx, '0埋め対象の数値・数字はありませんでした（' + rg.getA1Notation() + '）');
+return;
+}
+rg.setNumberFormats(fmts);
+rg.setValues(vals);
+chg_(ctx, sh, rg.getA1Notation(), digits + ' 桁で先頭0埋め（' + changed + ' 件）');
+};
+SHELF['rows.sample'] = function (ctx, op) {
+need_(op, ['count']);
+var ss = ctx.ss, sh = sheetCtx_(ctx, op), t = needTable_(sh);
+var nr = Math.max(0, t.lastData - t.firstData + 1);
+if (nr < 1) { note_(ctx, '抽出元のデータ行がありません'); return; }
+var cnt = Math.max(1, parseInt(op.count, 10) || 10);
+var take = Math.min(cnt, nr);
+var idxs = [];
+for (var i = 0; i < nr; i++) idxs.push(i);
+for (var j = nr - 1; j > 0; j--) {
+var k = Math.floor(Math.random() * (j + 1));
+var tmp = idxs[j]; idxs[j] = idxs[k]; idxs[k] = tmp;
+}
+var nc = t.lastCol - t.firstCol + 1;
+var head = sh.getRange(t.headerRow, t.firstCol, 1, nc).getValues()[0];
+var body = sh.getRange(t.firstData, t.firstCol, nr, nc).getValues();
+var out = [head];
+for (var p = 0; p < take; p++) out.push(body[idxs[p]]);
+var intoName = String(op.into || '抽出サンプル').trim() || '抽出サンプル';
+var dst = ss.getSheetByName(intoName);
+if (!dst) {
+dst = ss.insertSheet(intoName, ss.getSheets().length);
+ctx.createdSheets.push(intoName);
+} else {
+dst.clearContents();
+}
+dst.getRange(1, 1, out.length, nc).setValues(out);
+tidyRange_(ctx, dst, a1_(1, 1, out.length, nc));
+ctx.curSheet = intoName;
+chg_(ctx, dst, a1_(1, 1, out.length, nc), 'ランダム抽出 ' + take + ' 件（元 ' + nr + ' 行）');
+};
+SHELF['split.rows'] = function (ctx, op) {
+need_(op, ['col']);
+var sh = sheetCtx_(ctx, op), t = needTable_(sh), ci = colIndexOf_(t, op.col);
+var nr = Math.max(0, t.lastData - t.firstData + 1);
+if (nr < 1) { note_(ctx, '対象のデータ行がありません'); return; }
+var nc = t.lastCol - t.firstCol + 1, relC = ci - t.firstCol;
+var dr = sh.getRange(t.firstData, t.firstCol, nr, nc);
+var vals = dr.getValues(), forms = dr.getFormulas();
+var sepRx = op.sep
+? new RegExp(String(op.sep).replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
+: /[\r\n,、/／]+/;
+var expanded = [], splitCnt = 0;
+for (var r = 0; r < nr; r++) {
+var baseRow = [];
+for (var c = 0; c < nc; c++) baseRow.push(forms[r][c] ? forms[r][c] : vals[r][c]);
+var rawCell = vals[r][relC];
+if (forms[r][relC] || typeof rawCell !== 'string' || !rawCell.trim()) {
+expanded.push(baseRow);
+continue;
+}
+var parts = rawCell.split(sepRx).map(function (x) { return x.trim(); }).filter(function (x) { return x !== ''; });
+if (parts.length <= 1) {
+expanded.push(baseRow);
+continue;
+}
+splitCnt++;
+for (var k = 0; k < parts.length; k++) {
+var copyRow = baseRow.slice();
+copyRow[relC] = parts[k];
+expanded.push(copyRow);
+}
+}
+if (!splitCnt) {
+note_(ctx, '行へ展開する複数値は見つかりませんでした（変更なし）');
+return;
+}
+var extra = expanded.length - nr;
+guardOverwrite_(ctx, dr, op.col + '列の複数値を縦に展開（' + nr + ' → ' + expanded.length + ' 行）');
+if (extra > 0) sh.insertRowsAfter(t.lastData, extra);
+sh.getRange(t.firstData, t.firstCol, expanded.length, nc).setValues(expanded);
+chg_(ctx, sh, a1_(t.firstData, t.firstCol, expanded.length, nc), op.col + '列の ' + splitCnt + ' 行を ' + expanded.length + ' 行へ展開');
+};
+function copyHeaderStyle_(sh, headerRow, tmplCol, dstCol, name) {
+var dst = sh.getRange(headerRow, dstCol);
+sh.getRange(headerRow, tmplCol).copyTo(dst, SpreadsheetApp.CopyPasteType.PASTE_FORMAT, false);
+dst.setValue(name).setHorizontalAlignment('center');
+}
 SHELF['calc.col'] = function (ctx, op) {
 var sh = sheetCtx_(ctx, op), t = needTable_(sh);
 need_(op, ['name', 'expr']);
@@ -2440,12 +2689,12 @@ var ci = colIndexOf_(t, h);
 var colL = colLetter_(ci);
 f = f.split(h).join(colL + r);
 });
-f = f.replace(/(?<![A-Za-z0-9])([A-Z]{1,3})(?![0-9])/g, '$1' + r);
+f = f.replace(/"(?:""|[^"])*"|(?<![A-Za-z0-9_$!])([A-Z]{1,3})(?![A-Za-z0-9_(])/g, function (m, col) {
+return col ? (col + r) : m;
+});
 return f.charAt(0) === '=' ? f : '=' + f;
 };
-sh.getRange(t.headerRow, atCol).setValue(op.name);
-var tmplCell = sh.getRange(t.headerRow, t.lastCol > atCol ? atCol + 1 : t.firstCol);
-sh.getRange(t.headerRow, atCol).setBackground(tmplCell.getBackground()).setFontColor(tmplCell.getFontColor()).setFontWeight(tmplCell.getFontWeight()).setHorizontalAlignment('center');
+copyHeaderStyle_(sh, t.headerRow, t.firstCol, atCol, op.name);
 var numRows = t.lastData - t.firstData + 1;
 if (numRows > 0) {
 var formulas = [];
@@ -2463,14 +2712,13 @@ var ci = colIndexOf_(t, op.col);
 var atCol = op.at ? colIndexOf_(t, op.at) : (t.lastCol + 1);
 if (op.at && atCol <= t.lastCol) {
 sh.insertColumnsBefore(atCol, 1);
+if (atCol <= ci) ci++;
 if (_TBL_CACHE) _TBL_CACHE = null;
 t = needTable_(sh);
 }
 if (atCol > sh.getMaxColumns()) sh.insertColumnsAfter(sh.getMaxColumns(), atCol - sh.getMaxColumns());
 var name = op.name || '構成比';
-sh.getRange(t.headerRow, atCol).setValue(name);
-var tmplCell = sh.getRange(t.headerRow, t.firstCol);
-sh.getRange(t.headerRow, atCol).setBackground(tmplCell.getBackground()).setFontColor(tmplCell.getFontColor()).setFontWeight(tmplCell.getFontWeight()).setHorizontalAlignment('center');
+copyHeaderStyle_(sh, t.headerRow, t.firstCol, atCol, name);
 var colL = colLetter_(ci);
 var sumRef = t.totalRow ? (colL + '$' + t.totalRow) : ('SUM(' + colL + '$' + t.firstData + ':' + colL + '$' + t.lastData + ')');
 var numRows = t.lastData - t.firstData + 1;
@@ -2503,12 +2751,27 @@ if (!cols.length) throw new ArgError('集計する数値列が見つかりませ
 var tr = (t.totalRow ? t.totalRow : t.lastData) + 1;
 var nc = t.lastCol - t.firstCol + 1;
 var rowRg = sh.getRange(tr, t.firstCol, 1, nc);
-sh.getRange(tr, t.firstCol).setValue(label);
+var lc = t.firstCol;
+while (lc <= t.lastCol && (cols.indexOf(lc) >= 0 || isNoCol_(t, lc))) lc++;
+if (lc > t.lastCol) {
+lc = t.firstCol;
+while (lc <= t.lastCol && cols.indexOf(lc) >= 0) lc++;
+}
+var fr = rowRg.getFormulas(), vr = rowRg.getValues(), nf = rowRg.getNumberFormats(), al = rowRg.getHorizontalAlignments();
+if (lc <= t.lastCol) {
+fr[0][lc - t.firstCol] = '';
+vr[0][lc - t.firstCol] = label;
+}
 cols.forEach(function (c) {
-var f = '=' + fnName + '(' + colLetter_(c) + t.firstData + ':' + colLetter_(c) + t.lastData + ')';
-sh.getRange(tr, c).setFormula(f).setNumberFormat(STYLE.numFmt).setHorizontalAlignment('right');
+var k = c - t.firstCol;
+fr[0][k] = '=' + fnName + '(' + colLetter_(c) + t.firstData + ':' + colLetter_(c) + t.lastData + ')';
+nf[0][k] = STYLE.numFmt;
+al[0][k] = 'right';
 });
-rowRg.setFontWeight('bold').setBackground(STYLE.totalBg).setBorder(true, true, true, true, true, true, STYLE.border, SpreadsheetApp.BorderStyle.SOLID);
+var out = fr[0].map(function (f, k) { return f || vr[0][k]; });
+rowRg.setValues([out]).setNumberFormats(nf).setHorizontalAlignments(al)
+.setFontWeight('bold').setBackground(STYLE.totalBg)
+.setBorder(true, true, true, true, true, true, STYLE.border, SpreadsheetApp.BorderStyle.SOLID);
 chg_(ctx, sh, a1_(tr, t.firstCol, 1, nc), label + '行を追加');
 };
 SHELF['lookup.add'] = function (ctx, op) {
@@ -2535,14 +2798,17 @@ if (!myKey) myKey = t.firstCol;
 var atCol = op.at ? colIndexOf_(t, op.at) : (t.lastCol + 1);
 if (op.at && atCol <= t.lastCol) {
 sh.insertColumnsBefore(atCol, 1);
+if (atCol <= myKey) myKey++;
+if (srcSh.getSheetId() === sh.getSheetId()) {
+if (atCol <= keyCol) keyCol++;
+if (atCol <= vci) vci++;
+}
 if (_TBL_CACHE) _TBL_CACHE = null;
 t = needTable_(sh);
 }
 if (atCol > sh.getMaxColumns()) sh.insertColumnsAfter(sh.getMaxColumns(), atCol - sh.getMaxColumns());
 var name = op.name || String(op.val_col);
-sh.getRange(t.headerRow, atCol).setValue(name);
-var tmplCell = sh.getRange(t.headerRow, t.firstCol);
-sh.getRange(t.headerRow, atCol).setBackground(tmplCell.getBackground()).setFontColor(tmplCell.getFontColor()).setFontWeight(tmplCell.getFontWeight()).setHorizontalAlignment('center');
+copyHeaderStyle_(sh, t.headerRow, t.firstCol, atCol, name);
 var srcName = q_(srcSh.getName());
 var keyRange = srcName + '!$' + colLetter_(keyCol) + '$' + srcT.firstData + ':$' + colLetter_(keyCol) + '$' + srcT.lastData;
 var valRange = srcName + '!$' + colLetter_(vci) + '$' + srcT.firstData + ':$' + colLetter_(vci) + '$' + srcT.lastData;
@@ -2562,13 +2828,11 @@ var sh = sheetCtx_(ctx, op), t = needTable_(sh);
 need_(op, ['col_a', 'col_b']);
 var ca = colIndexOf_(t, op.col_a), cb = colIndexOf_(t, op.col_b);
 var atCol = op.at ? colIndexOf_(t, op.at) : (t.lastCol + 1);
-if (op.at && atCol <= t.lastCol) { sh.insertColumnsBefore(atCol, 1); if (_TBL_CACHE) _TBL_CACHE = null; t = needTable_(sh); }
+if (op.at && atCol <= t.lastCol) { sh.insertColumnsBefore(atCol, 1); if (atCol <= ca) ca++; if (atCol <= cb) cb++; if (_TBL_CACHE) _TBL_CACHE = null; t = needTable_(sh); }
 if (atCol > sh.getMaxColumns()) sh.insertColumnsAfter(sh.getMaxColumns(), atCol - sh.getMaxColumns());
 var isRate = !!op.rate;
 var name = op.name || (isRate ? '増減率' : '差額');
-sh.getRange(t.headerRow, atCol).setValue(name);
-var tmplCell = sh.getRange(t.headerRow, t.firstCol);
-sh.getRange(t.headerRow, atCol).setBackground(tmplCell.getBackground()).setFontColor(tmplCell.getFontColor()).setFontWeight(tmplCell.getFontWeight()).setHorizontalAlignment('center');
+copyHeaderStyle_(sh, t.headerRow, t.firstCol, atCol, name);
 var la = colLetter_(ca), lb = colLetter_(cb);
 var numRows = t.lastData - t.firstData + 1;
 if (numRows > 0) {
@@ -2588,12 +2852,10 @@ var sh = sheetCtx_(ctx, op), t = needTable_(sh);
 need_(op, ['col']);
 var ci = colIndexOf_(t, op.col);
 var atCol = op.at ? colIndexOf_(t, op.at) : (t.lastCol + 1);
-if (op.at && atCol <= t.lastCol) { sh.insertColumnsBefore(atCol, 1); if (_TBL_CACHE) _TBL_CACHE = null; t = needTable_(sh); }
+if (op.at && atCol <= t.lastCol) { sh.insertColumnsBefore(atCol, 1); if (atCol <= ci) ci++; if (_TBL_CACHE) _TBL_CACHE = null; t = needTable_(sh); }
 if (atCol > sh.getMaxColumns()) sh.insertColumnsAfter(sh.getMaxColumns(), atCol - sh.getMaxColumns());
 var name = op.name || '累計';
-sh.getRange(t.headerRow, atCol).setValue(name);
-var tmplCell = sh.getRange(t.headerRow, t.firstCol);
-sh.getRange(t.headerRow, atCol).setBackground(tmplCell.getBackground()).setFontColor(tmplCell.getFontColor()).setFontWeight(tmplCell.getFontWeight()).setHorizontalAlignment('center');
+copyHeaderStyle_(sh, t.headerRow, t.firstCol, atCol, name);
 var cl = colLetter_(ci);
 var numRows = t.lastData - t.firstData + 1;
 if (numRows > 0) {
@@ -2610,12 +2872,10 @@ var sh = sheetCtx_(ctx, op), t = needTable_(sh);
 need_(op, ['col']);
 var ci = colIndexOf_(t, op.col);
 var atCol = op.at ? colIndexOf_(t, op.at) : (t.lastCol + 1);
-if (op.at && atCol <= t.lastCol) { sh.insertColumnsBefore(atCol, 1); if (_TBL_CACHE) _TBL_CACHE = null; t = needTable_(sh); }
+if (op.at && atCol <= t.lastCol) { sh.insertColumnsBefore(atCol, 1); if (atCol <= ci) ci++; if (_TBL_CACHE) _TBL_CACHE = null; t = needTable_(sh); }
 if (atCol > sh.getMaxColumns()) sh.insertColumnsAfter(sh.getMaxColumns(), atCol - sh.getMaxColumns());
 var name = op.name || '順位';
-sh.getRange(t.headerRow, atCol).setValue(name);
-var tmplCell = sh.getRange(t.headerRow, t.firstCol);
-sh.getRange(t.headerRow, atCol).setBackground(tmplCell.getBackground()).setFontColor(tmplCell.getFontColor()).setFontWeight(tmplCell.getFontWeight()).setHorizontalAlignment('center');
+copyHeaderStyle_(sh, t.headerRow, t.firstCol, atCol, name);
 var cl = colLetter_(ci), order = op.desc === false ? 1 : 0;
 var numRows = t.lastData - t.firstData + 1;
 if (numRows > 0) {
@@ -2631,9 +2891,10 @@ chg_(ctx, sh, colLetter_(atCol) + '列', '順位列「' + name + '」を追加')
 SHELF['count.if'] = function (ctx, op) {
 need_(op, ['range', 'criteria']);
 var sh = sheetCtx_(ctx, op);
+var critEsc = String(op.criteria).replace(/"/g, '""');
 var f = op.sum_range
-? ('=SUMIF(' + op.range + ', "' + op.criteria + '", ' + op.sum_range + ')')
-: ('=COUNTIF(' + op.range + ', "' + op.criteria + '")');
+? ('=SUMIF(' + op.range + ', "' + critEsc + '", ' + op.sum_range + ')')
+: ('=COUNTIF(' + op.range + ', "' + critEsc + '")');
 var targetA1 = op.into;
 if (!targetA1) {
 var t = findTable_(sh);
@@ -2675,19 +2936,58 @@ for (var lc = t.firstCol; lc <= t.lastCol; lc++) {
 if (sumIndices.indexOf(lc) < 0) { labelCol = lc; break; }
 }
 }
-for (var b = groups.length - 1; b >= 0; b--) {
-var g = groups[b];
-sh.insertRowAfter(g.eR);
-var rowIdx = g.eR + 1;
-var rowArr = [];
-for (var ci = 0; ci < nc; ci++) rowArr.push('');
-rowArr[labelCol - t.firstCol] = '小計';
+var nrOrig = t.lastData - t.firstData + 1;
+var srcRg = sh.getRange(t.firstData, t.firstCol, nrOrig, nc);
+var srcVals = srcRg.getValues();
+var srcForms = srcRg.getFormulas();
+var srcWeights = srcRg.getFontWeights();
+var srcBgs = srcRg.getBackgrounds();
+var srcColors = srcRg.getFontColors();
+var srcNumFmts = srcRg.getNumberFormats();
+var outVals = [], outWeights = [], outBgs = [], outColors = [], outNumFmts = [];
+var insertedSoFar = 0, gIdx = 0;
+for (var rOff = 0; rOff < nrOrig; rOff++) {
+var origRowNo = t.firstData + rOff;
+var rowVals = [];
+for (var ci = 0; ci < nc; ci++) {
+var f = srcForms[rOff][ci];
+rowVals.push(f ? shiftFormula_(f, insertedSoFar) : srcVals[rOff][ci]);
+}
+outVals.push(rowVals);
+outWeights.push(srcWeights[rOff].slice());
+outBgs.push(srcBgs[rOff].slice());
+outColors.push(srcColors[rOff].slice());
+outNumFmts.push(srcNumFmts[rOff].slice());
+if (gIdx < groups.length && origRowNo === groups[gIdx].eR) {
+var g = groups[gIdx];
+var sNew = g.sR + insertedSoFar;
+var eNew = g.eR + insertedSoFar;
+var subRow = [], subW = [];
+for (var sci = 0; sci < nc; sci++) {
+subRow.push('');
+subW.push('bold');
+}
+subRow[labelCol - t.firstCol] = '小計';
 sumIndices.forEach(function (si) {
 var cl = colLetter_(si);
-rowArr[si - t.firstCol] = '=SUBTOTAL(9, ' + cl + g.sR + ':' + cl + g.eR + ')';
+subRow[si - t.firstCol] = '=SUBTOTAL(9, ' + cl + sNew + ':' + cl + eNew + ')';
 });
-sh.getRange(rowIdx, t.firstCol, 1, nc).setValues([rowArr]).setFontWeight('bold');
+outVals.push(subRow);
+outWeights.push(subW);
+outBgs.push(srcBgs[rOff].slice());
+outColors.push(srcColors[rOff].slice());
+outNumFmts.push(srcNumFmts[rOff].slice());
+insertedSoFar++;
+gIdx++;
 }
+}
+sh.insertRowsAfter(t.lastData, groups.length);
+var dstRg = sh.getRange(t.firstData, t.firstCol, outVals.length, nc);
+dstRg.setValues(outVals);
+dstRg.setFontWeights(outWeights);
+dstRg.setBackgrounds(outBgs);
+dstRg.setFontColors(outColors);
+dstRg.setNumberFormats(outNumFmts);
 chg_(ctx, sh, '表', groups.length + ' か所に小計行を挿入');
 };
 SHELF['formula.guard'] = function (ctx, op) {
@@ -2701,18 +3001,24 @@ rg = sh.getRange(op.range);
 var t2 = findTable_(sh);
 rg = t2 ? sh.getRange(t2.firstData, t2.firstCol, t2.lastData - t2.firstData + 1, t2.lastCol - t2.firstCol + 1) : sh.getDataRange();
 }
-var forms = rg.getFormulas(), changed = 0;
-var fb = op.fallback !== undefined ? (typeof op.fallback === 'string' ? ('"' + op.fallback + '"') : op.fallback) : '""';
+var forms = rg.getFormulas(), vals = rg.getValues(), out = [], changed = 0;
+var fb = op.fallback !== undefined
+? (typeof op.fallback === 'string' ? ('"' + op.fallback.replace(/"/g, '""') + '"') : op.fallback)
+: '""';
 for (var r = 0; r < forms.length; r++) {
+var rowOut = [];
 for (var c = 0; c < forms[r].length; c++) {
 var f = forms[r][c];
 if (f && f.indexOf('=IFERROR(') !== 0) {
-forms[r][c] = '=IFERROR(' + f.replace(/^=/, '') + ', ' + fb + ')';
+rowOut.push('=IFERROR(' + f.replace(/^=/, '') + ', ' + fb + ')');
 changed++;
+} else {
+rowOut.push(f || vals[r][c]);
 }
 }
+out.push(rowOut);
 }
-if (changed) rg.setFormulas(forms);
+if (changed) rg.setValues(out);
 chg_(ctx, sh, rg.getA1Notation(), changed + ' 個の数式を IFERROR で保護');
 };
 SHELF['formula.tovalue'] = function (ctx, op) {
@@ -2741,29 +3047,38 @@ rg = sh.getRange(op.range);
 } else throw new ArgError('棚「round」に col または range が要ります');
 var fnName = op.mode === 'floor' ? 'ROUNDDOWN' : op.mode === 'ceil' ? 'ROUNDUP' : 'ROUND';
 var dig = op.digits !== undefined ? parseInt(op.digits, 10) : 0;
-var forms = rg.getFormulas(), vals = rg.getValues();
+var forms = rg.getFormulas(), vals = rg.getValues(), out = [], changed = 0;
 for (var r = 0; r < forms.length; r++) {
+var rowOut = [];
 for (var c = 0; c < forms[r].length; c++) {
-var src = forms[r][c] ? forms[r][c].replace(/^=/, '') : vals[r][c];
-if (src !== '') forms[r][c] = '=' + fnName + '(' + src + ', ' + dig + ')';
+var f = forms[r][c], v = vals[r][c];
+if (f) {
+rowOut.push('=' + fnName + '(' + f.replace(/^=/, '') + ', ' + dig + ')');
+changed++;
+} else if (typeof v === 'number' && !isNaN(v)) {
+rowOut.push('=' + fnName + '(' + v + ', ' + dig + ')');
+changed++;
+} else {
+rowOut.push(v);
 }
 }
-rg.setFormulas(forms);
-chg_(ctx, sh, rg.getA1Notation(), fnName + '（桁: ' + dig + '）を適用');
+out.push(rowOut);
+}
+if (!changed) { note_(ctx, '丸める数値・式が見つかりませんでした（' + rg.getA1Notation() + '）'); return; }
+rg.setValues(out);
+chg_(ctx, sh, rg.getA1Notation(), fnName + '（桁: ' + dig + '）を適用（' + changed + ' 件）');
 };
 SHELF['date.parts'] = function (ctx, op) {
 var sh = sheetCtx_(ctx, op), t = needTable_(sh);
 need_(op, ['col', 'part']);
 var ci = colIndexOf_(t, op.col);
 var atCol = op.at ? colIndexOf_(t, op.at) : (t.lastCol + 1);
-if (op.at && atCol <= t.lastCol) { sh.insertColumnsBefore(atCol, 1); if (_TBL_CACHE) _TBL_CACHE = null; t = needTable_(sh); }
+if (op.at && atCol <= t.lastCol) { sh.insertColumnsBefore(atCol, 1); if (atCol <= ci) ci++; if (_TBL_CACHE) _TBL_CACHE = null; t = needTable_(sh); }
 if (atCol > sh.getMaxColumns()) sh.insertColumnsAfter(sh.getMaxColumns(), atCol - sh.getMaxColumns());
 var part = String(op.part).toLowerCase();
-var nameMap = { year: '年', month: '月', day: '日', weekday: '曜日', quarter: '四半期' };
+var nameMap = { year: '年', month: '月', day: '日', weekday: '曜日', quarter: '四半期', fiscal: '年度' };
 var name = op.name || nameMap[part] || '日付要素';
-sh.getRange(t.headerRow, atCol).setValue(name);
-var tmplCell = sh.getRange(t.headerRow, t.firstCol);
-sh.getRange(t.headerRow, atCol).setBackground(tmplCell.getBackground()).setFontColor(tmplCell.getFontColor()).setFontWeight(tmplCell.getFontWeight()).setHorizontalAlignment('center');
+copyHeaderStyle_(sh, t.headerRow, t.firstCol, atCol, name);
 var cl = colLetter_(ci);
 var numRows = t.lastData - t.firstData + 1;
 if (numRows > 0) {
@@ -2774,7 +3089,8 @@ var f = part === 'year' ? ('=YEAR(' + cellRef + ')')
 : part === 'month' ? ('=MONTH(' + cellRef + ')')
 : part === 'day' ? ('=DAY(' + cellRef + ')')
 : part === 'weekday' ? ('=TEXT(' + cellRef + ', "aaa")')
-: ('=ROUNDUP(MONTH(' + cellRef + ')/3)');
+: part === 'fiscal' ? ('=IF(MONTH(' + cellRef + ')>=4,YEAR(' + cellRef + '),YEAR(' + cellRef + ')-1)')
+: ('=ROUNDUP(MONTH(' + cellRef + ')/3, 0)');
 formulas.push([f]);
 }
 sh.getRange(t.firstData, atCol, numRows, 1).setFormulas(formulas);
@@ -2786,19 +3102,18 @@ var sh = sheetCtx_(ctx, op), t = needTable_(sh);
 need_(op, ['cols']);
 var colList = (Array.isArray(op.cols) ? op.cols : [op.cols]).map(function (c) { return colIndexOf_(t, c); });
 var atCol = op.at ? colIndexOf_(t, op.at) : (t.lastCol + 1);
-if (op.at && atCol <= t.lastCol) { sh.insertColumnsBefore(atCol, 1); if (_TBL_CACHE) _TBL_CACHE = null; t = needTable_(sh); }
+if (op.at && atCol <= t.lastCol) { sh.insertColumnsBefore(atCol, 1); colList = colList.map(function (c) { return atCol <= c ? c + 1 : c; }); if (_TBL_CACHE) _TBL_CACHE = null; t = needTable_(sh); }
 if (atCol > sh.getMaxColumns()) sh.insertColumnsAfter(sh.getMaxColumns(), atCol - sh.getMaxColumns());
 var name = op.name || '結合';
-sh.getRange(t.headerRow, atCol).setValue(name);
-var tmplCell = sh.getRange(t.headerRow, t.firstCol);
-sh.getRange(t.headerRow, atCol).setBackground(tmplCell.getBackground()).setFontColor(tmplCell.getFontColor()).setFontWeight(tmplCell.getFontWeight()).setHorizontalAlignment('center');
+copyHeaderStyle_(sh, t.headerRow, t.firstCol, atCol, name);
 var sep = op.sep !== undefined ? String(op.sep) : ' ';
+var sepEsc = sep.replace(/"/g, '""');
 var numRows = t.lastData - t.firstData + 1;
 if (numRows > 0) {
 var formulas = [];
 for (var r = t.firstData; r <= t.lastData; r++) {
 var parts = colList.map(function (ci) { return colLetter_(ci) + r; });
-var f = sep ? ('=JOIN("' + sep + '", ' + parts.join(', ') + ')') : ('=CONCATENATE(' + parts.join(', ') + ')');
+var f = sep ? ('=JOIN("' + sepEsc + '", ' + parts.join(', ') + ')') : ('=CONCATENATE(' + parts.join(', ') + ')');
 formulas.push([f]);
 }
 sh.getRange(t.firstData, atCol, numRows, 1).setFormulas(formulas);
@@ -2873,6 +3188,312 @@ return;
 rg.setValues(vals);
 chg_(ctx, sh, rg.getA1Notation(), '先頭/末尾の文字を' + (op.remove ? '削除' : '付与') + '（' + changed + ' 件）');
 };
+SHELF['calc.if'] = function (ctx, op) {
+var sh = sheetCtx_(ctx, op), t = needTable_(sh);
+need_(op, ['col', 'when']);
+var ci = colIndexOf_(t, op.col);
+var atCol = op.at ? colIndexOf_(t, op.at) : (t.lastCol + 1);
+if (op.at && atCol <= t.lastCol) { sh.insertColumnsBefore(atCol, 1); if (atCol <= ci) ci++; if (_TBL_CACHE) _TBL_CACHE = null; t = needTable_(sh); }
+if (atCol > sh.getMaxColumns()) sh.insertColumnsAfter(sh.getMaxColumns(), atCol - sh.getMaxColumns());
+var name = op.name || '判定';
+copyHeaderStyle_(sh, t.headerRow, t.firstCol, atCol, name);
+var when = String(op.when || 'ge').toLowerCase();
+var valRaw = op.value !== undefined ? String(op.value) : '';
+var valNumStr = valRaw.replace(/,/g, '').trim();
+var isNumVal = valNumStr !== '' && /^-?(?:0|[1-9]\d*)(?:\.\d+)?$/.test(valNumStr);
+var valExpr = isNumVal ? valNumStr : ('"' + valRaw.replace(/"/g, '""') + '"');
+var lit = function (x) {
+var s = String(x);
+return /^-?(?:0|[1-9]\d*)(?:\.\d+)?$/.test(s.trim()) ? s.trim() : ('"' + s.replace(/"/g, '""') + '"');
+};
+var thenExpr = lit(op.then_val !== undefined ? op.then_val : '○');
+var elseExpr = lit(op.else_val !== undefined ? op.else_val : '×');
+var cl = colLetter_(ci), numRows = t.lastData - t.firstData + 1;
+if (numRows > 0) {
+var formulas = [];
+for (var r = t.firstData; r <= t.lastData; r++) {
+var ref = cl + r, cond;
+if (when === 'blank') cond = ref + '=""';
+else if (when === 'notblank') cond = ref + '<>""';
+else if (when === 'contains') cond = 'ISNUMBER(FIND("' + valRaw.replace(/"/g, '""') + '",' + ref + '))';
+else if (when === 'ge') cond = ref + '>=' + valExpr;
+else if (when === 'gt') cond = ref + '>' + valExpr;
+else if (when === 'le') cond = ref + '<=' + valExpr;
+else if (when === 'lt') cond = ref + '<' + valExpr;
+else if (when === 'ne') cond = ref + '<>' + valExpr;
+else cond = ref + '=' + valExpr;
+formulas.push(['=IF(' + cond + ',' + thenExpr + ',' + elseExpr + ')']);
+}
+sh.getRange(t.firstData, atCol, numRows, 1).setFormulas(formulas);
+}
+chg_(ctx, sh, colLetter_(atCol) + '列', '判定列「' + name + '」を追加');
+};
+SHELF['date.diff'] = function (ctx, op) {
+var sh = sheetCtx_(ctx, op), t = needTable_(sh);
+need_(op, ['start_col']);
+var sCi = colIndexOf_(t, op.start_col);
+var eCi = op.end_col ? colIndexOf_(t, op.end_col) : 0;
+var atCol = op.at ? colIndexOf_(t, op.at) : (t.lastCol + 1);
+if (op.at && atCol <= t.lastCol) {
+sh.insertColumnsBefore(atCol, 1);
+if (atCol <= sCi) sCi++;
+if (eCi && atCol <= eCi) eCi++;
+if (_TBL_CACHE) _TBL_CACHE = null;
+t = needTable_(sh);
+}
+if (atCol > sh.getMaxColumns()) sh.insertColumnsAfter(sh.getMaxColumns(), atCol - sh.getMaxColumns());
+var unit = String(op.unit || 'days').toLowerCase();
+var defNames = { days: '日数', months: '月数', years: '年数', workdays: '営業日数' };
+var name = op.name || defNames[unit] || '日数';
+copyHeaderStyle_(sh, t.headerRow, t.firstCol, atCol, name);
+var sl = colLetter_(sCi), el = eCi ? colLetter_(eCi) : '';
+var numRows = t.lastData - t.firstData + 1;
+if (numRows > 0) {
+var formulas = [];
+for (var r = t.firstData; r <= t.lastData; r++) {
+var sRef = sl + r, eRef = el ? (el + r) : 'TODAY()';
+var diffExpr = unit === 'months' ? ('DATEDIF(' + sRef + ',' + eRef + ',"M")')
+: unit === 'years' ? ('DATEDIF(' + sRef + ',' + eRef + ',"Y")')
+: unit === 'workdays' ? ('NETWORKDAYS(' + sRef + ',' + eRef + ')')
+: (eRef + '-' + sRef);
+var blankCheck = el ? ('OR(' + sRef + '="",' + eRef + '="")') : (sRef + '=""');
+formulas.push(['=IF(' + blankCheck + ',"",' + diffExpr + ')']);
+}
+sh.getRange(t.firstData, atCol, numRows, 1).setFormulas(formulas);
+}
+chg_(ctx, sh, colLetter_(atCol) + '列', '日付差列「' + name + '」を追加');
+};
+SHELF['unique.list'] = function (ctx, op) {
+need_(op, ['col']);
+var ss = ctx.ss, src = sheetOf_(ss, op.sheet, ctx.sheetName), t = needTable_(src);
+var ci = colIndexOf_(t, op.col);
+var intoName = String(op.into || '一覧').trim();
+var withCount = op.with_count !== false;
+var seen = {}, keys = [];
+for (var r = t.firstData; r <= t.lastData; r++) {
+var v = t.vals[r - 1][ci - 1];
+if (isBlank_(v)) continue;
+var k = String(v);
+if (!seen[k]) { seen[k] = 1; keys.push(v); }
+}
+if (!keys.length) {
+note_(ctx, op.col + '列にデータがありません（一覧を作成していません）');
+return;
+}
+var colHead = String(t.vals[t.headerRow - 1][ci - 1] || op.col);
+var sq = q_(src.getName()), rangeRef = sq + '!$' + colLetter_(ci) + '$' + t.firstData + ':$' + colLetter_(ci) + '$' + t.lastData;
+var grid = [withCount ? [colHead, '件数'] : [colHead]];
+keys.forEach(function (k, idx) {
+grid.push(withCount ? [k, '=COUNTIF(' + rangeRef + ',A' + (idx + 2) + ')'] : [k]);
+});
+if (withCount) grid.push(['合計', '=SUM(B2:B' + (keys.length + 1) + ')']);
+var dst = ss.getSheetByName(intoName);
+if (!dst) {
+dst = ss.insertSheet(intoName, ss.getSheets().length);
+ctx.createdSheets.push(intoName);
+} else {
+dst.clearContents();
+}
+var nc = grid[0].length;
+dst.getRange(1, 1, grid.length, nc).setValues(grid);
+dst.getRange(1, 1, 1, nc).setBackground(STYLE.headBg).setFontColor(STYLE.headFg).setFontWeight('bold').setHorizontalAlignment('center');
+ctx.curSheet = src.getName();
+chg_(ctx, dst, a1_(1, 1, grid.length, nc), op.col + 'のユニーク一覧（' + keys.length + ' 件）');
+};
+SHELF['crosstab'] = function (ctx, op) {
+need_(op, ['row_col', 'col_col']);
+var ss = ctx.ss, src = sheetOf_(ss, op.sheet, ctx.sheetName), t = needTable_(src);
+var rCi = colIndexOf_(t, op.row_col), cCi = colIndexOf_(t, op.col_col);
+var func = String(op.func || (op.val_col ? 'sum' : 'count')).toLowerCase();
+var vCi = 0;
+if (op.val_col) {
+vCi = colIndexOf_(t, op.val_col);
+} else if (func !== 'count') {
+for (var ci = t.firstCol; ci <= t.lastCol; ci++) {
+if (ci !== rCi && ci !== cCi && !isNoCol_(t, ci) && isNumberCol_(t, ci)) { vCi = ci; break; }
+}
+if (!vCi) throw new ArgError('集計する数値列が見つかりません。val_col で指定してください');
+}
+var rKeys = [], cKeys = [], rSeen = {}, cSeen = {};
+for (var r = t.firstData; r <= t.lastData; r++) {
+var rk = t.vals[r - 1][rCi - 1], ck = t.vals[r - 1][cCi - 1];
+if (!isBlank_(rk)) { var rks = String(rk); if (!rSeen[rks]) { rSeen[rks] = 1; rKeys.push(rk); } }
+if (!isBlank_(ck)) { var cks = String(ck); if (!cSeen[cks]) { cSeen[cks] = 1; cKeys.push(ck); } }
+}
+if (!rKeys.length || !cKeys.length) throw new ArgError('クロス集計する見出し値が見つかりません');
+var sq = q_(src.getName()), rng = function (c) { return sq + '!$' + colLetter_(c) + '$' + t.firstData + ':$' + colLetter_(c) + '$' + t.lastData; };
+var rowHead = String(t.vals[t.headerRow - 1][rCi - 1] || op.row_col);
+var hdr = [rowHead].concat(cKeys.map(String));
+if (func !== 'avg') hdr.push('合計');
+var grid = [hdr];
+rKeys.forEach(function (rk, ri) {
+var rr = ri + 2, row = [rk];
+cKeys.forEach(function (ck, cj) {
+var cl = colLetter_(cj + 2);
+if (func === 'sum') row.push('=SUMIFS(' + rng(vCi) + ',' + rng(rCi) + ',$A' + rr + ',' + rng(cCi) + ',' + cl + '$1)');
+else if (func === 'avg') row.push('=IFERROR(AVERAGEIFS(' + rng(vCi) + ',' + rng(rCi) + ',$A' + rr + ',' + rng(cCi) + ',' + cl + '$1),0)');
+else row.push('=COUNTIFS(' + rng(rCi) + ',$A' + rr + ',' + rng(cCi) + ',' + cl + '$1)');
+});
+if (func !== 'avg') row.push('=SUM(B' + rr + ':' + colLetter_(cKeys.length + 1) + rr + ')');
+grid.push(row);
+});
+if (func !== 'avg') {
+var tot = ['合計'];
+for (var tj = 0; tj < cKeys.length + 1; tj++) {
+var tl = colLetter_(tj + 2);
+tot.push('=SUM(' + tl + '2:' + tl + (rKeys.length + 1) + ')');
+}
+grid.push(tot);
+}
+var intoName = String(op.into || 'クロス集計').trim();
+var dst = ss.getSheetByName(intoName);
+if (!dst) {
+dst = ss.insertSheet(intoName, ss.getSheets().length);
+ctx.createdSheets.push(intoName);
+} else {
+dst.clearContents();
+}
+dst.getRange(1, 1, grid.length, grid[0].length).setValues(grid);
+ctx.curSheet = src.getName();
+chg_(ctx, dst, a1_(1, 1, grid.length, grid[0].length), 'クロス集計表（' + rKeys.length + '×' + cKeys.length + '）を作成');
+tidyRange_(ctx, dst, null);
+};
+SHELF['formula.list'] = function (ctx, op) {
+var ss = ctx.ss, intoName = String(op.into || '数式一覧').trim();
+var targets = op.all_sheets
+? ss.getSheets().filter(function (s) { return s.getName() !== '_GASクイックの控え' && s.getName() !== intoName; })
+: [sheetCtx_(ctx, op)];
+var rowsOut = [], errPat = /^#(REF!|VALUE!|DIV\/0!|N\/A|NAME\?|NUM!|NULL!|ERROR!)/, CAP = 5000;
+targets.forEach(function (s) {
+if (rowsOut.length >= CAP) return;
+var lr = s.getLastRow(), lc = s.getLastColumn();
+if (lr < 1 || lc < 1) return;
+var rg = s.getRange(1, 1, lr, lc);
+var forms = rg.getFormulas(), disp = rg.getDisplayValues();
+for (var r = 0; r < forms.length && rowsOut.length < CAP; r++) {
+for (var c = 0; c < forms[r].length && rowsOut.length < CAP; c++) {
+var f = forms[r][c];
+if (f) {
+var dv = String(disp[r][c] || '');
+rowsOut.push([s.getName(), a1_(r + 1, c + 1), dv, "'" + f, errPat.test(dv) ? 'エラー' : '正常']);
+}
+}
+}
+});
+if (!rowsOut.length) {
+note_(ctx, '数式セルは見つかりませんでした（作成していません）');
+return;
+}
+var dst = ss.getSheetByName(intoName);
+if (!dst) {
+dst = ss.insertSheet(intoName, ss.getSheets().length);
+ctx.createdSheets.push(intoName);
+} else {
+dst.clearContents();
+}
+var out = [['シート', 'セル', '表示値', '数式', '状態']].concat(rowsOut);
+dst.getRange(1, 1, out.length, 5).setValues(out);
+dst.getRange(1, 1, 1, 5).setBackground(STYLE.headBg).setFontColor(STYLE.headFg).setFontWeight('bold');
+ctx.curSheet = intoName;
+chg_(ctx, dst, a1_(1, 1, out.length, 5), '数式一覧を作成（' + rowsOut.length + ' 件）');
+};
+SHELF['date.age'] = function (ctx, op) {
+need_(op, ['col']);
+var sh = sheetCtx_(ctx, op), t = needTable_(sh), ci = colIndexOf_(t, op.col);
+var unit = String(op.unit || 'years').toLowerCase();
+var uMap = { years: 'Y', months: 'M', days: 'D' };
+var code = uMap[unit] || 'Y';
+var atCol = op.at ? colIndexOf_(t, op.at) : (t.lastCol + 1);
+if (op.at && atCol <= t.lastCol) {
+sh.insertColumnsBefore(atCol, 1);
+if (atCol <= ci) ci++;
+if (_TBL_CACHE) _TBL_CACHE = null;
+t = needTable_(sh);
+}
+if (atCol > sh.getMaxColumns()) sh.insertColumnsAfter(sh.getMaxColumns(), atCol - sh.getMaxColumns());
+var defName = code === 'M' ? '経過月数' : (code === 'D' ? '経過日数' : '年齢');
+var name = op.name || defName;
+copyHeaderStyle_(sh, t.headerRow, t.firstCol, atCol, name);
+var cl = colLetter_(ci);
+var numRows = t.lastData - t.firstData + 1;
+if (numRows > 0) {
+var formulas = [];
+for (var r = t.firstData; r <= t.lastData; r++) {
+var ref = cl + r;
+formulas.push(['=IF(OR(' + ref + '="",' + ref + '>TODAY()),"",DATEDIF(' + ref + ',TODAY(),"' + code + '"))']);
+}
+var rg = sh.getRange(t.firstData, atCol, numRows, 1);
+rg.setFormulas(formulas);
+rg.setNumberFormat(STYLE.numFmt);
+}
+chg_(ctx, sh, colLetter_(atCol) + '列', name + 'の列を追加');
+};
+SHELF['calc.tax'] = function (ctx, op) {
+need_(op, ['col']);
+var sh = sheetCtx_(ctx, op), t = needTable_(sh), ci = colIndexOf_(t, op.col);
+var mode = String(op.mode || 'in').toLowerCase();
+var rateNum = op.rate !== undefined && op.rate !== '' ? Number(op.rate) : 10;
+if (!isFinite(rateNum) || rateNum < 0) rateNum = 10;
+var ratioStr = String(rateNum / 100);
+var roundMode = String(op.round || 'floor').toLowerCase();
+var roundFn = roundMode === 'round' ? 'ROUND' : (roundMode === 'ceil' ? 'ROUNDUP' : 'ROUNDDOWN');
+var atCol = op.at ? colIndexOf_(t, op.at) : (t.lastCol + 1);
+if (op.at && atCol <= t.lastCol) {
+sh.insertColumnsBefore(atCol, 1);
+if (atCol <= ci) ci++;
+if (_TBL_CACHE) _TBL_CACHE = null;
+t = needTable_(sh);
+}
+if (atCol > sh.getMaxColumns()) sh.insertColumnsAfter(sh.getMaxColumns(), atCol - sh.getMaxColumns());
+var defName = mode === 'out' ? '税抜' : (mode === 'tax' ? '消費税' : '税込');
+var name = op.name || defName;
+copyHeaderStyle_(sh, t.headerRow, t.firstCol, atCol, name);
+var cl = colLetter_(ci);
+var numRows = t.lastData - t.firstData + 1;
+if (numRows > 0) {
+var formulas = [];
+for (var r = t.firstData; r <= t.lastData; r++) {
+var ref = cl + r;
+var expr = mode === 'out'
+? (ref + '/(1+' + ratioStr + ')')
+: (mode === 'tax' ? (ref + '*' + ratioStr) : (ref + '*(1+' + ratioStr + ')'));
+formulas.push(['=IF(' + ref + '="","",' + roundFn + '(' + expr + ',0))']);
+}
+var rg = sh.getRange(t.firstData, atCol, numRows, 1);
+rg.setFormulas(formulas);
+rg.setNumberFormat(STYLE.numFmt);
+}
+chg_(ctx, sh, colLetter_(atCol) + '列', name + '（税率 ' + rateNum + '%）の列を追加');
+};
+SHELF['col.compare'] = function (ctx, op) {
+need_(op, ['col_a', 'col_b']);
+var sh = sheetCtx_(ctx, op), t = needTable_(sh);
+var ca = colIndexOf_(t, op.col_a), cb = colIndexOf_(t, op.col_b);
+var atCol = op.at ? colIndexOf_(t, op.at) : (t.lastCol + 1);
+if (op.at && atCol <= t.lastCol) {
+sh.insertColumnsBefore(atCol, 1);
+if (atCol <= ca) ca++;
+if (atCol <= cb) cb++;
+if (_TBL_CACHE) _TBL_CACHE = null;
+t = needTable_(sh);
+}
+if (atCol > sh.getMaxColumns()) sh.insertColumnsAfter(sh.getMaxColumns(), atCol - sh.getMaxColumns());
+var name = op.name || '比較結果';
+copyHeaderStyle_(sh, t.headerRow, t.firstCol, atCol, name);
+var escQ = function (s) { return '"' + String(s).replace(/"/g, '""') + '"'; };
+var mTxt = escQ(op.match_val !== undefined ? op.match_val : '一致');
+var dTxt = escQ(op.diff_val !== undefined ? op.diff_val : '不一致');
+var la = colLetter_(ca), lb = colLetter_(cb);
+var numRows = t.lastData - t.firstData + 1;
+if (numRows > 0) {
+var formulas = [];
+for (var r = t.firstData; r <= t.lastData; r++) {
+formulas.push(['=IF(AND(' + la + r + '="",' + lb + r + '=""),"",IF(' + la + r + '=' + lb + r + ',' + mTxt + ',' + dTxt + '))']);
+}
+sh.getRange(t.firstData, atCol, numRows, 1).setFormulas(formulas);
+}
+chg_(ctx, sh, colLetter_(atCol) + '列', '2列比較結果「' + name + '」を追加');
+};
 SHELF['validation.list'] = function (ctx, op) {
 need_(op, ['range']);
 if (!op.items && !op.from) throw new ArgError('棚「validation.list」に items か from のどちらかが要ります');
@@ -2901,7 +3522,7 @@ builder.requireNumberGreaterThanOrEqualTo(Number(op.min));
 } else if (op.max !== undefined) {
 builder.requireNumberLessThanOrEqualTo(Number(op.max));
 } else {
-builder.requireNumberGreaterThanOrEqualTo(-Infinity);
+builder.requireFormulaSatisfied('=ISNUMBER(' + a1_(rg.getRow(), rg.getColumn()) + ')');
 }
 builder.setAllowInvalid(false);
 rg.setDataValidation(builder.build());
@@ -2920,7 +3541,7 @@ chg_(ctx, sh, rg.getA1Notation(), '日付限定の入力規則を設定');
 SHELF['checkbox'] = function (ctx, op) {
 need_(op, ['range']);
 var sh = sheetCtx_(ctx, op), rg = sh.getRange(op.range);
-guardOverwrite_(ctx, rg, op);
+guardOverwrite_(ctx, rg, '範囲「' + rg.getA1Notation() + '」');
 var builder = SpreadsheetApp.newDataValidation()
 .requireCheckbox()
 .build();
@@ -2998,7 +3619,8 @@ chg_(ctx, null, '', '名前付き範囲「' + op.name + '」を削除');
 SHELF['name.list'] = function (ctx, op) {
 var ss = ctx.ss;
 var list = ss.getNamedRanges().map(function (nr) {
-return { name: nr.getName(), sheet: nr.getRange().getSheet().getName(), range: nr.getRange().getA1Notation() };
+var rg = nr.getRange();
+return { name: nr.getName(), sheet: rg.getSheet().getName(), range: rg.getA1Notation() };
 });
 if (!list.length) { note_(ctx, '名前付き範囲はありません'); return; }
 var lines = list.map(function (x) { return x.name + ': ' + x.sheet + '!' + x.range; });
@@ -3259,6 +3881,93 @@ return;
 }
 note_(ctx, '保護設定の一覧（' + lines.length + ' 件）:\n' + lines.join('\n'));
 };
+SHELF['checkbox.toggle'] = function (ctx, op) {
+need_(op, ['range']);
+var sh = sheetCtx_(ctx, op), rg = sh.getRange(op.range);
+var mode = String(op.mode || 'off').toLowerCase();
+var vals = rg.getValues(), forms = rg.getFormulas(), changed = 0;
+for (var r = 0; r < vals.length; r++) {
+for (var c = 0; c < vals[r].length; c++) {
+if (forms[r][c]) { vals[r][c] = forms[r][c]; continue; }
+var v = vals[r][c];
+if (typeof v !== 'boolean') continue;
+var nv = mode === 'on' ? true : (mode === 'invert' ? !v : false);
+if (nv !== v) { vals[r][c] = nv; changed++; }
+}
+}
+if (!changed) {
+note_(ctx, '切り替え対象のチェックボックスは変わっていません（' + rg.getA1Notation() + '）');
+return;
+}
+rg.setValues(vals);
+chg_(ctx, sh, rg.getA1Notation(), 'チェックボックスを ' + mode.toUpperCase() + '（' + changed + ' 件）');
+};
+SHELF['export.xlsx'] = function (ctx, op) {
+var ss = ctx.ss;
+SpreadsheetApp.flush();
+var url = 'https://docs.google.com/spreadsheets/d/' + ss.getId() + '/export?format=xlsx';
+var resp = UrlFetchApp.fetch(url, {
+headers: { Authorization: 'Bearer ' + ScriptApp.getOAuthToken() },
+muteHttpExceptions: true
+});
+if (resp.getResponseCode() !== 200) {
+throw new ArgError('Excel出力に失敗しました（HTTP ' + resp.getResponseCode() + '）');
+}
+var fileName = String(op.name || (ss.getName() + '.xlsx')).trim();
+if (!/\.xlsx$/i.test(fileName)) fileName += '.xlsx';
+var blob = resp.getBlob().setName(fileName);
+var destFolder = op.folder ? resolveFolder_(op.folder, true).folder : null;
+var xlsxFile = destFolder ? destFolder.createFile(blob) : DriveApp.createFile(blob);
+note_(ctx, 'Excel保存完了: ' + xlsxFile.getName() + '\nID: ' + xlsxFile.getId() + '\nURL: ' + xlsxFile.getUrl());
+chg_(ctx, null, '', 'Excelを作成: 「' + xlsxFile.getName() + '」');
+};
+SHELF['protect.formulas'] = function (ctx, op) {
+var sh = sheetCtx_(ctx, op);
+var lr = sh.getLastRow(), lc = sh.getLastColumn();
+if (lr < 1 || lc < 1) { note_(ctx, '数式セルはありません'); return; }
+var forms = sh.getRange(1, 1, lr, lc).getFormulas();
+var blocks = [], cells = 0;
+for (var c = 0; c < lc; c++) {
+var r = 0;
+while (r < lr) {
+if (!forms[r][c]) { r++; continue; }
+var rStart = r;
+while (r + 1 < lr && forms[r + 1][c]) r++;
+var nr = r - rStart + 1;
+blocks.push({ r1: rStart + 1, c1: c + 1, nr: nr });
+cells += nr;
+r++;
+}
+}
+if (!blocks.length) {
+note_(ctx, '保護対象の数式セルは見つかりませんでした');
+return;
+}
+var warnOnly = op.warning_only !== false;
+var existing = {};
+try {
+sh.getProtections(SpreadsheetApp.ProtectionType.RANGE).forEach(function (pr) {
+var r0 = pr.getRange();
+if (r0) existing[r0.getA1Notation()] = 1;
+});
+} catch (eEx) {}
+var MAX_BLOCKS = 40;
+var targets = blocks.slice(0, MAX_BLOCKS);
+var applied = 0;
+for (var i = 0; i < targets.length; i++) {
+var b = targets[i];
+var rg = sh.getRange(b.r1, b.c1, b.nr, 1);
+if (existing[rg.getA1Notation()]) continue;
+var p = rg.protect();
+if (typeof p.setDescription === 'function') p.setDescription('数式保護');
+if (typeof p.setWarningOnly === 'function') p.setWarningOnly(warnOnly);
+applied++;
+}
+if (blocks.length > MAX_BLOCKS) {
+note_(ctx, '数式ブロックが多いため先頭 ' + MAX_BLOCKS + ' ブロック（全 ' + blocks.length + ' 中）まで保護しました');
+}
+chg_(ctx, sh, '', '数式セル ' + cells + ' 個（' + applied + ' 範囲）を' + (warnOnly ? '警告付き保護' : '完全保護'));
+};
 SHELF['format'] = function (ctx, op) {
 var sh = sheetCtx_(ctx, op), t = null, rg;
 if (op.header) { t = needTable_(sh); rg = sh.getRange(t.headerRow, t.firstCol, 1, t.lastCol - t.firstCol + 1); }
@@ -3267,7 +3976,7 @@ else if (op.col) { t = needTable_(sh); var ci = colIndexOf_(t, op.col); rg = sh.
 else if (op.range) rg = sh.getRange(op.range);
 else throw new ArgError('棚「format」に range・col・header・title のどれかが要ります');
 var titleBand = false;
-if (op.title && op.merge === undefined && rg.getNumRows() === 1 && !(typeof rg.isPartOfMerge === 'function' && rg.isPartOfMerge())) {
+if (op.title && op.merge === undefined && typeof rg.getNumRows === 'function' && rg.getNumRows() === 1 && !(typeof rg.isPartOfMerge === 'function' && rg.isPartOfMerge())) {
 var tt = findTable_(sh);
 if (tt && tt.lastCol > rg.getColumn()) {
 var c0 = Math.min(rg.getColumn(), tt.firstCol);
@@ -3293,7 +4002,7 @@ set('number_format', function (v) { rg.setNumberFormat(v); });
 set('align', function (v) { rg.setHorizontalAlignment(v); });
 set('valign', function (v) { rg.setVerticalAlignment(v); });
 set('wrap', function (v) { rg.setWrap(!!v); });
-set('borders', function (v) { if (v) rg.setBorder(true, true, true, true, v === 'outer' ? false : true, v === 'outer' ? false : true, STYLE.border, SpreadsheetApp.BorderStyle.SOLID); else rg.setBorder(false, false, false, false, false, false); });
+set('borders', function (v) { var bOff = (v === false || v === 'none' || v === 'なし'); if (!bOff) rg.setBorder(true, true, true, true, v === 'outer' ? false : true, v === 'outer' ? false : true, STYLE.border, SpreadsheetApp.BorderStyle.SOLID); else rg.setBorder(false, false, false, false, false, false); });
 set('merge', function (v) { if (v) rg.merge(); else rg.breakApart(); });
 if (!did.length) throw new ArgError('棚「format」に書式の指定（bold・color・bg・number_format・align など）がありません');
 chg_(ctx, sh, rg.getA1Notation(), did.join('・'));
@@ -3314,16 +4023,38 @@ var colRef = function (k) { return t ? colIndexOf_(t, k) : colNum_(k); };
 if (op.cols) Object.keys(op.cols).forEach(function (k) { sh.setColumnWidth(colRef(k), op.cols[k]); did.push(k + '列'); });
 if (op.col && op.width) { sh.setColumnWidth(colRef(op.col), op.width); did.push(op.col + '列'); }
 if (op.rows) Object.keys(op.rows).forEach(function (k) { sh.setRowHeight(parseInt(k), op.rows[k]); did.push(k + '行'); });
-var flSpanW = (op.auto && op.auto.length && typeof filterSpanOf_ === 'function') ? filterSpanOf_(sh) : null;
-(op.auto || []).forEach(function (k) {
-var ci = colRef(k), lr = sh.getLastRow(), mx = 0, colDisp = lr > 0 ? sh.getRange(1, ci, lr, 1).getDisplayValues() : [];
-colDisp.forEach(function (x) { mx = Math.max(mx, wlen_(x[0])); });
+var canBatchW = typeof Sheets !== 'undefined' && Sheets.Spreadsheets && typeof Sheets.Spreadsheets.batchUpdate === 'function' && typeof batchRetry_ === 'function';
+var widthReqs = [], widthFallbacks = [];
+var autoList = Array.isArray(op.auto) ? op.auto : (op.auto ? [op.auto] : []);
+if (autoList.length) {
+var flSpanW = (typeof filterSpanOf_ === 'function') ? filterSpanOf_(sh) : null;
+var lrW = sh.getLastRow();
+var shIdW = sh.getSheetId();
+var autoCis = autoList.map(function (k) { return { k: k, ci: colRef(k) }; });
+var minCi = Infinity, maxCi = 0;
+autoCis.forEach(function (a) { if (a.ci < minCi) minCi = a.ci; if (a.ci > maxCi) maxCi = a.ci; });
+var dispW = (lrW > 0 && maxCi >= minCi) ? sh.getRange(1, minCi, lrW, maxCi - minCi + 1).getDisplayValues() : [];
+autoCis.forEach(function (a) {
+var ci = a.ci, off = ci - minCi, mx = 0;
+for (var rw = 0; rw < dispW.length; rw++) mx = Math.max(mx, wlen_(dispW[rw][off]));
 var wantW = mx * STYLE.px + STYLE.pad;
-if (flSpanW && flSpanW.row >= 1 && flSpanW.row <= colDisp.length && ci >= flSpanW.c1 && ci <= flSpanW.c2) {
-wantW = Math.max(wantW, wlen_(colDisp[flSpanW.row - 1][0]) * STYLE.px + STYLE.pad + 42);
+if (flSpanW && flSpanW.row >= 1 && flSpanW.row <= dispW.length && ci >= flSpanW.c1 && ci <= flSpanW.c2) {
+wantW = Math.max(wantW, wlen_(dispW[flSpanW.row - 1][off]) * STYLE.px + STYLE.pad + 42);
 }
-sh.setColumnWidth(ci, Math.max(STYLE.colMin, Math.min(STYLE.colMax, wantW))); did.push(k + '列(自動)');
+var pxW = Math.max(STYLE.colMin, Math.min(STYLE.colMax, wantW));
+if (canBatchW) {
+widthReqs.push({ updateDimensionProperties: { range: { sheetId: shIdW, dimension: 'COLUMNS', startIndex: ci - 1, endIndex: ci }, properties: { pixelSize: pxW }, fields: 'pixelSize' } });
+widthFallbacks.push({ s: sh, ci: ci, px: pxW });
+} else {
+sh.setColumnWidth(ci, pxW);
+}
+did.push(a.k + '列(自動)');
 });
+}
+if (widthReqs.length) {
+try { batchRetry_(ctx.ss, widthReqs); }
+catch (eBw) { widthFallbacks.forEach(function (u) { u.s.setColumnWidth(u.ci, u.px); }); }
+}
 if (op.auto_rows && !op.all_sheets) {
 var lr0 = sh.getLastRow();
 if (lr0 > 0 && typeof sh.autoResizeRows === 'function') {
@@ -3332,13 +4063,14 @@ did.push('全行の高さ(自動)');
 }
 }
 if (op.all_sheets) {
-var sCnt = 0;
+var sCnt = 0, allReqs = [], allFb = [];
 ctx.ss.getSheets().forEach(function (s) {
 if (s.getName() === '_GASクイックの控え' || s.isSheetHidden()) return;
 var lrA = s.getLastRow(), lcA = s.getLastColumn();
 if (lrA > 0 && lcA > 0) {
 var dA = s.getRange(1, 1, lrA, lcA).getDisplayValues();
 var flA = (typeof filterSpanOf_ === 'function') ? filterSpanOf_(s) : null;
+var sIdA = s.getSheetId();
 for (var cA = 0; cA < lcA; cA++) {
 var mxA = 0;
 for (var rA = 0; rA < lrA; rA++) mxA = Math.max(mxA, wlen_(dA[rA][cA]));
@@ -3346,12 +4078,22 @@ var wantA = mxA * STYLE.px + STYLE.pad;
 if (flA && flA.row >= 1 && flA.row <= lrA && (cA + 1) >= flA.c1 && (cA + 1) <= flA.c2) {
 wantA = Math.max(wantA, wlen_(dA[flA.row - 1][cA]) * STYLE.px + STYLE.pad + 42);
 }
-s.setColumnWidth(cA + 1, Math.max(STYLE.colMin, Math.min(STYLE.colMax, wantA)));
+var pxA = Math.max(STYLE.colMin, Math.min(STYLE.colMax, wantA));
+if (canBatchW) {
+allReqs.push({ updateDimensionProperties: { range: { sheetId: sIdA, dimension: 'COLUMNS', startIndex: cA, endIndex: cA + 1 }, properties: { pixelSize: pxA }, fields: 'pixelSize' } });
+allFb.push({ s: s, ci: cA + 1, px: pxA });
+} else {
+s.setColumnWidth(cA + 1, pxA);
+}
 }
 if (op.auto_rows && typeof s.autoResizeRows === 'function') s.autoResizeRows(1, lrA);
 }
 sCnt++;
 });
+if (allReqs.length) {
+try { batchRetry_(ctx.ss, allReqs); }
+catch (eBa) { allFb.forEach(function (u) { u.s.setColumnWidth(u.ci, u.px); }); }
+}
 did.push('全' + sCnt + 'シート列幅' + (op.auto_rows ? '・行高' : '') + '(自動)');
 chg_(ctx, null, did.join('・'), '幅・高さを変更');
 return;
@@ -3377,8 +4119,15 @@ if (w === 'gt') rule.whenNumberGreaterThan(Number(val));
 else if (w === 'ge') rule.whenNumberGreaterThanOrEqualTo(Number(val));
 else if (w === 'lt') rule.whenNumberLessThan(Number(val));
 else if (w === 'le') rule.whenNumberLessThanOrEqualTo(Number(val));
-else if (w === 'eq') rule.whenNumberEqualTo(Number(val));
-else if (w === 'ne') rule.whenNumberNotEqualTo(Number(val));
+else if (w === 'eq') {
+var eqClean = val.replace(/,/g, '').trim();
+if (eqClean !== '' && isFinite(Number(eqClean))) rule.whenNumberEqualTo(Number(eqClean));
+else rule.whenTextEqualTo(val);
+} else if (w === 'ne') {
+var neClean = val.replace(/,/g, '').trim();
+if (neClean !== '' && isFinite(Number(neClean))) rule.whenNumberNotEqualTo(Number(neClean));
+else rule.whenFormulaSatisfied('=' + a1_(rg.getRow(), rg.getColumn()) + '<>"' + val.replace(/"/g, '""') + '"');
+}
 else if (w === 'contains') rule.whenTextContains(val);
 else if (w === 'blank') rule.whenCellEmpty();
 else if (w === 'notblank') rule.whenCellNotEmpty();
@@ -3520,6 +4269,131 @@ return ctx.ss.getSheets().filter(function (s) { return s.getName() !== '_GASク�
 return [op.sheet || ctx.sheetName || ctx.ss.getSheets()[0].getName()];
 }
 };
+SHELF['cf.weekend'] = function (ctx, op) {
+var sh = sheetCtx_(ctx, op), t = needTable_(sh);
+var ci = 0;
+if (op.col) {
+ci = colIndexOf_(t, op.col);
+} else {
+for (var c = t.firstCol; c <= t.lastCol; c++) {
+for (var r = t.firstData; r <= t.lastData; r++) {
+var v = t.vals[r - 1][c - 1];
+if (v instanceof Date || Object.prototype.toString.call(v) === '[object Date]') { ci = c; break; }
+}
+if (ci) break;
+}
+if (!ci) ci = t.firstCol;
+}
+var nr = Math.max(1, t.lastData - t.firstData + 1);
+var rg = sh.getRange(t.firstData, t.firstCol, nr, t.lastCol - t.firstCol + 1);
+var cellRef = '$' + colLetter_(ci) + t.firstData;
+var satBg = rgb_(op.sat_bg || '#E8F0FE');
+var sunBg = rgb_(op.sun_bg || '#FCE8E6');
+var rSat = SpreadsheetApp.newConditionalFormatRule().setRanges([rg])
+.whenFormulaSatisfied('=AND(' + cellRef + '<>"",WEEKDAY(' + cellRef + ')=7)')
+.setBackground(satBg).build();
+var rSun = SpreadsheetApp.newConditionalFormatRule().setRanges([rg])
+.whenFormulaSatisfied('=AND(' + cellRef + '<>"",WEEKDAY(' + cellRef + ')=1)')
+.setBackground(sunBg).build();
+var rules = sh.getConditionalFormatRules();
+rules.push(rSat, rSun);
+sh.setConditionalFormatRules(rules);
+chg_(ctx, sh, rg.getA1Notation(), colLetter_(ci) + '列の土日行に色分け条件付き書式を設定');
+};
+SHELF['format.negred'] = function (ctx, op) {
+var sh = sheetCtx_(ctx, op);
+var unit = String(op.unit || 'none').toLowerCase();
+var base = unit === 'yen' ? '¥#,##0' : unit === 'thousand' ? '#,##0,' : unit === 'million' ? '#,##0,,' : '#,##0';
+var neg = (op.triangle ? '"▲"' : '-') + base;
+var fmt = base + ';[Red]' + neg;
+var ranges = [];
+if (op.col) {
+var t = needTable_(sh), ci = colIndexOf_(t, op.col);
+ranges.push(sh.getRange(t.firstData, ci, Math.max(1, (t.totalRow || t.lastData) - t.firstData + 1), 1));
+} else if (op.range) {
+ranges.push(sh.getRange(op.range));
+} else {
+var t2 = needTable_(sh), rows = Math.max(1, (t2.totalRow || t2.lastData) - t2.firstData + 1);
+for (var c = t2.firstCol; c <= t2.lastCol; c++) {
+if (!isNoCol_(t2, c) && isNumberCol_(t2, c)) {
+ranges.push(sh.getRange(t2.firstData, c, rows, 1));
+}
+}
+if (!ranges.length) throw new ArgError('書式を設定する数値列が見つかりません');
+}
+ranges.forEach(function (rg) { rg.setNumberFormat(fmt); });
+chg_(ctx, sh, ranges.map(function (rg) { return rg.getA1Notation(); }).join('・'), '数値表示（' + fmt + '）を適用');
+};
+SHELF['font.unify'] = function (ctx, op) {
+var ss = ctx.ss, font = String(op.font || 'Noto Sans JP').trim() || 'Noto Sans JP';
+var sz = op.size !== undefined ? Number(op.size) : 0;
+var targets = op.all_sheets
+? ss.getSheets().filter(function (s) { return s.getName() !== '_GASクイックの控え'; })
+: [sheetCtx_(ctx, op)];
+var touched = [];
+targets.forEach(function (s) {
+var lr = s.getLastRow(), lc = s.getLastColumn();
+if (lr < 1 || lc < 1) return;
+var rg = s.getRange(1, 1, lr, lc);
+rg.setFontFamily(font);
+if (sz > 0) rg.setFontSize(sz);
+touched.push(s.getName());
+});
+if (!touched.length) {
+note_(ctx, 'フォントを変更するデータがありませんでした（変更なし）');
+return;
+}
+chg_(ctx, op.all_sheets ? null : targets[0], '', 'フォントを「' + font + '」' + (sz > 0 ? ('・' + sz + 'pt ') : '') + 'に統一（' + touched.length + ' シート）');
+};
+DYNAMIC['font.unify'] = {
+touch: function () { return ['書式']; },
+sheets: function (ctx, op) {
+if (op.all_sheets) {
+return ctx.ss.getSheets().filter(function (s) { return s.getName() !== '_GASクイックの控え'; }).map(function (s) { return s.getName(); });
+}
+return [op.sheet || ctx.sheetName || ctx.ss.getSheets()[0].getName()];
+}
+};
+SHELF['rows.highlight'] = function (ctx, op) {
+need_(op, ['col']);
+var sh = sheetCtx_(ctx, op), t = needTable_(sh), ci = colIndexOf_(t, op.col);
+var nr = Math.max(0, t.lastData - t.firstData + 1);
+if (nr < 1) { note_(ctx, '対象データ行がありません'); return; }
+var when = String(op.when || 'contains').toLowerCase();
+var val = op.value !== undefined ? op.value : (op.text !== undefined ? op.text : '');
+var numVal = Number(String(val).replace(/,/g, ''));
+var hex = rgb_(op.bg || '薄黄') || '#fef08a';
+var colVals = sh.getRange(t.firstData, ci, nr, 1).getValues();
+var nc = t.lastCol - t.firstCol + 1;
+var dr = sh.getRange(t.firstData, t.firstCol, nr, nc);
+var bgs = dr.getBackgrounds();
+var hits = 0;
+for (var r = 0; r < nr; r++) {
+var v = colVals[r][0], sv = String(v == null ? '' : v).trim(), tv = String(val == null ? '' : val).trim();
+var ok = false;
+if (when === 'blank') ok = isBlank_(v);
+else if (when === 'notblank') ok = !isBlank_(v);
+else if (when === 'eq') ok = sv === tv;
+else if (when === 'ne') ok = sv !== tv;
+else if (when === 'gt') ok = !isBlank_(v) && isFinite(Number(v)) && isFinite(numVal) && Number(v) > numVal;
+else if (when === 'lt') ok = !isBlank_(v) && isFinite(Number(v)) && isFinite(numVal) && Number(v) < numVal;
+else ok = tv !== '' && sv.indexOf(tv) >= 0;
+if (ok) {
+for (var c = 0; c < nc; c++) bgs[r][c] = hex;
+hits++;
+}
+}
+if (!hits) {
+note_(ctx, '条件に合う行はありませんでした（変更なし）');
+return;
+}
+dr.setBackgrounds(bgs);
+chg_(ctx, sh, dr.getA1Notation(), '条件に合う ' + hits + ' 行をハイライト（' + hex + '）');
+};
+DYNAMIC['rows.highlight'] = {
+touch: function () { return ['書式']; },
+sheets: function (ctx, op) { return [op.sheet || ctx.sheetName || ctx.ss.getSheets()[0].getName()]; }
+};
 SHELF['table.new'] = function (ctx, op) {
 need_(op, ['headers']);
 var ss = ctx.ss, rows = op.rows || [], headers = op.headers;
@@ -3552,18 +4426,23 @@ throw new ArgError('シート「' + name + '」はすでにあります（中身
 if (ctx.isNew) { sh = ss.getSheets()[0]; sh.setName(name); } else { sh = ss.insertSheet(name, ss.getSheets().length); ctx.createdSheets.push(name); }
 ctx.curSheet = name;
 if (title) { sh.getRange(1, 1).setValue(title).setFontWeight('bold').setFontSize(14); }
-var rg = sh.getRange(hr, 1, grid.length, nc);
-rg.setValues(grid);
-var last = hr + grid.length - 1;
+var dataLastRow = hr + grid.length - 1;
+var last = dataLastRow;
 if (totalCols.length) {
-var tr = last + 1;
+var totRow = [];
+for (var tc = 0; tc < nc; tc++) totRow.push('');
 var labelCol = 1;
 while (labelCol <= nc && (totalCols.indexOf(labelCol) >= 0 || labelCol === numCol)) labelCol++;
 if (labelCol > nc) labelCol = 1;
-sh.getRange(tr, labelCol).setValue(op.label || '合計');
-totalCols.forEach(function (c) { sh.getRange(tr, c).setFormula('=SUM(' + colLetter_(c) + (hr + 1) + ':' + colLetter_(c) + last + ')'); });
-last = tr;
+totRow[labelCol - 1] = op.label || '合計';
+totalCols.forEach(function (c) {
+totRow[c - 1] = '=SUM(' + colLetter_(c) + (hr + 1) + ':' + colLetter_(c) + dataLastRow + ')';
+});
+grid.push(totRow);
+last = hr + grid.length - 1;
 }
+var rg = sh.getRange(hr, 1, grid.length, nc);
+rg.setValues(grid);
 chg_(ctx, sh, a1_(1, 1, last, nc), '表を作成（' + rows.length + ' 行' + (totalCols.length ? '・合計行' : '') + '）');
 if (op.tidy !== false) tidyRange_(ctx, sh, null);
 };
@@ -3620,9 +4499,12 @@ grid.push(tot);
 }
 var dst = ctx.ss.getSheetByName(into);
 if (dst) {
-var cur = dst.getLastRow() ? dst.getRange(1, 1, grid.length, grid[0].length).getFormulas() : [];
-var curV = dst.getLastRow() ? dst.getRange(1, 1, grid.length, grid[0].length).getValues() : [];
-var same = dst.getLastRow() === grid.length && grid.every(function (row, r2) { return row.every(function (v, c2) { return String(cur[r2][c2] || curV[r2][c2]) === String(v); }); });
+var dstLr = dst.getLastRow(), dstLc = dst.getLastColumn(), same = false;
+if (dstLr === grid.length && dstLc >= grid[0].length) {
+var dstChk = dst.getRange(1, 1, grid.length, grid[0].length);
+var cur = dstChk.getFormulas(), curV = dstChk.getValues();
+same = grid.every(function (row, r2) { return row.every(function (v, c2) { return String(cur[r2][c2] || curV[r2][c2]) === String(v); }); });
+}
 ctx.curSheet = src.getName();
 if (same) { note_(ctx, '集計シート「' + into + '」は最新です（変更なし）'); return; }
 guardDelete_(ctx, '集計シート「' + into + '」はすでにあり、中身が変わります（作り直します）');
@@ -3781,6 +4663,107 @@ sh.removeChart(c);
 ctx.curSheet = sh.getName();
 chg_(ctx, sh, '', 'グラフを削除' + (op.title ? '（' + op.title + '）' : '（' + targets.length + ' 個）'));
 };
+SHELF['table.template'] = function (ctx, op) {
+need_(op, ['kind']);
+var kind = String(op.kind || 'task').toLowerCase();
+var specs = {
+task: {
+defName: 'タスク管理',
+title: 'タスク管理表',
+headers: ['No', 'タスク名', '担当者', '期限', '優先度', 'ステータス', '完了'],
+rows: [
+[1, '要件の整理', '田中', new Date(2026, 11, 1), '高', '進行中', false],
+[2, '資料の作成', '佐藤', new Date(2026, 11, 5), '中', '未着手', false],
+[3, 'レビュー依頼', '鈴木', new Date(2026, 11, 10), '低', '未着手', false]
+],
+listRules: [
+{ col: 5, items: ['高', '中', '低'] },
+{ col: 6, items: ['未着手', '進行中', '確認待ち', '完了'] }
+],
+checkboxCol: 7
+},
+budget: {
+defName: '月次収支表',
+title: '月次収支表',
+headers: ['月', '区分', '項目', '予算', '実績', '差額'],
+rows: [
+['11月', '売上', '商品売上', 500000, 540000, '=E4-D4'],
+['11月', '経費', '仕入原価', 200000, 195000, '=E5-D5'],
+['11月', '経費', '広告宣伝費', 80000, 85000, '=E6-D6']
+],
+total: ['合計', '', '', '=SUM(D4:D6)', '=SUM(E4:E6)', '=SUM(F4:F6)']
+},
+customer: {
+defName: '顧客リスト',
+title: '顧客管理リスト',
+headers: ['No', '会社名', '担当者', '電話番号', 'メール', 'ランク', '備考'],
+rows: [
+[1, '株式会社サンプル', '山田太郎', '03-1234-5678', 'yamada@example.com', 'A', '主要取引先'],
+[2, 'テスト商事', '高橋花子', '06-9876-5432', 'takahashi@example.com', 'B', '月次フォロー']
+],
+listRules: [{ col: 6, items: ['S', 'A', 'B', 'C'] }]
+},
+schedule: {
+defName: '工程表',
+title: 'スケジュール・工程表',
+headers: ['日付', '工程名', '担当', '開始予定', '完了予定', '進捗'],
+rows: [
+[new Date(2026, 11, 1), '企画立案', '田中', new Date(2026, 11, 1), new Date(2026, 11, 4), '進行中'],
+[new Date(2026, 11, 5), '設計・作成', '佐藤', new Date(2026, 11, 5), new Date(2026, 11, 12), '未着手'],
+[new Date(2026, 11, 14), '検証・公開', '鈴木', new Date(2026, 11, 14), new Date(2026, 11, 18), '未着手']
+],
+listRules: [{ col: 6, items: ['未着手', '進行中', '完了'] }],
+weekendCol: 1
+},
+minutes: {
+defName: '議事録',
+title: '会議アジェンダ・アクション管理',
+headers: ['No', '議題', '決定事項', '担当者', '期限', '状態'],
+rows: [
+[1, '今月の進捗確認', '次回までに見積確定', '田中', new Date(2026, 11, 8), '対応中'],
+[2, '課題の整理', '関係部署へ確認送付', '佐藤', new Date(2026, 11, 10), '未着手']
+],
+listRules: [{ col: 6, items: ['未着手', '対応中', '完了'] }]
+}
+};
+var sp = specs[kind];
+if (!sp) throw new ArgError('棚「table.template」の kind が不正です: ' + kind);
+var ss = ctx.ss, name = op.sheet || op.title || sp.defName;
+if (ss.getSheetByName(name)) {
+throw new ArgError('シート「' + name + '」はすでにあります（上書きしません。別の sheet 名を指定してください）');
+}
+var sh;
+if (ctx.isNew) { sh = ss.getSheets()[0]; sh.setName(name); }
+else { sh = ss.insertSheet(name, ss.getSheets().length); ctx.createdSheets.push(name); }
+ctx.curSheet = name;
+var titleTxt = op.title || sp.title;
+sh.getRange(1, 1).setValue(titleTxt).setFontWeight('bold').setFontSize(14);
+var grid = [sp.headers].concat(sp.rows);
+if (sp.total) grid.push(sp.total);
+var nc = sp.headers.length;
+sh.getRange(3, 1, grid.length, nc).setValues(grid);
+var endData = 3 + sp.rows.length;
+if (sp.listRules) {
+sp.listRules.forEach(function (lr) {
+sh.getRange(4, lr.col, sp.rows.length, 1).setDataValidation(
+SpreadsheetApp.newDataValidation().requireValueInList(lr.items, true).setAllowInvalid(false).build()
+);
+});
+}
+if (sp.checkboxCol) {
+sh.getRange(4, sp.checkboxCol, sp.rows.length, 1).setDataValidation(
+SpreadsheetApp.newDataValidation().requireCheckbox().build()
+);
+}
+var wkShelf = 'cf.weekend';
+if (sp.weekendCol && typeof SHELF[wkShelf] === 'function') {
+if (_TBL_CACHE) _TBL_CACHE = null;
+SHELF[wkShelf](ctx, { shelf: wkShelf, sheet: name, col: colLetter_(sp.weekendCol) });
+}
+if (_TBL_CACHE) _TBL_CACHE = null;
+tidyRange_(ctx, sh, null);
+chg_(ctx, sh, a1_(1, 1, 2 + grid.length, nc), '業務テンプレート「' + titleTxt + '」を作成');
+};
 SHELF['write'] = function (ctx, op) {
 var sh = sheetCtx_(ctx, op), did = [];
 if (op.cells) Object.keys(op.cells).forEach(function (a) { sh.getRange(a).setValue(op.cells[a]); did.push(a); });
@@ -3893,7 +4876,9 @@ var vals = rg.getValues();
 var changed = false;
 for (var r = 0; r < vals.length; r++) {
 for (var c = 0; c < vals[r].length; c++) {
-if (!formulas[r][c] && vals[r][c] !== '') {
+if (formulas[r][c]) {
+vals[r][c] = formulas[r][c];
+} else if (vals[r][c] !== '') {
 vals[r][c] = '';
 changed = true;
 }
@@ -3977,6 +4962,7 @@ if (op.col) { t = needTable_(sh); var ci = colIndexOf_(t, op.col); rg = sh.getRa
 else if (op.range) rg = sh.getRange(op.range);
 else throw new ArgError('棚「date.fix」に col か range が要ります');
 var vals = rg.getValues(), forms = rg.getFormulas(), fmts = rg.getNumberFormats();
+var startR = rg.getRow(), startC = rg.getColumn();
 var year = new Date().getFullYear(), dateFmt = '';
 for (var r0 = 0; r0 < vals.length; r0++) for (var c0 = 0; c0 < vals[r0].length; c0++) {
 var v0 = vals[r0][c0];
@@ -3995,7 +4981,7 @@ else if ((m = s.match(/^(\d{1,2})\s*[\/月]\s*(\d{1,2})\s*日?$/))) dt = mk(year
 if (!dt) continue;
 vals[r][c] = dt;
 if (!fmts[r][c] || fmts[r][c] === '@' || fmts[r][c] === 'General') fmts[r][c] = dateFmt || 'yyyy/mm/dd';
-fixed.push(rg.getCell(r + 1, c + 1).getA1Notation());
+fixed.push(a1_(startR + r, startC + c));
 }
 if (!fixed.length) { note_(ctx, '文字で入った日付は見つかりませんでした（' + rg.getA1Notation() + '）'); return; }
 rg.setNumberFormats(fmts);
@@ -4010,19 +4996,35 @@ guardOverwrite_(ctx, rg, '範囲「' + op.range + '」に日付を記入');
 var unit = op.unit || 'day';
 var dt;
 if (op.start) {
-dt = new Date(op.start);
+var sDt = String(op.start).trim();
+var zDt = sDt.replace(/[０-９]/g, function (ch) { return String.fromCharCode(ch.charCodeAt(0) - 0xFEE0); });
+var md = /^(\d{4})[\/\-\.年](\d{1,2})[\/\-\.月](\d{1,2})日?$/.exec(zDt);
+if (md) {
+var yy = parseInt(md[1], 10), mm = parseInt(md[2], 10), dd = parseInt(md[3], 10);
+var tmpDt = new Date(yy, mm - 1, dd);
+dt = (tmpDt.getFullYear() === yy && tmpDt.getMonth() === mm - 1 && tmpDt.getDate() === dd) ? tmpDt : new Date(NaN);
+} else {
+dt = (typeof parseDateText_ === 'function' ? parseDateText_(zDt) : null) || new Date(op.start);
+}
+if (!dt || isNaN(dt.getTime())) throw new ArgError('開始日付が読めません: ' + op.start);
 } else {
 var v = rg.getCell(1, 1).getValue();
 dt = (v instanceof Date && !isNaN(v.getTime())) ? new Date(v.getTime()) : new Date();
 }
 var nr = rg.getNumRows(), nc = rg.getNumColumns();
 var vals = [];
+var baseY = dt.getFullYear(), baseM = dt.getMonth(), baseDay = dt.getDate();
 var cur = new Date(dt.getTime());
-var stepFn = function (d, u) {
+var stepIdx = 0;
+var stepFn = function (d, u, idx) {
+if (u === 'month') {
+var tgtFirst = new Date(baseY, baseM + idx + 1, 1);
+var lastDay = new Date(tgtFirst.getFullYear(), tgtFirst.getMonth() + 1, 0).getDate();
+return new Date(tgtFirst.getFullYear(), tgtFirst.getMonth(), Math.min(baseDay, lastDay));
+}
 var next = new Date(d.getTime());
 if (u === 'day') next.setDate(next.getDate() + 1);
 else if (u === 'week') next.setDate(next.getDate() + 7);
-else if (u === 'month') next.setMonth(next.getMonth() + 1);
 else if (u === 'weekday') {
 do { next.setDate(next.getDate() + 1); } while (next.getDay() === 0 || next.getDay() === 6);
 }
@@ -4032,7 +5034,7 @@ for (var r = 0; r < nr; r++) {
 var row = [];
 for (var c = 0; c < nc; c++) {
 row.push(new Date(cur.getTime()));
-cur = stepFn(cur, unit);
+cur = stepFn(cur, unit, stepIdx++);
 }
 vals.push(row);
 }
@@ -4048,9 +5050,7 @@ if (rg.getNumRows() <= 1) throw new ArgError('棚「fill.down」の範囲は2行
 var firstRow = rg.offset(0, 0, 1, rg.getNumColumns());
 var dest = rg.offset(1, 0, rg.getNumRows() - 1, rg.getNumColumns());
 guardOverwrite_(ctx, dest, 'コピー先「' + dest.getA1Notation() + '」');
-for (var r = 1; r < rg.getNumRows(); r++) {
-firstRow.copyTo(rg.offset(r, 0, 1, rg.getNumColumns()));
-}
+firstRow.copyTo(dest);
 chg_(ctx, sh, dest.getA1Notation(), '上のセルを下へ複写');
 };
 SHELF['note.set'] = function (ctx, op) {
@@ -4077,21 +5077,25 @@ var nr = t.lastData - t.firstData + 1;
 if (nr < 1) throw new ArgError('リンクを設定するデータ行がありません');
 var labelVals = sh.getRange(t.firstData, ci, nr, 1).getDisplayValues();
 var urlVals = sh.getRange(t.firstData, uci, nr, 1).getDisplayValues();
-var richRows = [];
-var linked = 0;
+var linkUpdates = [];
 for (var i = 0; i < nr; i++) {
 var lbl = String(labelVals[i][0] || '');
 var u = String(urlVals[i][0] || '').trim();
-var b = SpreadsheetApp.newRichTextValue().setText(lbl || u);
 if (u && /^https?:\/\//i.test(u)) {
-b.setLinkUrl(u);
-linked++;
+linkUpdates.push({ r: i, rtv: SpreadsheetApp.newRichTextValue().setText(lbl || u).setLinkUrl(u).build() });
 }
-richRows.push([b.build()]);
 }
-var rgCol = sh.getRange(t.firstData, ci, nr, 1);
-rgCol.setRichTextValues(richRows);
-chg_(ctx, sh, rgCol.getA1Notation(), op.col + '列にハイパーリンクを設定（' + linked + ' 件）');
+for (var ui = 0; ui < linkUpdates.length; ) {
+var rs = linkUpdates[ui].r, re = rs, block = [[linkUpdates[ui].rtv]];
+while (ui + 1 < linkUpdates.length && linkUpdates[ui + 1].r === re + 1) {
+ui++;
+re = linkUpdates[ui].r;
+block.push([linkUpdates[ui].rtv]);
+}
+sh.getRange(t.firstData + rs, ci, re - rs + 1, 1).setRichTextValues(block);
+ui++;
+}
+chg_(ctx, sh, a1_(t.firstData, ci, nr, 1), op.col + '列にハイパーリンクを設定（' + linkUpdates.length + ' 件）');
 return;
 }
 need_(op, ['range', 'url']);
@@ -4110,23 +5114,39 @@ if (!merged || !merged.length) {
 note_(ctx, '結合セルはありませんでした（変更なし）');
 return;
 }
-var count = 0;
+var minR = rg.getRow(), minC = rg.getColumn();
+var maxR = minR + rg.getNumRows() - 1, maxC = minC + rg.getNumColumns() - 1;
+var spans = [];
 merged.forEach(function (mr) {
-var nr = mr.getNumRows(), nc = mr.getNumColumns();
-var topVal = mr.getCell(1, 1).getValue();
-mr.breakApart();
-if (!isBlank_(topVal)) {
-var fill = [];
-for (var r = 0; r < nr; r++) {
-var row = [];
-for (var c = 0; c < nc; c++) row.push(topVal);
-fill.push(row);
-}
-mr.setValues(fill);
-}
-count++;
+var mrR = mr.getRow(), mrC = mr.getColumn(), mrNr = mr.getNumRows(), mrNc = mr.getNumColumns();
+if (mrR < minR) minR = mrR;
+if (mrC < minC) minC = mrC;
+if (mrR + mrNr - 1 > maxR) maxR = mrR + mrNr - 1;
+if (mrC + mrNc - 1 > maxC) maxC = mrC + mrNc - 1;
+spans.push({ r: mrR, c: mrC, nr: mrNr, nc: mrNc });
 });
-chg_(ctx, sh, rg.getA1Notation(), '結合セル ' + count + ' か所を解除して値を充填');
+var workRg = (minR === rg.getRow() && minC === rg.getColumn() && maxR === rg.getRow() + rg.getNumRows() - 1 && maxC === rg.getColumn() + rg.getNumColumns() - 1)
+? rg : sh.getRange(minR, minC, maxR - minR + 1, maxC - minC + 1);
+var vals = workRg.getValues(), forms = workRg.getFormulas();
+for (var ri = 0; ri < vals.length; ri++) {
+for (var ci = 0; ci < vals[ri].length; ci++) {
+if (forms[ri][ci]) vals[ri][ci] = forms[ri][ci];
+}
+}
+spans.forEach(function (sp) {
+var relR = sp.r - minR, relC = sp.c - minC;
+var topVal = vals[relR][relC];
+if (!isBlank_(topVal)) {
+for (var rr = relR; rr < relR + sp.nr; rr++) {
+for (var cc = relC; cc < relC + sp.nc; cc++) {
+vals[rr][cc] = topVal;
+}
+}
+}
+});
+workRg.breakApart();
+workRg.setValues(vals);
+chg_(ctx, sh, rg.getA1Notation(), '結合セル ' + spans.length + ' か所を解除して値を充填');
 };
 SHELF['fill.blank'] = function (ctx, op) {
 var sh = sheetCtx_(ctx, op), rg;
@@ -4227,7 +5247,7 @@ if (f) { vals[r][c] = f; continue; }
 if (typeof v !== 'string') continue;
 var hw = v.replace(/[０-９＋－．，]/g, function (ch) { return String.fromCharCode(ch.charCodeAt(0) - 0xFEE0); })
 .replace(/　/g, ' ').trim();
-var cleaned = hw.replace(/[¥￥$,\s]/g, '');
+var cleaned = hw.replace(/^[¥￥$]+\s*/, '').replace(/\s*円$/, '').replace(/,/g, '');
 if (!cleaned) continue;
 if (/^-?\d+(\.\d+)?$/.test(cleaned) && !/^-?0\d/.test(cleaned)) {
 vals[r][c] = Number(cleaned);
@@ -4252,18 +5272,28 @@ rg = sh.getRange(op.range);
 } else {
 rg = sh.getDataRange();
 }
-var rich = rg.getRichTextValues(), forms = rg.getFormulas();
+var rich = rg.getRichTextValues(), forms = rg.getFormulas(), vals = rg.getValues();
 var disp = null, r0 = rg.getRow(), c0 = rg.getColumn(), cleared = 0;
-var hasFormulaLink = false, hasRichLink = false;
+var hasFormulaLink = false, hasRichLink = false, hasOtherFormulaOrNonString = false;
+var richUpdates = [];
 for (var r = 0; r < rich.length; r++) {
 for (var c = 0; c < rich[r].length; c++) {
 var f = forms[r][c];
-if (f && /^=HYPERLINK\(/i.test(f)) {
+if (f) {
+if (/^=HYPERLINK\(/i.test(f)) {
 if (!disp) disp = rg.getDisplayValues();
-sh.getRange(r0 + r, c0 + c).setValue(disp[r][c]);
+vals[r][c] = disp[r][c];
 hasFormulaLink = true;
 cleared++;
+} else {
+vals[r][c] = f;
+hasOtherFormulaOrNonString = true;
+}
 continue;
+}
+var v = vals[r][c];
+if (v !== '' && v !== null && v !== undefined && typeof v !== 'string') {
+hasOtherFormulaOrNonString = true;
 }
 var rtv = rich[r][c];
 if (!rtv) continue;
@@ -4272,7 +5302,9 @@ if (!hasLink && typeof rtv.getRuns === 'function') {
 hasLink = rtv.getRuns().some(function (run) { return !!run.getLinkUrl(); });
 }
 if (hasLink) {
-rich[r][c] = SpreadsheetApp.newRichTextValue().setText(rtv.getText()).build();
+var cleanRtv = SpreadsheetApp.newRichTextValue().setText(rtv.getText()).build();
+rich[r][c] = cleanRtv;
+richUpdates.push({ r: r, c: c, rtv: cleanRtv });
 hasRichLink = true;
 cleared++;
 }
@@ -4282,14 +5314,22 @@ if (!cleared) {
 note_(ctx, 'ハイパーリンクは見つかりませんでした（変更なし）');
 return;
 }
-if (hasRichLink && !hasFormulaLink && typeof rg.setRichTextValues === 'function') {
+if (hasFormulaLink) rg.setValues(vals);
+if (hasRichLink) {
+if (!hasOtherFormulaOrNonString && !hasFormulaLink && typeof rg.setRichTextValues === 'function') {
 rg.setRichTextValues(rich);
-} else if (hasRichLink) {
-for (var r2 = 0; r2 < rich.length; r2++) {
-for (var c2 = 0; c2 < rich[r2].length; c2++) {
-if (!(forms[r2][c2] && /^=HYPERLINK\(/i.test(forms[r2][c2])) && rich[r2][c2]) {
-sh.getRange(r0 + r2, c0 + c2).setRichTextValue(rich[r2][c2]);
+} else {
+richUpdates.sort(function (a, b) { return (a.c - b.c) || (a.r - b.r); });
+for (var ui = 0; ui < richUpdates.length; ) {
+var col = richUpdates[ui].c, rs = richUpdates[ui].r, re = rs;
+var block = [[richUpdates[ui].rtv]];
+while (ui + 1 < richUpdates.length && richUpdates[ui + 1].c === col && richUpdates[ui + 1].r === re + 1) {
+ui++;
+re = richUpdates[ui].r;
+block.push([richUpdates[ui].rtv]);
 }
+sh.getRange(r0 + rs, c0 + col, re - rs + 1, 1).setRichTextValues(block);
+ui++;
 }
 }
 }
@@ -4303,9 +5343,8 @@ var nr = Math.max(0, t.lastData - t.firstData + 1);
 sh.insertColumnAfter(ci);
 var headName = op.name || 'URL';
 var dstHead = sh.getRange(t.headerRow, ci + 1);
-dstHead.setValue(headName);
-var srcHead = sh.getRange(t.headerRow, ci);
-dstHead.setBackground(srcHead.getBackground()).setFontColor(srcHead.getFontColor()).setFontWeight(srcHead.getFontWeight()).setHorizontalAlignment('center');
+sh.getRange(t.headerRow, ci).copyTo(dstHead, SpreadsheetApp.CopyPasteType.PASTE_FORMAT, false);
+dstHead.setValue(headName).setHorizontalAlignment('center');
 var extracted = 0;
 if (nr > 0) {
 var srcRg = sh.getRange(t.firstData, ci, nr, 1);
@@ -4369,6 +5408,213 @@ dst.getRange(1, 1, 1, 4).setBackground(STYLE.headBg).setFontColor(STYLE.headFg).
 ctx.curSheet = intoName;
 chg_(ctx, dst, a1_(1, 1, out.length, 4), 'メモ一覧を作成（' + rowsOut.length + ' 件）');
 };
+SHELF['blank.fill.zero'] = function (ctx, op) {
+var sh = sheetCtx_(ctx, op), rg;
+if (op.col) {
+var t = needTable_(sh), ci = colIndexOf_(t, op.col);
+rg = sh.getRange(t.firstData, ci, Math.max(1, t.lastData - t.firstData + 1), 1);
+} else if (op.range) {
+rg = sh.getRange(op.range);
+} else {
+rg = dataRange_(needTable_(sh));
+}
+var fillVal = op.value !== undefined ? op.value : 0;
+if (typeof fillVal === 'string') {
+var trimmed = fillVal.trim();
+if (/^-?(?:0|[1-9]\d*)(?:\.\d+)?$/.test(trimmed)) fillVal = Number(trimmed);
+}
+var vals = rg.getValues(), forms = rg.getFormulas(), changed = 0;
+for (var r = 0; r < vals.length; r++) {
+for (var c = 0; c < vals[r].length; c++) {
+if (forms[r][c]) { vals[r][c] = forms[r][c]; continue; }
+if (isBlank_(vals[r][c])) {
+vals[r][c] = fillVal;
+changed++;
+}
+}
+}
+if (!changed) {
+note_(ctx, '埋める空欄セルはありませんでした（' + rg.getA1Notation() + '）');
+return;
+}
+rg.setValues(vals);
+chg_(ctx, sh, rg.getA1Notation(), '空欄 ' + changed + ' セルを「' + fillVal + '」で補充');
+};
+SHELF['text.mask'] = function (ctx, op) {
+var sh = sheetCtx_(ctx, op), rg;
+if (op.col) {
+var t = needTable_(sh), ci = colIndexOf_(t, op.col);
+rg = sh.getRange(t.firstData, ci, Math.max(1, t.lastData - t.firstData + 1), 1);
+} else if (op.range) {
+rg = sh.getRange(op.range);
+} else {
+rg = dataRange_(needTable_(sh));
+}
+guardOverwrite_(ctx, rg, '範囲「' + rg.getA1Notation() + '」を伏せ字にマスキング');
+var kh = op.keep_head !== undefined ? Math.max(0, parseInt(op.keep_head, 10) || 0) : 1;
+var kt = op.keep_tail !== undefined ? Math.max(0, parseInt(op.keep_tail, 10) || 0) : 0;
+var mkChar = String(op.mask !== undefined ? op.mask : '*').charAt(0) || '*';
+var vals = rg.getValues(), forms = rg.getFormulas(), changed = 0;
+for (var r = 0; r < vals.length; r++) {
+for (var c = 0; c < vals[r].length; c++) {
+if (forms[r][c]) { vals[r][c] = forms[r][c]; continue; }
+if (isBlank_(vals[r][c])) continue;
+var s = String(vals[r][c]);
+var masked = '';
+if (s.indexOf('@') > 0 && kt === 0) {
+var atIdx = s.indexOf('@');
+var local = s.slice(0, atIdx), dom = s.slice(atIdx);
+var lh = Math.min(kh, Math.max(0, local.length - 1));
+masked = local.slice(0, lh) + Array(Math.max(3, local.length - lh) + 1).join(mkChar) + dom;
+} else {
+var hUse = Math.min(kh, Math.max(0, s.length - 1));
+var tUse = Math.min(kt, Math.max(0, s.length - hUse - 1));
+var midLen = Math.max(2, s.length - hUse - tUse);
+masked = s.slice(0, hUse) + Array(midLen + 1).join(mkChar) + (tUse > 0 ? s.slice(s.length - tUse) : '');
+}
+if (masked !== s) {
+vals[r][c] = masked;
+changed++;
+}
+}
+}
+if (!changed) {
+note_(ctx, '伏せ字にするセルはありませんでした（' + rg.getA1Notation() + '）');
+return;
+}
+rg.setValues(vals);
+chg_(ctx, sh, rg.getA1Notation(), '伏せ字マスキング（' + changed + ' 件）');
+};
+SHELF['text.extract'] = function (ctx, op) {
+need_(op, ['col', 'kind']);
+var kind = String(op.kind || 'number').toLowerCase();
+var rx;
+if (kind === 'email') rx = /[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,}/;
+else if (kind === 'url') rx = /https?:\/\/[^\s　「」『』()（）]+/;
+else if (kind === 'number') rx = /-?\d+(?:,\d{3})*(?:\.\d+)?/;
+else if (kind === 'parens') rx = /[（(「【『]([^）)」】』]+)[）)」】』]/;
+else if (kind === 'regex') {
+if (!op.pattern) throw new ArgError('kind="regex" のときは pattern が要ります');
+try { rx = new RegExp(String(op.pattern)); }
+catch (eRx) { throw new ArgError('正規表現 pattern が不正です: ' + String(eRx && eRx.message || eRx)); }
+} else {
+throw new ArgError('棚「text.extract」の kind が不正です: ' + kind);
+}
+var sh = sheetCtx_(ctx, op), t = needTable_(sh), ci = colIndexOf_(t, op.col);
+var nr = Math.max(0, t.lastData - t.firstData + 1);
+sh.insertColumnAfter(ci);
+var defNames = { email: 'メール', url: 'URL', number: '数値', parens: '括弧内', regex: '抽出' };
+var headName = op.name || defNames[kind] || '抽出';
+var dstHead = sh.getRange(t.headerRow, ci + 1);
+sh.getRange(t.headerRow, ci).copyTo(dstHead, SpreadsheetApp.CopyPasteType.PASTE_FORMAT, false);
+dstHead.setValue(headName).setHorizontalAlignment('center');
+var hits = 0;
+if (nr > 0) {
+var srcVals = sh.getRange(t.firstData, ci, nr, 1).getDisplayValues();
+var out = [];
+for (var i = 0; i < nr; i++) {
+var m = rx.exec(String(srcVals[i][0] || ''));
+var picked = m ? (m[1] !== undefined ? m[1] : m[0]) : '';
+if (picked !== '') hits++;
+out.push([picked]);
+}
+sh.getRange(t.firstData, ci + 1, nr, 1).setValues(out);
+}
+chg_(ctx, sh, colLetter_(ci + 1) + '列', '「' + headName + '」を隣列へ抽出（' + hits + ' 件）');
+};
+SHELF['rows.reverse'] = function (ctx, op) {
+var sh = sheetCtx_(ctx, op), t = needTable_(sh);
+var nr = t.lastData - t.firstData + 1;
+if (nr <= 1) {
+note_(ctx, '反転するデータ行が 2 行未満です（変更なし）');
+return;
+}
+var nc = t.lastCol - t.firstCol + 1;
+var dr = sh.getRange(t.firstData, t.firstCol, nr, nc);
+var vals = dr.getValues(), forms = dr.getFormulas(), rev = [];
+for (var i = 0; i < nr; i++) {
+var srcIdx = nr - 1 - i;
+var delta = i - srcIdx;
+var rowOut = [];
+for (var c = 0; c < nc; c++) {
+var f = forms[srcIdx][c];
+rowOut.push(f ? shiftFormula_(f, delta) : vals[srcIdx][c]);
+}
+rev.push(rowOut);
+}
+dr.setValues(rev);
+chg_(ctx, sh, dr.getA1Notation(), 'データ ' + nr + ' 行を上下反転');
+};
+SHELF['date.today'] = function (ctx, op) {
+var sh = sheetCtx_(ctx, op);
+var rg = op.range ? sh.getRange(op.range) : ((typeof sh.getActiveRange === 'function' && sh.getActiveRange()) || sh.getRange('A1'));
+var nr = rg.getNumRows(), nc = rg.getNumColumns();
+var now = new Date(), vals = [];
+for (var r = 0; r < nr; r++) {
+var row = [];
+for (var c = 0; c < nc; c++) row.push(new Date(now.getTime()));
+vals.push(row);
+}
+rg.setValues(vals);
+rg.setNumberFormat(op.with_time ? 'yyyy/mm/dd hh:mm' : STYLE.dateFmt);
+chg_(ctx, sh, rg.getA1Notation(), (op.with_time ? '現在日時' : '今日の日付') + 'を入力');
+};
+SHELF['text.kana'] = function (ctx, op) {
+var sh = sheetCtx_(ctx, op), rg;
+if (op.col) {
+var t = needTable_(sh), ci = colIndexOf_(t, op.col);
+rg = sh.getRange(t.firstData, ci, Math.max(1, t.lastData - t.firstData + 1), 1);
+} else if (op.range) {
+rg = sh.getRange(op.range);
+} else {
+rg = dataRange_(needTable_(sh));
+}
+var toHira = String(op.to || 'kata').toLowerCase() === 'hira';
+var vals = rg.getValues(), forms = rg.getFormulas(), changed = 0;
+for (var r = 0; r < vals.length; r++) {
+for (var c = 0; c < vals[r].length; c++) {
+var f = forms[r][c], v = vals[r][c];
+if (f) { vals[r][c] = f; continue; }
+if (typeof v !== 'string' || !v) continue;
+var conv = toHira
+? v.replace(/[\u30a1-\u30f6]/g, function (ch) { return String.fromCharCode(ch.charCodeAt(0) - 0x60); })
+: v.replace(/[\u3041-\u3096]/g, function (ch) { return String.fromCharCode(ch.charCodeAt(0) + 0x60); });
+if (conv !== v) {
+vals[r][c] = conv;
+changed++;
+}
+}
+}
+if (!changed) {
+note_(ctx, '変換対象の文字はありませんでした（' + rg.getA1Notation() + '）');
+return;
+}
+rg.setValues(vals);
+chg_(ctx, sh, rg.getA1Notation(), (toHira ? 'ひらがな' : 'カタカナ') + 'へ変換（' + changed + ' 件）');
+};
+function toRuns_(nums) {
+var seen = {}, list = [];
+for (var i = 0; i < nums.length; i++) {
+var n = parseInt(nums[i], 10);
+if (!isNaN(n) && n >= 1 && !seen[n]) { seen[n] = 1; list.push(n); }
+}
+list.sort(function (a, b) { return a - b; });
+var runs = [];
+for (var j = 0; j < list.length; ) {
+var s = list[j], e = s;
+while (j + 1 < list.length && list[j + 1] === e + 1) { e = list[++j]; }
+runs.push({ s: s, n: e - s + 1 });
+j++;
+}
+return runs;
+}
+function resolveColName_(sh, x) {
+if (typeof x === 'number') return x;
+var s = String(x || '').trim();
+if (/^[A-Za-z]{1,3}$/.test(s)) return colNum_(s);
+var t = findTable_(sh);
+return t ? colIndexOf_(t, s) : colNum_(s);
+}
 SHELF['rows'] = function (ctx, op) {
 var sh = sheetCtx_(ctx, op), act = op.action || (op.cols ? 'delete' : 'delete');
 var isCol = !!op.cols, list = (isCol ? op.cols : op.rows) || [];
@@ -4395,10 +5641,22 @@ if (!seenN[n]) { seenN[n] = 1; nums.push(n); }
 nums.sort(function (a, b) { return b - a; });
 var max = isCol ? sh.getMaxColumns() : sh.getMaxRows();
 nums.forEach(function (n) { if (n < 1 || n > max) throw new ArgError((isCol ? '列' : '行') + '番号 ' + n + ' は範囲外です（1〜' + max + '）'); });
-var peek = nums.map(function (n) { var v = isCol ? sh.getRange(1, n, Math.min(sh.getLastRow() || 1, 50), 1).getDisplayValues() : sh.getRange(n, 1, 1, Math.max(1, sh.getLastColumn())).getDisplayValues()[0]; return (isCol ? colLetter_(n) + '列' : n + '行目') + '「' + String(isCol ? v.map(function (x) { return x[0]; }).filter(Boolean).slice(0, 2).join('/') : v.filter(Boolean).slice(0, 3).join('/')).slice(0, 24) + '」'; });
+var peekAsc = nums.slice().reverse();
+var peekList = peekAsc.slice(0, 5).map(function (n) {
+var v;
+if (getTw() && tw.vals && !isCol && n >= 1 && n <= tw.vals.length) {
+v = tw.vals[n - 1];
+} else if (getTw() && tw.vals && isCol && n >= 1 && tw.vals[0] && n <= tw.vals[0].length) {
+v = tw.vals.slice(0, 50).map(function (row) { return [row[n - 1]]; });
+} else {
+v = isCol ? sh.getRange(1, n, Math.min(sh.getLastRow() || 1, 50), 1).getDisplayValues() : sh.getRange(n, 1, 1, Math.max(1, sh.getLastColumn())).getDisplayValues()[0];
+}
+return (isCol ? colLetter_(n) + '列' : n + '行目') + '「' + String(isCol ? v.map(function (x) { return x[0]; }).filter(Boolean).slice(0, 2).join('/') : v.filter(Boolean).slice(0, 3).join('/')).slice(0, 24) + '」';
+});
+if (peekAsc.length > 5) peekList.push('ほか ' + (peekAsc.length - 5) + (isCol ? ' 列' : ' 行'));
 var wide = false;
 if (getTw()) wide = isCol ? nums.some(function (n) { return n < tw.firstCol || n > tw.lastCol; }) : (nums.some(function (n) { return n < tw.headerRow || n > (tw.totalRow || tw.lastData); }) || wideRowCount_(tw, nums.length));
-guardDelete_(ctx, peek.reverse().join('、') + ' を削除します', wide, nums.length + (isCol ? ' 列' : ' 行'));
+guardDelete_(ctx, peekList.join('、') + ' を削除します', wide, nums.length + (isCol ? ' 列' : ' 行'));
 for (var di = 0; di < nums.length; ) {
 var runEnd = nums[di], runStart = runEnd;
 while (di + 1 < nums.length && nums[di + 1] === runStart - 1) { runStart = nums[++di]; }
@@ -4461,14 +5719,14 @@ SHELF['rows.hide'] = function (ctx, op) {
 need_(op, ['rows']);
 var sh = sheetCtx_(ctx, op);
 var list = (Array.isArray(op.rows) ? op.rows : [op.rows]).map(function (x) { return parseInt(x, 10); });
-list.forEach(function (r) { sh.hideRows(r); });
+toRuns_(list).forEach(function (r) { sh.hideRows(r.s, r.n); });
 chg_(ctx, sh, list.join('・') + ' 行目', '行を非表示');
 };
 SHELF['rows.show'] = function (ctx, op) {
 var sh = sheetCtx_(ctx, op);
 if (op.rows) {
 var list = (Array.isArray(op.rows) ? op.rows : [op.rows]).map(function (x) { return parseInt(x, 10); });
-list.forEach(function (r) { sh.unhideRow(sh.getRange(r, 1)); });
+toRuns_(list).forEach(function (r) { sh.showRows(r.s, r.n); });
 chg_(ctx, sh, list.join('・') + ' 行目', '行を再表示');
 } else {
 sh.unhideRow(sh.getRange(1, 1, sh.getMaxRows(), 1));
@@ -4479,20 +5737,16 @@ SHELF['cols.hide'] = function (ctx, op) {
 need_(op, ['cols']);
 var sh = sheetCtx_(ctx, op);
 var list = Array.isArray(op.cols) ? op.cols : [op.cols];
-list.forEach(function (c) {
-var n = typeof c === 'number' ? c : colNum_(c);
-sh.hideColumns(n);
-});
+var nums = list.map(function (c) { return resolveColName_(sh, c); });
+toRuns_(nums).forEach(function (r) { sh.hideColumns(r.s, r.n); });
 chg_(ctx, sh, list.join('・') + ' 列', '列を非表示');
 };
 SHELF['cols.show'] = function (ctx, op) {
 var sh = sheetCtx_(ctx, op);
 if (op.cols) {
 var list = Array.isArray(op.cols) ? op.cols : [op.cols];
-list.forEach(function (c) {
-var n = typeof c === 'number' ? c : colNum_(c);
-sh.unhideColumn(sh.getRange(1, n));
-});
+var nums = list.map(function (c) { return resolveColName_(sh, c); });
+toRuns_(nums).forEach(function (r) { sh.showColumns(r.s, r.n); });
 chg_(ctx, sh, list.join('・') + ' 列', '列を再表示');
 } else {
 sh.unhideColumn(sh.getRange(1, 1, 1, sh.getMaxColumns()));
@@ -4512,7 +5766,7 @@ chg_(ctx, sh, start + '〜' + (start + count - 1) + ' 行目', '行をグルー�
 SHELF['group.cols'] = function (ctx, op) {
 need_(op, ['cols']);
 var sh = sheetCtx_(ctx, op);
-var list = (Array.isArray(op.cols) ? op.cols : [op.cols]).map(function (x) { return typeof x === 'number' ? x : colNum_(x); }).sort(function (a, b) { return a - b; });
+var list = (Array.isArray(op.cols) ? op.cols : [op.cols]).map(function (x) { return resolveColName_(sh, x); }).sort(function (a, b) { return a - b; });
 var start = list[0], count = list[list.length - 1] - start + 1;
 var rg = sh.getRange(1, start, 1, count);
 rg.shiftColumnGroupDepth(1);
@@ -4527,7 +5781,7 @@ var start = list[0], count = list[list.length - 1] - start + 1;
 sh.getRange(start, 1, count, 1).shiftRowGroupDepth(-1);
 chg_(ctx, sh, start + '〜' + (start + count - 1) + ' 行目', '行グループを解除');
 } else if (op.cols) {
-var list2 = (Array.isArray(op.cols) ? op.cols : [op.cols]).map(function (x) { return typeof x === 'number' ? x : colNum_(x); }).sort(function (a, b) { return a - b; });
+var list2 = (Array.isArray(op.cols) ? op.cols : [op.cols]).map(function (x) { return resolveColName_(sh, x); }).sort(function (a, b) { return a - b; });
 var start2 = list2[0], count2 = list2[list2.length - 1] - start2 + 1;
 sh.getRange(1, start2, 1, count2).shiftColumnGroupDepth(-1);
 chg_(ctx, sh, colLetter_(start2) + '〜' + colLetter_(start2 + count2 - 1) + ' 列', '列グループを解除');
@@ -4647,7 +5901,7 @@ srcSheets.forEach(function (s) {
 var lr = s.getLastRow(), lc = s.getLastColumn();
 if (lr < 1 || lc < 1) return;
 var vals = s.getRange(1, 1, lr, lc).getValues();
-var startIdx = (usedCount > 0 && skipHeader && vals.length > 1) ? 1 : 0;
+var startIdx = (usedCount > 0 && skipHeader) ? 1 : 0;
 for (var r = startIdx; r < vals.length; r++) {
 merged.push(vals[r]);
 if (vals[r].length > maxCols) maxCols = vals[r].length;
@@ -4689,8 +5943,19 @@ groups[key].push(row);
 if (!order.length) throw new ArgError('分割できるデータ行がありません');
 var prefix = op.prefix ? String(op.prefix) : '';
 var createdNames = [];
+var usedNames = {};
 order.forEach(function (k) {
-var safeName = (prefix + k).replace(/[\\\/\?\*\[\]:]/g, '_').slice(0, 31) || '分割';
+var baseSafe = (prefix + k).replace(/[\\\/\?\*\[\]:]/g, '_').slice(0, 31) || '分割';
+var safeName = baseSafe;
+if (usedNames[safeName]) {
+var dupIdx = 2;
+while (usedNames[safeName]) {
+var suf = '_' + dupIdx;
+safeName = baseSafe.slice(0, 31 - suf.length) + suf;
+dupIdx++;
+}
+}
+usedNames[safeName] = 1;
 var dst = ss.getSheetByName(safeName);
 if (!dst) {
 dst = ss.insertSheet(safeName, ss.getSheets().length);
@@ -4784,8 +6049,8 @@ if (!targets.length) throw new ArgError('仕上げ対象の可視シートがあ
 targets.forEach(function (s) {
 s.activate();
 s.getRange('A1').activate();
-if (op.gridlines !== undefined && typeof s.setHiddenGridlines === 'function') {
-s.setHiddenGridlines(!op.gridlines);
+if (op.gridlines !== undefined && typeof s.setHiddenGridlines === 'function' && typeof s.isGridlinesHidden === 'function') {
+if (s.isGridlinesHidden() !== !op.gridlines) s.setHiddenGridlines(!op.gridlines);
 }
 });
 targets[0].activate();
@@ -4804,10 +6069,27 @@ var sorted = list.slice().sort(function (a, b) {
 var cmp = a.getName().localeCompare(b.getName(), 'ja');
 return op.desc ? -cmp : cmp;
 });
+var doneBatch = false;
+if (typeof Sheets !== 'undefined' && Sheets.Spreadsheets && typeof Sheets.Spreadsheets.batchUpdate === 'function' && typeof batchRetry_ === 'function') {
+try {
+var reqs = sorted.map(function (s, idx) {
+return { updateSheetProperties: { properties: { sheetId: s.getSheetId(), index: idx }, fields: 'index' } };
+});
+batchRetry_(ss, reqs);
+doneBatch = true;
+} catch (eBs) { doneBatch = false; }
+}
+if (!doneBatch) {
+var prevActive = null;
+try { prevActive = ss.getActiveSheet(); } catch (eAct) {}
 sorted.forEach(function (s, idx) {
+if (s.getIndex() !== idx + 1) {
 ss.setActiveSheet(s);
 ss.moveActiveSheet(idx + 1);
+}
 });
+if (prevActive) { try { ss.setActiveSheet(prevActive); } catch (eRest) {} }
+}
 chg_(ctx, null, '', 'シート ' + sorted.length + ' 枚を名前' + (op.desc ? '降順' : '昇順') + 'に並べ替え');
 };
 SHELF['sheet.snapshot'] = function (ctx, op) {

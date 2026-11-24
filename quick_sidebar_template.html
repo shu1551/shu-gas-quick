@@ -422,9 +422,15 @@
   /* ---- 一覧タブ（GASクイック） ---- */
   #pane-list { overflow: hidden; }
   .quick-filter-bar { display: flex; gap: 2px; margin-bottom: 4px; flex-shrink: 0; }
-  .quick-filter-btn { flex: 1; padding: 2px 3px; font-size: 10.7px; border: 1px solid var(--border); border-radius: 3px; background: #f4f5f7; color: #000000; cursor: pointer; text-align: center; white-space: nowrap; }
+  .quick-filter-btn { flex: 1; padding: 2px 2px; font-size: 10.5px; border: 1px solid var(--border); border-radius: 3px; background: #f4f5f7; color: #000000; cursor: pointer; text-align: center; white-space: nowrap; }
   .quick-filter-btn:hover { background: #e8eef6; }
   .quick-filter-btn.active { background: var(--accent); border-color: var(--accent-hover); color: #ffffff; text-shadow: none; font-weight: 700; }
+  .quick-cat-bar { display: flex; flex-wrap: wrap; gap: 2px; margin-bottom: 4px; flex-shrink: 0; }
+  .quick-cat-btn { padding: 1px 5px; font-size: 10px; border: 1px solid var(--border); border-radius: 10px; background: #ffffff; color: #334155; cursor: pointer; white-space: nowrap; line-height: 1.4; }
+  .quick-cat-btn:hover { background: #e8eef6; border-color: #94a3b8; }
+  .quick-cat-btn.active { background: #312e81; border-color: #312e81; color: #ffffff; font-weight: 700; }
+  .quick-group-hdr { display: flex; align-items: center; justify-content: space-between; padding: 3px 6px; margin-top: 3px; font-size: 10.8px; font-weight: 700; color: #1e293b; background: #eef2ff; border: 1px solid #c7d2fe; border-radius: 3px; cursor: pointer; user-select: none; }
+  .quick-group-hdr:hover { background: #e0e7ff; }
   .quick-move { margin-left: auto; display: flex; gap: 2px; flex-shrink: 0; }
   .quick-move button { font-size: 10px; line-height: 1; padding: 1px 4px; border: 1px solid var(--border); border-radius: 2px; background: #fff; cursor: pointer; }
   .quick-move button:disabled { opacity: .35; cursor: default; }
@@ -436,6 +442,9 @@
   .quick-tag.t-sheet { background: #fef3c7; color: #78350f; }
   .quick-tag.t-my { background: #dcfce7; color: #14532d; }
   .quick-tag.t-shelf { background: #e0e7ff; color: #312e81; }
+  .quick-cat-pill { flex-shrink: 0; font-size: 9.5px; padding: 0 4px; border-radius: 8px; background: #f1f5f9; color: #475569; border: 1px solid #cbd5e1; margin-right: 3px; }
+  .quick-cnt-pill { flex-shrink: 0; font-size: 9.5px; padding: 0 4px; border-radius: 8px; background: #fef3c7; color: #92400e; margin-left: 3px; }
+  .quick-arg-mark { flex-shrink: 0; font-size: 10px; color: #0369a1; margin-left: 3px; font-weight: 700; }
   .quick-bolt { flex-shrink: 0; font-size: 11px; color: #d97706; }
   .quick-desc { font-size: 11px; color: #000000; font-weight: 500; }
   .quick-note { font-size: 11px; color: #000000; margin-top: 4px; }
@@ -587,10 +596,12 @@
         <div id="quickFilterBar" class="quick-filter-bar">
           <button class="quick-filter-btn active" type="button" data-qfilter="all">すべて</button>
           <button class="quick-filter-btn" type="button" data-qfilter="pin">★</button>
+          <button class="quick-filter-btn" type="button" data-qfilter="recent">最近</button>
           <button class="quick-filter-btn" type="button" data-qfilter="sheet">シート</button>
           <button class="quick-filter-btn" type="button" data-qfilter="my">マイ</button>
           <button class="quick-filter-btn" type="button" data-qfilter="shelf">棚</button>
         </div>
+        <div id="quickCatBar" class="quick-cat-bar" style="display:none;"></div>
         <div id="quickList" class="hist-list">
           <div class="log-empty">読込中…</div>
         </div>
@@ -787,7 +798,7 @@
   var state = {
     activeTab: "auto",
     quick: { sheet: [], my: [], myId: "", myUrl: "", myStamp: "", items: [], sel: -1, loaded: false, importMode: false,
-             filter: "all", pins: {}, order: { sheet: [], my: [], shelf: [] } },
+             filter: "all", cat: "all", recentSort: "time", pins: {}, usage: {}, collapsedCats: {}, order: { sheet: [], my: [], shelf: [] }, codeCache: { stamp: "", map: {} } },
     busy: false,
     target: { id: "", name: "", kind: "sheet", url: "", sheet: "" },
     sheets: [],
@@ -861,6 +872,7 @@
     btnUndo: document.getElementById("btnUndo"),
     btnReload: document.getElementById("btnReload"),
     quickFilterBar: document.getElementById("quickFilterBar"),
+    quickCatBar: document.getElementById("quickCatBar"),
     quickList: document.getElementById("quickList"),
     quickNote: document.getElementById("quickNote"),
     btnQuickRun: document.getElementById("btnQuickRun"),
@@ -979,6 +991,7 @@
         ? "一覧を絞り込み検索（例: 太字）"
         : "頼みを入力（例: 見出しを太字に）";
     }
+    if (tabKey === "list" && state.quick.filter === "recent") renderQuickList();
     if (!state.busy) {
       setStatus("表示中: " + TAB_NAMES[tabKey], false);
     }
@@ -1180,6 +1193,7 @@
       state.table = res.table;
     }
     if (typeof res.selection === "string") {
+      quickSheetSyncAt = Date.now();
       state.selection = res.selection.toUpperCase();
       if (res.scope && typeof res.scope === "object") {
         state.scope = res.scope;
@@ -1200,6 +1214,7 @@
     if (typeof res.oauthToken === "string" && res.oauthToken) {
       state.oauthToken = res.oauthToken;
       state.oauthTokenAt = Date.now();
+      quickBuildAt = Date.now();
     }
     if (Array.isArray(res.sheetInfos)) {
       for (var si = 0; si < res.sheetInfos.length; si++) {
@@ -1230,7 +1245,27 @@
     }
   }
 
-  function applyConfig(raw) {
+  var QUICK_CFG_LS_KEY = "gasquick_cfg_v1";
+  function saveConfigLocal() {
+    try {
+      window.localStorage.setItem(QUICK_CFG_LS_KEY, JSON.stringify({
+        backupDefault: !!state.config.backupDefault,
+        defaultTab: state.config.defaultTab === "list" ? "list" : "auto"
+      }));
+    } catch (e) {}
+  }
+  function restoreConfigLocal() {
+    try {
+      var raw = window.localStorage.getItem(QUICK_CFG_LS_KEY);
+      if (!raw) return;
+      var cfg = JSON.parse(raw);
+      applyConfig(cfg, true);
+      if (state.config.defaultTab === "list" && !state._userSwitchedTab) {
+        switchTab("list");
+      }
+    } catch (e) {}
+  }
+  function applyConfig(raw, skipSave) {
     var cfg = (raw && raw.config) ? raw.config : raw;
     if (!cfg || typeof cfg !== "object") return;
     var bkp = ("backupDefault" in cfg) ? cfg.backupDefault : cfg.backup;
@@ -1242,6 +1277,7 @@
       state.config.defaultTab = cfg.defaultTab;
       if (els.settingsDefaultTab) els.settingsDefaultTab.value = cfg.defaultTab;
     }
+    if (!skipSave) saveConfigLocal();
   }
 
   var QUICK_HIST_KEY = "gasquick_hist_v1";
@@ -1499,7 +1535,7 @@
           var rowVals = (rowData[r] && rowData[r].values) || [];
           var rowArr = [];
           for (var c = 0; c < dim.maxCols; c++) {
-            rowArr.push((rowVals[c] && rowVals[c].userEnteredFormat) ? JSON.parse(JSON.stringify(rowVals[c].userEnteredFormat)) : {});
+            rowArr.push((rowVals[c] && rowVals[c].userEnteredFormat) || {});
           }
           cells.push(rowArr);
         }
@@ -1657,8 +1693,8 @@
     return "NUMBER";
   }
 
-  function normalizeSnapCellFmt(pf) {
-    var uf = JSON.parse(JSON.stringify(pf || {}));
+  function normalizeSnapCellFmt(pf, skipClone) {
+    var uf = skipClone ? Object.assign({}, pf || {}) : JSON.parse(JSON.stringify(pf || {}));
     if (uf.backgroundColor && !uf.backgroundColorStyle) uf.backgroundColorStyle = { rgbColor: uf.backgroundColor };
     if (uf.textFormat && uf.textFormat.foregroundColor && !uf.textFormat.foregroundColorStyle) {
       uf.textFormat.foregroundColorStyle = { rgbColor: uf.textFormat.foregroundColor };
@@ -1846,7 +1882,7 @@
             for (var uc = parsedRg.c1; uc <= parsedRg.c2; uc++) {
               var pf = JSON.parse(JSON.stringify((snapU.cells[ur] && snapU.cells[ur][uc]) || {}));
               pRow.push(pf);
-              uVals.push({ userEnteredFormat: normalizeSnapCellFmt(pf) });
+              uVals.push({ userEnteredFormat: normalizeSnapCellFmt(pf, true) });
             }
             prevCells.push(pRow);
             undoRows.push({ values: uVals });
@@ -2063,7 +2099,7 @@
             if (op.shelf === "clear.format" || op.shelf === "clear.all") {
               var cpf = JSON.parse(JSON.stringify((snapCl.cells[clr] && snapCl.cells[clr][clc]) || {}));
               cpRow.push(cpf);
-              cObj.userEnteredFormat = normalizeSnapCellFmt(cpf);
+              cObj.userEnteredFormat = normalizeSnapCellFmt(cpf, true);
             }
             if (op.shelf === "clear.values" || op.shelf === "clear.all") {
               var ck = num0ToCol(clc) + (clr + 1);
@@ -2586,6 +2622,9 @@
         } else {
           state.directUndoStack = [];
           updateUndoBtnState(false);
+          if (hasGasBridge() && state.target && state.target.id) {
+            callGas("comboQuickClearFastUndo", state.target.id, function() {}, function() {});
+          }
         }
         var lines = [];
         if (isFromAsk) {
@@ -2665,7 +2704,8 @@
         var wallMs = performance.now() - t0;
         setBusy(false);
         if (item.restoreSnapshot) item.restoreSnapshot();
-        updateUndoBtnState(false);
+        var restHint = state.directUndoStack.length ? state.directUndoStack[state.directUndoStack.length - 1].what : "";
+        updateUndoBtnState(state.directUndoStack.length > 0, restHint);
         var body = [
           "対象: " + (state.target.name || "(名前なし)") + " › " + item.sheet,
           "戻した: " + item.what + " を取り消しました（直接API戻し）"
@@ -2719,7 +2759,8 @@
           if (res && res.needs_ok && errMsg.indexOf("確認なし") === -1) {
             errMsg += "\n（「確認なし」にチェックを入れて再実行してください）";
           }
-          recordExecution(false, opts.label, errMsg, wallMs, res && res.gasMs, true);
+          if (opts.onError) opts.onError(new Error(errMsg), res);
+          recordExecution(false, opts.label, errMsg, wallMs, res && res.gasMs, opts.onError ? switchChat : true);
           return;
         }
 
@@ -2739,12 +2780,16 @@
       function(err) {
         var wallMs = performance.now() - t0;
         setBusy(false);
-        recordExecution(false, opts.label, formatError(err), wallMs, undefined, true);
+        if (opts.onError) opts.onError(err);
+        recordExecution(false, opts.label, formatError(err), wallMs, undefined, opts.onError ? switchChat : true);
       }
     );
   }
 
   function onInit(silent, forceQuick) {
+    if (forceQuick) quickClearCodeCache();
+    var ccInit = state.quick.codeCache;
+    var cStamp = (!forceQuick && ccInit && ccInit.stamp && Object.keys(ccInit.map || {}).length) ? ccInit.stamp : "";
     runServerAction({
       fnName: "comboInit",
       payload: {
@@ -2752,7 +2797,9 @@
         sheet: state.curSheet || "",
         assumeActive: true,
         includeQuick: true,
-        forceQuick: !!forceQuick
+        forceQuick: !!forceQuick,
+        wantCodes: true,
+        clientStamp: cStamp
       },
       label: "初期化 / 再読込",
       statusText: "読込中…",
@@ -2815,7 +2862,7 @@
         state.liveSelDone = true;
         try { onRunAsk(); } finally { state.liveSelDone = false; }
       };
-      callGas("comboPollSelection", { targetId: state.target.id || "", sheet: "" },
+      callGas("comboPollSelection", { targetId: state.target.id || "", sheet: "", prevSheet: state.curSheet || "" },
         function(res) { if (res && res.ok) applyServerState(res); again(); }, again);
       return;
     }
@@ -2914,14 +2961,132 @@
   document.addEventListener("visibilitychange", function() { if (!document.hidden) { quickCheckBuild(false); quickSyncSheetOnFocus(); } });
 
   // ===== GASクイック: 一覧 =====
+  var _quickShelfCache = null;
+  var _quickSynRules = null;
+  function quickGetSynRules() {
+    if (_quickSynRules) return _quickSynRules;
+    var raw = (typeof COMBO_CATALOG_DATA !== "undefined" && COMBO_CATALOG_DATA.synonyms) || [];
+    var rules = [];
+    for (var i = 0; i < raw.length; i++) {
+      var pair = raw[i];
+      if (!Array.isArray(pair) || pair.length < 2) continue;
+      var a = quickNorm(pair[0]), b = quickNorm(pair[1]);
+      if (a && b && a !== b) rules.push([a, b]);
+    }
+    rules.sort(function(x, y) { return y[0].length - x[0].length; });
+    _quickSynRules = rules;
+    return _quickSynRules;
+  }
+  function quickNormSyn(t) {
+    var s = quickNorm(t);
+    if (!s) return "";
+    var rules = quickGetSynRules();
+    for (var i = 0; i < rules.length; i++) {
+      var a = rules[i][0];
+      if (s.indexOf(a) >= 0) s = s.split(a).join(rules[i][1]);
+    }
+    return s;
+  }
+  function quickAttachNorm(it) {
+    if (!it || it._nw) return it;
+    var seen = {}, list = [];
+    var rawList = [it.label, it.name].concat(it.words || [], it.cat ? [it.cat] : []);
+    for (var i = 0; i < rawList.length; i++) {
+      var r = rawList[i];
+      if (!r) continue;
+      var n = quickNorm(r);
+      if (n && !seen[n]) { seen[n] = 1; list.push(n); }
+      var ns = quickNormSyn(r);
+      if (ns && !seen[ns]) { seen[ns] = 1; list.push(ns); }
+    }
+    it._nw = list;
+    it._nd = it.desc ? quickNormSyn(it.desc) : "";
+    it._nst = (it.steps && it.steps.length) ? quickNormSyn(it.steps.join(" ")) : "";
+    return it;
+  }
+
   function quickShelfItems() {
+    if (_quickShelfCache) return _quickShelfCache;
     var shelves = (typeof COMBO_CATALOG_DATA !== "undefined" && COMBO_CATALOG_DATA.shelves) || [];
-    return shelves.filter(function(sh) { return sh.searchable !== false && sh.kind !== "doc" && sh.name !== "api"; }).map(function(sh) {
+    _quickShelfCache = shelves.filter(function(sh) { return sh.searchable !== false && sh.kind !== "doc" && sh.name !== "api"; }).map(function(sh) {
       var needArgs = (sh.args || []).some(function(a) { return a.req; });
       var ex = (Array.isArray(sh.examples) && sh.examples.length && Array.isArray(sh.examples[0]) && sh.examples[0][0])
         ? String(sh.examples[0][0]) : "";
-      return { src: "shelf", name: sh.name, label: sh.title || sh.name, words: sh.words || [], desc: "", example: ex, needArgs: needArgs };
+      var it = { src: "shelf", name: sh.name, label: sh.title || sh.name, cat: sh.category || "", words: sh.words || [], desc: "", example: ex, needArgs: needArgs };
+      return quickAttachNorm(it);
     });
+    return _quickShelfCache;
+  }
+
+  function quickCatList() {
+    var counts = {}, list = quickShelfItems();
+    for (var i = 0; i < list.length; i++) {
+      var c = list[i].cat || "その他";
+      counts[c] = (counts[c] || 0) + 1;
+    }
+    var order = (typeof COMBO_CATALOG_DATA !== "undefined" && COMBO_CATALOG_DATA.categories) || [];
+    var out = [], seen = {};
+    for (var j = 0; j < order.length; j++) {
+      var oc = order[j];
+      if (counts[oc]) { out.push({ name: oc, count: counts[oc] }); seen[oc] = 1; }
+    }
+    Object.keys(counts).forEach(function(k) { if (!seen[k]) out.push({ name: k, count: counts[k] }); });
+    return out;
+  }
+
+  function renderQuickCatBar() {
+    if (!els.quickCatBar) return;
+    if (state.quick.filter === "recent") {
+      els.quickCatBar.style.display = "";
+      var mode = state.quick.recentSort === "count" ? "count" : "time";
+      var rFrag = document.createDocumentFragment();
+      [["time", "最近順"], ["count", "よく使う順"]].forEach(function(pair) {
+        var rb = document.createElement("button");
+        rb.type = "button";
+        rb.className = "quick-cat-btn" + (mode === pair[0] ? " active" : "");
+        rb.textContent = pair[1];
+        rb.addEventListener("click", function() {
+          state.quick.recentSort = pair[0];
+          state.quick.sel = -1;
+          quickSaveUiState();
+          renderQuickCatBar();
+          renderQuickList();
+        });
+        rFrag.appendChild(rb);
+      });
+      els.quickCatBar.innerHTML = "";
+      els.quickCatBar.appendChild(rFrag);
+      return;
+    }
+    if (state.quick.filter !== "shelf") {
+      els.quickCatBar.style.display = "none";
+      return;
+    }
+    var cats = quickCatList();
+    if (!cats.length) { els.quickCatBar.style.display = "none"; return; }
+    els.quickCatBar.style.display = "";
+    var cur = state.quick.cat || "all";
+    if (cur !== "all" && !cats.some(function(c) { return c.name === cur; })) cur = state.quick.cat = "all";
+    var frag = document.createDocumentFragment();
+    var total = quickShelfItems().length;
+    var mkBtn = function(catKey, labelText) {
+      var b = document.createElement("button");
+      b.type = "button";
+      b.className = "quick-cat-btn" + (cur === catKey ? " active" : "");
+      b.textContent = labelText;
+      b.addEventListener("click", function() {
+        state.quick.cat = catKey;
+        state.quick.sel = -1;
+        quickSaveUiState();
+        renderQuickCatBar();
+        renderQuickList();
+      });
+      return b;
+    };
+    frag.appendChild(mkBtn("all", "すべて " + total));
+    cats.forEach(function(c) { frag.appendChild(mkBtn(c.name, c.name + " " + c.count)); });
+    els.quickCatBar.innerHTML = "";
+    els.quickCatBar.appendChild(frag);
   }
 
   function quickOrdered(list, order) {
@@ -2949,7 +3114,11 @@
       return it.desc ? (it.desc + " — " + st) : st;
     }
     if (it.desc) return it.desc;
-    if (it.src === "shelf") return it.example ? ("棚: " + it.name + "（例: " + it.example + "）") : ("棚: " + it.name);
+    if (it.src === "shelf") {
+      var head = (it.cat ? "[" + it.cat + "] " : "") + "棚: " + it.name;
+      var body = it.example ? (head + " — 例: " + it.example) : head;
+      return it.needArgs ? (body + "（Enter／ダブルクリックで入力欄へ例をセット）") : body;
+    }
     return it.label;
   }
 
@@ -3026,6 +3195,10 @@
 
   document.addEventListener("keydown", function(e) {
     if (e.isComposing || e.keyCode === 229) return;
+    if (els.quickEditModal && els.quickEditModal.style.display !== "none") {
+      if (e.key === "Escape") { e.preventDefault(); closeQuickEditModal(); }
+      return;
+    }
     if (state.activeTab !== "list") return;
     if (e.altKey && state.quick.sel >= 0) {
       if (e.key === "ArrowUp" || e.key === "ArrowDown") {
@@ -3060,34 +3233,40 @@
     return s.toLowerCase().replace(/[\s　]+/g, "");
   }
 
-  function quickScoreToken(item, t) {
+  function quickScoreToken(item, t, ts) {
     if (!t) return 1;
-    var best = 0;
-    [item.label, item.name].concat(item.words || []).forEach(function(w) {
-      var n = quickNorm(w);
-      if (!n) return;
-      if (n === t) best = Math.max(best, 100);
-      else if (n.indexOf(t) >= 0) best = Math.max(best, 60);
-      else if (t.indexOf(n) >= 0 && n.length >= 2) best = Math.max(best, 40 + Math.min(n.length, 20));
-    });
-    if (!best && item.desc && quickNorm(item.desc).indexOf(t) >= 0) best = 30;
-    if (!best && item.steps && item.steps.length && quickNorm(item.steps.join(" ")).indexOf(t) >= 0) best = 25;
+    quickAttachNorm(item);
+    var best = 0, nw = item._nw || [];
+    for (var i = 0; i < nw.length; i++) {
+      var n = nw[i];
+      if (n === t || (ts && n === ts)) best = Math.max(best, 100);
+      else if (n.indexOf(t) >= 0 || (ts && n.indexOf(ts) >= 0)) best = Math.max(best, 60);
+      else if (n.length >= 2 && (t.indexOf(n) >= 0 || (ts && ts.indexOf(n) >= 0))) best = Math.max(best, 40 + Math.min(n.length, 20));
+    }
+    if (!best && item._nd && (item._nd.indexOf(t) >= 0 || (ts && item._nd.indexOf(ts) >= 0))) best = 30;
+    if (!best && item._nst && (item._nst.indexOf(t) >= 0 || (ts && item._nst.indexOf(ts) >= 0))) best = 25;
     return best;
   }
 
   function quickScore(item, txt) {
     if (!txt) return 1;
     var raw = String(txt || "").trim();
-    var tokens = raw.split(/[\s　]+/).map(quickNorm).filter(Boolean);
-    if (!tokens.length) return 1;
-    if (tokens.length === 1) return quickScoreToken(item, tokens[0]);
-    var total = 0;
-    for (var i = 0; i < tokens.length; i++) {
-      var sc = quickScoreToken(item, tokens[i]);
+    var parts = raw.split(/[\s　]+/).filter(Boolean);
+    if (!parts.length) return 1;
+    if (parts.length === 1) {
+      var t0 = quickNorm(parts[0]);
+      return t0 ? quickScoreToken(item, t0, quickNormSyn(parts[0])) : 1;
+    }
+    var total = 0, cnt = 0;
+    for (var i = 0; i < parts.length; i++) {
+      var t = quickNorm(parts[i]);
+      if (!t) continue;
+      var sc = quickScoreToken(item, t, quickNormSyn(parts[i]));
       if (!sc) return 0;
       total += sc;
+      cnt++;
     }
-    return Math.round(total / tokens.length) + 10;
+    return cnt ? (Math.round(total / cnt) + 10) : 1;
   }
 
   function findQuickMacroMatch(txt) {
@@ -3111,14 +3290,31 @@
 
   function quickFiltered() {
     var txt = (els.askInput.value || "").trim();
-    var f = state.quick.filter || "all";
+    var q = state.quick;
+    var f = q.filter || "all";
+    var usage = q.usage || {};
     var all = quickAllItems().filter(function(it) {
       if (f === "all") return true;
       if (f === "pin") return quickIsPinned(it);
+      if (f === "recent") return !!(usage[quickUsageKey(it)] && usage[quickUsageKey(it)].t);
+      if (f === "shelf") {
+        if (it.src !== "shelf") return false;
+        if (q.cat && q.cat !== "all" && (it.cat || "その他") !== q.cat) return false;
+        return true;
+      }
       return it.src === f;
     });
     if (!txt) {
-      if (f === "all" && state.quick.pins && Object.keys(state.quick.pins).length) {
+      if (f === "recent") {
+        var byCount = q.recentSort === "count";
+        return all.slice().sort(function(a, b) {
+          var ua = usage[quickUsageKey(a)] || {}, ub = usage[quickUsageKey(b)] || {};
+          return byCount
+            ? (((ub.c || 0) - (ua.c || 0)) || ((ub.t || 0) - (ua.t || 0)))
+            : (((ub.t || 0) - (ua.t || 0)) || ((ub.c || 0) - (ua.c || 0)));
+        });
+      }
+      if (f === "all" && q.pins && Object.keys(q.pins).length) {
         var pinned = all.filter(quickIsPinned);
         var rest = all.filter(function(it) { return !quickIsPinned(it); });
         return pinned.concat(rest);
@@ -3126,74 +3322,168 @@
       return all;
     }
     var srcRank = { sheet: 2, my: 2, shelf: 1 };
-    return all.map(function(it, i) { return { it: it, s: quickScore(it, txt), p: quickIsPinned(it) ? 1 : 0, i: i }; })
-      .filter(function(x) { return x.s > 0; })
-      .sort(function(a, b) { return (b.s - a.s) || (b.p - a.p) || (srcRank[b.it.src] - srcRank[a.it.src]) || (a.i - b.i); })
+    var byCnt = q.recentSort === "count";
+    return all.map(function(it, i) {
+      var ua = usage[quickUsageKey(it)];
+      return { it: it, s: quickScore(it, txt), p: quickIsPinned(it) ? 1 : 0, t: (ua && ua.t) || 0, c: (ua && ua.c) || 0, i: i };
+    }).filter(function(x) { return x.s > 0; })
+      .sort(function(a, b) {
+        var recCmp = f === "recent" ? (byCnt ? ((b.c - a.c) || (b.t - a.t)) : ((b.t - a.t) || (b.c - a.c))) : 0;
+        return (b.s - a.s) || recCmp || (b.p - a.p) || (srcRank[b.it.src] - srcRank[a.it.src]) || (a.i - b.i);
+      })
       .map(function(x) { return x.it; });
   }
 
   var QUICK_TAG = { sheet: "シート", my: "マイ", shelf: "棚" };
 
+  function quickMakeRow(it, idx, showCatPill) {
+    var row = document.createElement("div");
+    row.className = "hist-item quick-item" + (state.quick.sel === idx ? " selected" : "");
+    var tag = document.createElement("span");
+    tag.className = "quick-tag t-" + it.src;
+    tag.textContent = QUICK_TAG[it.src];
+    row.appendChild(tag);
+    if (showCatPill && it.src === "shelf" && it.cat) {
+      var pill = document.createElement("span");
+      pill.className = "quick-cat-pill";
+      pill.textContent = it.cat;
+      row.appendChild(pill);
+    }
+    if (quickIsPinned(it)) {
+      var pinMk = document.createElement("span");
+      pinMk.className = "quick-pin-mark";
+      pinMk.textContent = "★";
+      pinMk.title = "ピン留め済み";
+      row.appendChild(pinMk);
+    }
+    if (it.steps && it.steps.length) {
+      var bolt = document.createElement("span");
+      bolt.className = "quick-bolt";
+      bolt.textContent = "⚡";
+      bolt.title = "手順つき（直結対応）";
+      row.appendChild(bolt);
+    }
+    var lab = document.createElement("span");
+    lab.className = "quick-label";
+    lab.textContent = it.label;
+    row.appendChild(lab);
+    if (state.quick.filter === "recent") {
+      var uInfo = (state.quick.usage || {})[quickUsageKey(it)];
+      if (uInfo && uInfo.c) {
+        var cntPill = document.createElement("span");
+        cntPill.className = "quick-cnt-pill";
+        cntPill.textContent = uInfo.c + "回";
+        row.appendChild(cntPill);
+      }
+    }
+    if (it.src === "shelf" && it.needArgs) {
+      var amk = document.createElement("span");
+      amk.className = "quick-arg-mark";
+      amk.textContent = "✎";
+      amk.title = "列や言葉などの指定が必要（Enter／ダブルクリックで入力例をセット）";
+      row.appendChild(amk);
+    }
+    // 一覧は 1 行ずつ。説明はマウスを載せたときに下の欄にだけ出す（吹き出しは邪魔になるため出さない）
+    var tip = quickItemTip(it);
+    row.addEventListener("mouseenter", function() { if (!state.quick.importMode) els.quickNote.textContent = tip; });
+    // 1 回押せば選ぶ・2 回押せば撃つ（選んでから「実行」でも撃てる）
+    row.addEventListener("click", function() {
+      if (state.busy) return;
+      state.quick.sel = idx;
+      if (state.quick.importMode) {
+        if (it.src !== "sheet") { els.quickNote.textContent = "写せるのは「シート」の印のマクロだけです"; return; }
+        setQuickImportMode(false);
+        quickImportItem(it);
+        return;
+      }
+      quickMarkSel(idx);
+      els.quickNote.textContent = tip;
+    });
+    row.addEventListener("dblclick", function() {
+      if (state.busy || state.quick.importMode) return;
+      state.quick.sel = idx;
+      quickMarkSel(idx);
+      quickRunItem(it);
+    });
+    if (state.quick.sel === idx) row.appendChild(quickMoveButtons(idx));
+    return row;
+  }
+
   function renderQuickList() {
+    var q = state.quick;
+    var txt = (els.askInput.value || "").trim();
+    var f = q.filter || "all";
     var items = quickFiltered();
-    state.quick.items = items;
-    els.quickList.innerHTML = "";
+    var grouped = (f === "shelf" && !txt && (!q.cat || q.cat === "all"));
+    var visibleItems = [];
+    var frag = document.createDocumentFragment();
     if (!items.length) {
       var empty = document.createElement("div");
       empty.className = "log-empty";
-      empty.textContent = state.quick.loaded ? "当たるマクロがありません（実行で頼みとして撃ちます）" : "読込中…";
-      els.quickList.appendChild(empty);
-    }
-    items.forEach(function(it, idx) {
-      var row = document.createElement("div");
-      row.className = "hist-item quick-item" + (state.quick.sel === idx ? " selected" : "");
-      var tag = document.createElement("span");
-      tag.className = "quick-tag t-" + it.src;
-      tag.textContent = QUICK_TAG[it.src];
-      var lab = document.createElement("span");
-      lab.className = "quick-label";
-      lab.textContent = it.label;
-      row.appendChild(tag);
-      if (quickIsPinned(it)) {
-        var pinMk = document.createElement("span");
-        pinMk.className = "quick-pin-mark";
-        pinMk.textContent = "★";
-        pinMk.title = "ピン留め済み";
-        row.appendChild(pinMk);
-      }
-      if (it.steps && it.steps.length) {
-        var bolt = document.createElement("span");
-        bolt.className = "quick-bolt";
-        bolt.textContent = "⚡";
-        bolt.title = "手順つき（直結対応）";
-        row.appendChild(bolt);
-      }
-      row.appendChild(lab);
-      // 一覧は 1 行ずつ。説明はマウスを載せたときに下の欄にだけ出す（吹き出しは邪魔になるため出さない）
-      var tip = quickItemTip(it);
-      row.addEventListener("mouseenter", function() { if (!state.quick.importMode) els.quickNote.textContent = tip; });
-      // 1 回押せば選ぶ・2 回押せば撃つ（選んでから「実行」でも撃てる）
-      row.addEventListener("click", function() {
-        if (state.busy) return;
-        state.quick.sel = idx;
-        if (state.quick.importMode) {
-          if (it.src !== "sheet") { els.quickNote.textContent = "写せるのは「シート」の印のマクロだけです"; return; }
-          setQuickImportMode(false);
-          quickImportItem(it);
-          return;
+      if (!q.loaded) empty.textContent = "読込中…";
+      else if (f === "recent") empty.textContent = txt ? "該当する最近の実行がありません" : "まだ実行履歴がありません（シート・マイ・棚を実行するとここに並びます）";
+      else empty.textContent = "当たるマクロがありません（実行で頼みとして撃ちます）";
+      frag.appendChild(empty);
+      q.sel = -1;
+      q.items = [];
+    } else if (grouped) {
+      var buckets = {}, catOrder = [];
+      var knownOrder = (typeof COMBO_CATALOG_DATA !== "undefined" && COMBO_CATALOG_DATA.categories) || [];
+      items.forEach(function(it) {
+        var c = it.cat || "その他";
+        if (!buckets[c]) { buckets[c] = []; catOrder.push(c); }
+        buckets[c].push(it);
+      });
+      catOrder.sort(function(a, b) {
+        var ia = knownOrder.indexOf(a), ib = knownOrder.indexOf(b);
+        if (ia < 0) ia = 999;
+        if (ib < 0) ib = 999;
+        return ia - ib;
+      });
+      var collapsedMap = q.collapsedCats || (q.collapsedCats = {});
+      catOrder.forEach(function(catName) {
+        if (!collapsedMap[catName]) {
+          buckets[catName].forEach(function(it) { visibleItems.push(it); });
         }
-        quickMarkSel(idx);
       });
-      row.addEventListener("dblclick", function() {
-        if (state.busy || state.quick.importMode) return;
-        state.quick.sel = idx;
-        quickMarkSel(idx);
-        quickRunItem(it);
+      if (q.sel >= visibleItems.length) q.sel = -1;
+      q.items = visibleItems;
+      var vIdx = 0;
+      catOrder.forEach(function(catName) {
+        var list = buckets[catName];
+        var isCol = !!collapsedMap[catName];
+        var hdr = document.createElement("div");
+        hdr.className = "quick-group-hdr";
+        var left = document.createElement("span");
+        left.textContent = (isCol ? "▶ " : "▼ ") + catName;
+        var right = document.createElement("span");
+        right.textContent = list.length + " 本";
+        hdr.appendChild(left);
+        hdr.appendChild(right);
+        hdr.addEventListener("click", function() {
+          q.collapsedCats[catName] = !isCol;
+          q.sel = -1;
+          quickSaveUiState();
+          renderQuickList();
+        });
+        frag.appendChild(hdr);
+        if (!isCol) {
+          list.forEach(function(it) {
+            frag.appendChild(quickMakeRow(it, vIdx++, false));
+          });
+        }
       });
-      if (state.quick.sel === idx) row.appendChild(quickMoveButtons(idx));
-      els.quickList.appendChild(row);
-    });
-    var q = state.quick;
+    } else {
+      visibleItems = items;
+      if (q.sel >= visibleItems.length) q.sel = -1;
+      q.items = visibleItems;
+      var showPill = f !== "shelf";
+      visibleItems.forEach(function(it, idx) {
+        frag.appendChild(quickMakeRow(it, idx, showPill));
+      });
+    }
+    els.quickList.innerHTML = "";
+    els.quickList.appendChild(frag);
     els.btnQuickImport.disabled = !q.importMode && !(q.sheet || []).length;
     els.btnQuickImport.textContent = q.importMode ? "やめる" : "マイマクロへ";
     els.quickList.style.outline = q.importMode ? "2px solid #16a34a" : "";
@@ -3257,6 +3547,55 @@
   }
 
   var QUICK_LS_KEY = "gasquick_list_v1";
+  var QUICK_CODE_LS_KEY = "gasquick_code_cache_v1";
+  var QUICK_USAGE_LS_KEY = "gasquick_usage_v1";
+  var QUICK_UI_LS_KEY = "gasquick_list_ui_v1";
+  function quickUsageKey(it) { return it ? ((it.src || "") + ":" + (it.name || "")) : ""; }
+  function quickSaveUsage() {
+    try { window.localStorage.setItem(QUICK_USAGE_LS_KEY, JSON.stringify(state.quick.usage || {})); } catch (e) {}
+  }
+  function quickSaveUiState() {
+    try {
+      window.localStorage.setItem(QUICK_UI_LS_KEY, JSON.stringify({
+        cat: state.quick.cat || "all",
+        recentSort: state.quick.recentSort === "count" ? "count" : "time",
+        collapsedCats: state.quick.collapsedCats || {}
+      }));
+    } catch (e) {}
+  }
+  function quickRecordUsage(it) {
+    if (!it || !it.src || !it.name) return;
+    var u = state.quick.usage || (state.quick.usage = {});
+    var k = quickUsageKey(it), prev = u[k] || {};
+    u[k] = { c: (prev.c || 0) + 1, t: Date.now() };
+    var keys = Object.keys(u);
+    if (keys.length > 150) {
+      keys.sort(function(a, b) { return ((u[b] && u[b].t) || 0) - ((u[a] && u[a].t) || 0); });
+      for (var i = 150; i < keys.length; i++) delete u[keys[i]];
+    }
+    quickSaveUsage();
+  }
+  function quickRestoreCodeCache() {
+    try {
+      var raw = window.localStorage.getItem(QUICK_CODE_LS_KEY);
+      if (raw) {
+        var c = JSON.parse(raw);
+        if (c && typeof c === "object" && c.map && typeof c.map === "object") {
+          state.quick.codeCache = { stamp: String(c.stamp || ""), map: c.map };
+        }
+      }
+    } catch (e) {}
+  }
+  function quickSaveCodeCache() {
+    try {
+      var cc = state.quick.codeCache || { stamp: "", map: {} };
+      window.localStorage.setItem(QUICK_CODE_LS_KEY, JSON.stringify({ stamp: cc.stamp || "", map: cc.map || {} }));
+    } catch (e) {}
+  }
+  function quickClearCodeCache() {
+    state.quick.codeCache = { stamp: "", map: {} };
+    try { window.localStorage.removeItem(QUICK_CODE_LS_KEY); } catch (e) {}
+  }
   function quickRestoreList() {
     try {
       var raw = window.localStorage.getItem(QUICK_LS_KEY);
@@ -3268,7 +3607,29 @@
         if (c.pins && typeof c.pins === "object") q.pins = c.pins;
       }
     } catch (e) {}
+    try {
+      var uRaw = window.localStorage.getItem(QUICK_USAGE_LS_KEY);
+      if (uRaw) {
+        var uObj = JSON.parse(uRaw);
+        if (uObj && typeof uObj === "object" && !Array.isArray(uObj)) state.quick.usage = uObj;
+      }
+    } catch (e) {}
+    try {
+      var uiRaw = window.localStorage.getItem(QUICK_UI_LS_KEY);
+      if (uiRaw) {
+        var uiObj = JSON.parse(uiRaw);
+        if (uiObj && typeof uiObj === "object") {
+          if (typeof uiObj.cat === "string" && uiObj.cat) state.quick.cat = uiObj.cat;
+          if (uiObj.recentSort === "count" || uiObj.recentSort === "time") state.quick.recentSort = uiObj.recentSort;
+          if (uiObj.collapsedCats && typeof uiObj.collapsedCats === "object" && !Array.isArray(uiObj.collapsedCats)) {
+            state.quick.collapsedCats = uiObj.collapsedCats;
+          }
+        }
+      }
+    } catch (e) {}
+    quickRestoreCodeCache();
     state.quick.loaded = true;
+    renderQuickCatBar();
     renderQuickList();
   }
 
@@ -3293,10 +3654,20 @@
         shelf: res.order.shelf || []
       };
     }
+    var prevStamp = q.myStamp || "";
     q.my = res.my || [];
     q.myId = res.myId || "";
     q.myUrl = res.myUrl || "";
     q.myStamp = res.myStamp || "";
+    if (q.codeCache && q.codeCache.stamp && q.myStamp && q.codeCache.stamp !== q.myStamp) {
+      quickClearCodeCache();
+    } else if (!q.myId && prevStamp) {
+      quickClearCodeCache();
+    }
+    if (res.myCodes && typeof res.myCodes === "object") {
+      q.codeCache = { stamp: q.myStamp || "", map: res.myCodes };
+      quickSaveCodeCache();
+    }
     if (res.pins && typeof res.pins === "object" && !Array.isArray(res.pins)) {
       var srvPinKeys = Object.keys(res.pins);
       var locPinKeys = Object.keys(q.pins || {});
@@ -3313,23 +3684,26 @@
     if (typeof res.oauthToken === "string" && res.oauthToken) {
       state.oauthToken = res.oauthToken;
       state.oauthTokenAt = Date.now();
+      quickBuildAt = Date.now();
     }
     quickRememberLocal();
     if (res.draft && !els.askInput.value) {
       els.askInput.value = res.draft;
     }
+    if (res.build) quickBuildAt = Date.now();
     if (res.build && QUICK_SIDEBAR_BUILD && res.build !== QUICK_SIDEBAR_BUILD) {
       quickCheckBuild(true);
     }
     els.quickNote.textContent = res.addonNote ? res.addonNote
       : res.myError ? ("マイマクロを読めませんでした: " + res.myError)
       : (q.myId ? "" : "「マイマクロを作る」を押すと、どのシートでも使える自分のマクロ置き場ができます");
+    renderQuickCatBar();
     renderQuickList();
     updatePreview();
   }
 
   function loadQuickList(force) {
-    var isForce = force === true || !!state.quick._fetchedOnce;
+    var isForce = force === true;
     callGas("comboQuickList", isForce ? { force: true } : {}, function(res) {
       state.quick.loaded = true;
       if (res && res.ok) {
@@ -3412,7 +3786,7 @@
         state.liveSelDone = true;
         try { quickRunSteps(it); } finally { state.liveSelDone = false; }
       };
-      callGas("comboPollSelection", { targetId: state.target.id || "", sheet: "" },
+      callGas("comboPollSelection", { targetId: state.target.id || "", sheet: "", prevSheet: state.curSheet || "" },
         function(res) { if (res && res.ok) applyServerState(res); again(); }, again);
       return;
     }
@@ -3444,9 +3818,11 @@
       return;
     }
     if (Array.isArray(it.steps) && it.steps.length) {
+      quickRecordUsage(it);
       quickRunSteps(it);
       return;
     }
+    quickRecordUsage(it);
     state.directUndoStack = [];
     updateUndoBtnState(false);
     runServerAction({
@@ -3489,6 +3865,9 @@
   }
 
   function onRunOps(ops, customLabel, opts) {
+    if (Array.isArray(ops) && ops.length === 1 && ops[0] && ops[0].shelf) {
+      quickRecordUsage({ src: "shelf", name: ops[0].shelf });
+    }
     var label = customLabel || formatOpsShort(ops) || "ops実行";
     var switchChat = !(opts && opts.switchToChat === false);
     var runViaGas = function() {
@@ -3703,9 +4082,11 @@
     }
   });
 
-  els.askInput.addEventListener("input", updatePreview);
-  els.askInput.addEventListener("input", function() { state.quick.sel = -1; renderQuickList(); });
-  els.askInput.addEventListener("keyup", updatePreview);
+  els.askInput.addEventListener("input", function() {
+    updatePreview();
+    state.quick.sel = -1;
+    renderQuickList();
+  });
 
   // ---- ボタン・イベント配線 ----
   els.btnRun.addEventListener("click", runPromptInput);
@@ -3724,6 +4105,7 @@
   els.chkBackup.addEventListener("change", function() {
     var on = !!els.chkBackup.checked;
     state.config.backupDefault = on;
+    saveConfigLocal();
     if (hasGasBridge()) {
       callGas("comboSaveConfig", { backupDefault: on }, function() {}, function() {});
     }
@@ -3737,6 +4119,7 @@
     els.settingsDefaultTab.addEventListener("change", function() {
       var tabVal = (els.settingsDefaultTab.value === "list") ? "list" : "auto";
       state.config.defaultTab = tabVal;
+      saveConfigLocal();
       if (hasGasBridge()) {
         callGas("comboSaveConfig", { defaultTab: tabVal }, function() {}, function() {});
       }
@@ -3895,7 +4278,12 @@
         state.checkedHist = {};
         renderHistory();
         els.quickNote.textContent = (res && res.text) || "手順マクロを保存しました";
-        loadQuickList(true);
+        if (res && res.myStamp) {
+          state.quick.myStamp = res.myStamp;
+          quickRememberLocal();
+        }
+        quickClearCodeCache();
+        loadQuickList(false);
         switchTab("list");
       }
     });
@@ -3949,8 +4337,9 @@
     if (it) { quickRunItem(it); return; }
     if (!quickRunFromInput() && (els.askInput.value || "").trim()) onRunAsk();
   });
-  els.btnQuickReload.addEventListener("click", function() { loadQuickList(); });
+  els.btnQuickReload.addEventListener("click", function() { quickClearCodeCache(); loadQuickList(true); });
   var quickEditState = { mode: "edit", name: "", myUrl: "", delArmed: false };
+  var quickEditReqSeq = 0;
   function resetQuickDeleteBtn() {
     quickEditState.delArmed = false;
     if (els.btnQuickEditDelete) {
@@ -3960,6 +4349,7 @@
     }
   }
   function closeQuickEditModal() {
+    quickEditReqSeq++;
     if (els.quickEditModal) els.quickEditModal.style.display = "none";
     quickEditState = { mode: "edit", name: "", myUrl: "", delArmed: false };
     resetQuickDeleteBtn();
@@ -3999,14 +4389,20 @@
       }
       if (els.quickEditStatus) els.quickEditStatus.textContent = "削除しています…";
       runServerAction({
-        fnName: "comboQuickDeleteFn", payload: { name: nm },
+        fnName: "comboQuickDeleteFn", payload: { name: nm, myId: state.quick.myId || "" },
         label: "マイマクロを削除", statusText: "削除しています…", switchToChat: false,
         onSuccess: function(res) {
           closeQuickEditModal();
           els.quickNote.textContent = (res && res.text) || ("「" + nm + "」を削除しました");
-          state.quick.myStamp = "";
+          var newStamp = (res && res.myStamp) || "";
+          state.quick.myStamp = newStamp;
+          if (state.quick.codeCache && state.quick.codeCache.map) {
+            delete state.quick.codeCache.map[nm];
+            state.quick.codeCache.stamp = newStamp;
+            quickSaveCodeCache();
+          }
           quickRememberLocal();
-          loadQuickList(true);
+          loadQuickList(false);
         },
         onError: function(err) {
           resetQuickDeleteBtn();
@@ -4017,15 +4413,18 @@
   }
   if (els.btnQuickAdd) {
     els.btnQuickAdd.addEventListener("click", function() {
+      quickEditReqSeq++;
       quickEditState = { mode: "add", name: "", myUrl: state.quick.myUrl || "", delArmed: false };
       resetQuickDeleteBtn();
       if (els.quickEditTitle) els.quickEditTitle.textContent = "新規マイマクロを追加";
       if (els.quickEditPromptRow) els.quickEditPromptRow.style.display = "";
       if (els.btnQuickEditDelete) els.btnQuickEditDelete.style.display = "none";
       if (els.quickEditCode) {
+        els.quickEditCode.disabled = false;
         els.quickEditCode.value = "";
         els.quickEditCode.placeholder = "// 説明\nfunction 自分のマクロ名() {\n  // ここに処理を書く\n}";
       }
+      if (els.btnQuickEditSave) els.btnQuickEditSave.disabled = false;
       if (els.quickEditStatus) els.quickEditStatus.textContent = "Gemini 等で作った GAS の関数を「貼り付け」→「保存」してください";
       if (els.quickEditModal) els.quickEditModal.style.display = "flex";
       if (els.quickEditCode) els.quickEditCode.focus();
@@ -4059,6 +4458,7 @@
             return;
           }
           if (els.quickEditCode) els.quickEditCode.value = stripCodeFence(txt);
+          resetQuickDeleteBtn();
           if (els.quickEditStatus) els.quickEditStatus.textContent = "貼り付けました。確認して「保存」を押してください";
         }).catch(function() {
           if (els.quickEditCode) { els.quickEditCode.focus(); els.quickEditCode.select(); }
@@ -4069,6 +4469,9 @@
         if (els.quickEditStatus) els.quickEditStatus.textContent = "全選択しました。そのまま Ctrl+V で貼り付けてください";
       }
     });
+  }
+  if (els.quickEditCode) {
+    els.quickEditCode.addEventListener("input", function() { if (quickEditState.delArmed) resetQuickDeleteBtn(); });
   }
   if (els.btnQuickEditSave) {
     els.btnQuickEditSave.addEventListener("click", function() {
@@ -4084,10 +4487,18 @@
             if (res && res.myId) { state.quick.myId = res.myId; state.quick.myUrl = res.myUrl || ""; }
             closeQuickEditModal();
             els.quickNote.textContent = (res && res.text) || "マイマクロに追加しました";
-            state.quick.myStamp = "";
+            var newStamp = (res && res.myStamp) || "";
+            state.quick.myStamp = newStamp;
+            if (res && Array.isArray(res.names) && res.names.length === 1 && state.quick.codeCache) {
+              state.quick.codeCache.map[res.names[0]] = String(code || "").replace(/\r\n/g, "\n").replace(/\s*$/, "");
+              state.quick.codeCache.stamp = newStamp;
+              quickSaveCodeCache();
+            } else {
+              quickClearCodeCache();
+            }
             quickRememberLocal();
             updateSettingsMyMacroUI();
-            loadQuickList(true);
+            loadQuickList(false);
           },
           onError: function(err) {
             if (els.quickEditStatus) els.quickEditStatus.textContent = "エラー: " + String(err && err.message || err || "");
@@ -4098,14 +4509,22 @@
       if (!nm) return;
       if (els.quickEditStatus) els.quickEditStatus.textContent = "保存しています…";
       runServerAction({
-        fnName: "comboQuickSaveFn", payload: { name: nm, code: code },
+        fnName: "comboQuickSaveFn", payload: { name: nm, code: code, myId: state.quick.myId || "" },
         label: "マイマクロを保存", statusText: "保存しています…", switchToChat: false,
         onSuccess: function(res) {
           closeQuickEditModal();
-          els.quickNote.textContent = (res && res.text) || ("「" + nm + "」を保存しました");
-          state.quick.myStamp = "";
+          var savedName = (res && res.newName) || nm;
+          els.quickNote.textContent = (res && res.text) || ("「" + savedName + "」を保存しました");
+          var newStamp = (res && res.myStamp) || "";
+          state.quick.myStamp = newStamp;
+          if (state.quick.codeCache && state.quick.codeCache.map) {
+            if (savedName !== nm) delete state.quick.codeCache.map[nm];
+            state.quick.codeCache.map[savedName] = String(code || "").replace(/\r\n/g, "\n").replace(/\s*$/, "");
+            state.quick.codeCache.stamp = newStamp;
+            quickSaveCodeCache();
+          }
           quickRememberLocal();
-          loadQuickList(true);
+          loadQuickList(false);
         },
         onError: function(err) {
           if (els.quickEditStatus) els.quickEditStatus.textContent = "エラー: " + String(err && err.message || err || "");
@@ -4121,9 +4540,10 @@
         fnName: "comboQuickMake", payload: {}, label: "マイマクロを作る", statusText: "マイマクロを作っています…", switchToChat: false,
         onSuccess: function(res) {
           q.myId = res.myId || ""; q.myUrl = res.myUrl || "";
+          if (res.myStamp) { q.myStamp = res.myStamp; quickRememberLocal(); }
           els.quickNote.textContent = (res.text || "") + "。「編集」で開いて、エディタの Gemini に作ってもらえます";
           updateSettingsMyMacroUI();
-          loadQuickList();
+          loadQuickList(false);
         }
       });
       return;
@@ -4136,21 +4556,57 @@
       els.quickNote.textContent = "シートのマクロは メニューの「拡張機能 → Apps Script」で開いて直してください";
       return;
     }
-    // 「マイ」選択時：その関数だけを抜き出してピンポイント編集窓を開く
-    runServerAction({
-      fnName: "comboQuickGetFn", payload: { name: it.name },
-      label: "コード読込: " + it.name, statusText: "コードを読み込んでいます…", switchToChat: false,
-      onSuccess: function(res) {
-        quickEditState = { mode: "edit", name: it.name, myUrl: (res && res.myUrl) || q.myUrl || "", delArmed: false };
-        resetQuickDeleteBtn();
-        if (els.quickEditPromptRow) els.quickEditPromptRow.style.display = "none";
-        if (els.btnQuickEditDelete) els.btnQuickEditDelete.style.display = "";
-        if (els.quickEditTitle) els.quickEditTitle.textContent = "編集: " + it.name;
-        if (els.quickEditCode) els.quickEditCode.value = (res && res.code) || "";
-        if (els.quickEditStatus) els.quickEditStatus.textContent = "書き換えて「保存」を押すと、この関数だけ更新されます";
-        if (els.quickEditModal) els.quickEditModal.style.display = "flex";
-        if (els.quickEditCode) els.quickEditCode.focus();
+    // 「マイ」選択時：キャッシュがあれば即座に開き、無ければモーダルを先出しして一括取得・キャッシュ
+    var cc = q.codeCache || { stamp: "", map: {} };
+    var cacheOk = !!(cc.map && typeof cc.map[it.name] === "string" && (!q.myStamp || !cc.stamp || cc.stamp === q.myStamp));
+    quickEditReqSeq++;
+    quickEditState = { mode: "edit", name: it.name, myUrl: q.myUrl || "", delArmed: false };
+    resetQuickDeleteBtn();
+    if (els.quickEditPromptRow) els.quickEditPromptRow.style.display = "none";
+    if (els.btnQuickEditDelete) els.btnQuickEditDelete.style.display = "";
+    if (els.quickEditTitle) els.quickEditTitle.textContent = "編集: " + it.name;
+    if (cacheOk) {
+      if (els.quickEditCode) { els.quickEditCode.disabled = false; els.quickEditCode.value = cc.map[it.name]; }
+      if (els.btnQuickEditSave) els.btnQuickEditSave.disabled = false;
+      if (els.quickEditStatus) els.quickEditStatus.textContent = "書き換えて「保存」を押すと、この関数だけ更新されます";
+      if (els.quickEditModal) els.quickEditModal.style.display = "flex";
+      if (els.quickEditCode) els.quickEditCode.focus();
+      return;
+    }
+    if (els.quickEditCode) { els.quickEditCode.value = ""; els.quickEditCode.disabled = true; }
+    if (els.btnQuickEditSave) els.btnQuickEditSave.disabled = true;
+    if (els.quickEditStatus) els.quickEditStatus.textContent = "コードを読み込んでいます…";
+    if (els.quickEditModal) els.quickEditModal.style.display = "flex";
+    var reqSeq = quickEditReqSeq;
+    callGas("comboQuickGetFn", { name: it.name, myId: q.myId || "", myStamp: q.myStamp || "", includeAll: true }, function(res) {
+      if (reqSeq !== quickEditReqSeq) return;
+      if (!res || res.ok === false) {
+        if (els.quickEditCode) els.quickEditCode.disabled = false;
+        if (els.btnQuickEditSave) els.btnQuickEditSave.disabled = false;
+        if (els.quickEditStatus) els.quickEditStatus.textContent = "読込エラー: " + String((res && (res.error || res.text)) || "読み込めませんでした");
+        return;
       }
+      var st = (res && res.myStamp) || q.myStamp || "";
+      if (res && res.myStamp) { q.myStamp = res.myStamp; quickRememberLocal(); }
+      if (res && res.codes && typeof res.codes === "object") {
+        q.codeCache = { stamp: st, map: res.codes };
+        quickSaveCodeCache();
+      } else if (res && typeof res.code === "string") {
+        if (!q.codeCache || (st && q.codeCache.stamp !== st)) q.codeCache = { stamp: st, map: {} };
+        q.codeCache.map[it.name] = res.code;
+        quickSaveCodeCache();
+      }
+      if (quickEditState.mode !== "edit" || quickEditState.name !== it.name) return;
+      quickEditState.myUrl = (res && res.myUrl) || q.myUrl || "";
+      if (els.quickEditCode) { els.quickEditCode.disabled = false; els.quickEditCode.value = (res && res.code) || ""; }
+      if (els.btnQuickEditSave) els.btnQuickEditSave.disabled = false;
+      if (els.quickEditStatus) els.quickEditStatus.textContent = "書き換えて「保存」を押すと、この関数だけ更新されます";
+      if (els.quickEditCode) els.quickEditCode.focus();
+    }, function(err) {
+      if (reqSeq !== quickEditReqSeq) return;
+      if (els.quickEditCode) els.quickEditCode.disabled = false;
+      if (els.btnQuickEditSave) els.btnQuickEditSave.disabled = false;
+      if (els.quickEditStatus) els.quickEditStatus.textContent = "読込エラー: " + formatError(err);
     });
   });
   if (els.btnSettingsMyMacro) {
@@ -4159,6 +4615,7 @@
       if (q.myUrl) {
         q.myStamp = "";
         quickRememberLocal();
+        quickClearCodeCache();
         window.open(q.myUrl, "_blank");
         return;
       }
@@ -4166,11 +4623,12 @@
         fnName: "comboQuickMake", payload: {}, label: "マイマクロを作る", statusText: "マイマクロを作っています…", switchToChat: false,
         onSuccess: function(res) {
           q.myId = res.myId || ""; q.myUrl = res.myUrl || "";
+          if (res.myStamp) { q.myStamp = res.myStamp; quickRememberLocal(); }
           if (els.settingsMyStatus) {
             els.settingsMyStatus.textContent = (res.text || "作成しました") + "。もう一度押すと開けます";
           }
           updateSettingsMyMacroUI();
-          loadQuickList();
+          loadQuickList(false);
         }
       });
     });
@@ -4213,9 +4671,9 @@
         libraries: [
           {
             userSymbol: "shuquickengine",
-            version: "1",
+            version: "0",
             libraryId: String(engineId || ""),
-            developmentMode: false
+            developmentMode: true
           }
         ],
         enabledAdvancedServices: [
@@ -4292,7 +4750,12 @@
   function quickImportItem(it) {
     runServerAction({
       fnName: "comboQuickImport", payload: { name: it.name }, label: "マイマクロへ " + it.name, statusText: "マイマクロへ写しています…", switchToChat: false,
-      onSuccess: function(res) { els.quickNote.textContent = res.text || "写しました"; loadQuickList(); }
+      onSuccess: function(res) {
+        els.quickNote.textContent = res.text || "写しました";
+        if (res && res.myStamp) { state.quick.myStamp = res.myStamp; quickRememberLocal(); }
+        quickClearCodeCache();
+        loadQuickList(false);
+      }
     });
   }
   els.btnReload.addEventListener("click", function() { onInit(true, true); });
@@ -4307,6 +4770,7 @@
         for (var j = 0; j < qfBtns.length; j++) {
           qfBtns[j].classList.toggle("active", qfBtns[j].getAttribute("data-qfilter") === f);
         }
+        renderQuickCatBar();
         renderQuickList();
       });
     }
@@ -4315,14 +4779,17 @@
   // ---- 初期起動 ----
   loadHistoryLocal();
   renderHistory();
+  restoreConfigLocal();
   if (els.settingsBuildLabel) {
     els.settingsBuildLabel.textContent = "版: " + (QUICK_SIDEBAR_BUILD || "ローカル");
   }
   if (hasGasBridge()) {
     quickRestoreList();
+    var initCc = state.quick.codeCache;
+    var initClientStamp = (initCc && initCc.stamp && Object.keys(initCc.map || {}).length) ? initCc.stamp : "";
     runServerAction({
       fnName: "comboInit",
-      payload: { targetId: "", sheet: "", assumeActive: true, includeQuick: true },
+      payload: { targetId: "", sheet: "", assumeActive: true, includeQuick: true, wantCodes: true, clientStamp: initClientStamp },
       label: "初期化 / 再読込",
       statusText: "読込中…",
       switchToChat: false,

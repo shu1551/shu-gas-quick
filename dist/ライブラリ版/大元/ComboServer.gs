@@ -1,5 +1,5 @@
 var DEFAULT_TARGET_SS_ID = '';
-var COMBO_MINI_SHELVES = [{"name":"api","t":"棚に無い設定を API で撃つ","a":"requests*=配列, why=文字"},{"name":"tidy","t":"表の見た目を整える","a":"range=範囲"},{"name":"seiri","t":"表のデータを整理する","a":"trim=真偽, halfwidth=真偽, numbers=真偽, blank_rows=真偽, dedupe=真偽, renumber=列, tidy=真偽"},{"name":"renumber","t":"表の番号の列を振り直す","a":"col*=列, start=数"},{"name":"sort","t":"表を並べ替える","a":"col=列, cols=配列, desc=真偽, filter=真偽, where=対応"},{"name":"filter.where","t":"条件に合う行だけ表示","a":"col*=列, equals=文字, when=選択(eq/ne/contains/gt/ge/lt/le/blank/notblank), value=文字"},{"name":"filter.on","t":"フィルタを付ける","a":"range=範囲"},{"name":"dedupe","t":"重複した行を消す","a":"cols=列[]"},{"name":"split.col","t":"文字を列に分ける","a":"col*=列, by=選択(comma/space/tab/slash/hyphen/custom)=comma, sep=文字, insert=真偽"},{"name":"filter.off","t":"フィルタを外す","a":"なし"},{"name":"filter.delete","t":"条件に合う行を一括削除する","a":"col*=列, equals=文字, when=選択(eq/ne/gt/ge/lt/le/contains/blank/notblank), value=文字"},{"name":"filter.extract","t":"条件に合う行を別シートへ抽出する","a":"col*=列, equals=文字, when=選択(eq/ne/gt/ge/lt/le/contains/blank/notblank), value=文字, into=文字=抽出"},{"name":"audit.check","t":"表のエラー・重複・空欄を診断する","a":"key_col=列"},{"name":"top.n","t":"上位N件・下位N件を抽出する","a":"col*=列, count=数=5, bottom=真偽=false, into=文字=上位抽出"},{"name":"calc.col","t":"計算の列を足す","a":"name*=文字, expr*=文字, at=列"},{"name":"calc.percent","t":"構成比の列を足す","a":"col*=列, name=文字, at=列"},{"name":"stat.row","t":"平均・最大・最小の行を表の下に足す","a":"stat=選択(average/max/min)=average, cols=列[], label=文字"},{"name":"lookup.add","t":"別の表から列を引いて足す","a":"from_sheet*=文字, val_col*=列, key_col=列, my_key=列, name=文字, at=列"},{"name":"calc.diff","t":"差や増減率の列を足す","a":"col_a*=列, col_b*=列, rate=真偽, name=文字, at=列"},{"name":"calc.running","t":"累計の列を足す","a":"col*=列, name=文字, at=列"},{"name":"calc.rank","t":"順位の列を足す","a":"col*=列, desc=真偽, name=文字, at=列"},{"name":"count.if","t":"条件に合う数を数える・合計する式を入れる","a":"range*=範囲, criteria*=文字, sum_range=範囲, into=範囲"},{"name":"subtotal","t":"区分ごとに小計の行を入れる","a":"key_col*=列, sum_cols=列[]"},{"name":"formula.guard","t":"エラー表示を消す（IFERRORで包む）","a":"col=列, range=範囲, fallback=文字"},{"name":"formula.tovalue","t":"計算式を確定した値に変える","a":"col=列, range=範囲"},{"name":"round","t":"数値を四捨五入・切り捨て・切り上げする","a":"col=列, range=範囲, mode=選択(round/floor/ceil)=round, digits=数=0"},{"name":"date.parts","t":"日付から年・月・曜日・年度の列を足す","a":"col*=列, part*=選択(year/month/day/weekday/quarter), name=文字, at=列"},{"name":"text.join","t":"複数の列をつないで新しい列を作る","a":"cols*=列[], sep=文字, name=文字, at=列"},{"name":"text.case","t":"文字列の大文字・小文字・全角・半角をそろえる","a":"col=列, range=範囲, mode*=選択(upper/lower/proper/asc/jis)=upper"},{"name":"text.affix","t":"文字の先頭・末尾に文字を付ける","a":"col=列, range=範囲, prefix=文字, suffix=文字, remove=真偽=false"},{"name":"validation.list","t":"プルダウンを付ける","a":"range*=範囲, items=配列, from=範囲, strict=真偽=true"},{"name":"validation.number","t":"数だけ入るようにする","a":"range*=範囲, min=数, max=数"},{"name":"validation.date","t":"日付だけ入るようにする","a":"range*=範囲"},{"name":"checkbox","t":"チェックボックスを付ける","a":"range*=範囲"},{"name":"validation.clear","t":"入力規則を外す","a":"range*=範囲"},{"name":"protect.sheet","t":"シートを保護する","a":"name=シート, except=範囲, warn=真偽"},{"name":"protect.range","t":"範囲を保護する","a":"range*=範囲, warn=真偽"},{"name":"protect.remove","t":"保護を外す","a":"range=範囲"},{"name":"name.add","t":"名前付き範囲を作る","a":"name*=文字, range*=範囲"},{"name":"name.delete","t":"名前付き範囲を消す","a":"name*=文字"},{"name":"name.list","t":"名前付き範囲を一覧にする","a":"なし"},{"name":"backup","t":"バックアップのオン・オフを切り替える","a":"on*=真偽"},{"name":"folder","t":"フォルダの作成・移動・保存先を設定する","a":"to*=文字, mode=選択(move/default/create)=move, create=真偽=false"},{"name":"drive.list","t":"ドライブ内のファイル・フォルダ一覧を見る","a":"folder=文字=マイドライブ, query=文字, kind=選択(all/folder/file/sheet/doc)=all, limit=数=30"},{"name":"drive.rename","t":"ファイルやフォルダの名前を変える","a":"name*=文字, item=文字"},{"name":"drive.move","t":"ファイルやフォルダを別のフォルダへ移動する","a":"to*=文字, item=文字, create=真偽=false"},{"name":"drive.trash","t":"不要なファイルやフォルダをゴミ箱に入れる","a":"item=文字"},{"name":"print.setup","t":"シートの印刷設定を保存する","a":"paper=選択(a4/a3/b4/b5/letter)=a4, landscape=真偽=true, fit_width=真偽=true, gridlines=真偽=false, margins=選択(narrow/normal/wide)=narrow"},{"name":"export.pdf","t":"シートをPDFにして保存する","a":"name=文字, folder=文字, paper=選択(a4/a3/b4/b5/letter), landscape=真偽, fit_width=真偽, gridlines=真偽, all_sheets=真偽=false"},{"name":"export.csv","t":"シートをCSVでDriveに保存する","a":"name=文字, folder=文字, bom=真偽=true"},{"name":"drive.share","t":"ファイルやフォルダを共有・リンク取得する","a":"item=文字, email=文字, role=選択(viewer/editor/commenter)=viewer, anyone=真偽=false"},{"name":"protect.list","t":"保護中のシートと範囲を一覧にする","a":"なし"},{"name":"format","t":"範囲の書式を変える","a":"range=範囲, col=列, header=真偽, title=真偽, bold=真偽, italic=真偽, color=色, bg=色, size=数, font=文字, number_format=文字, align=文字, valign=文字, wrap=真偽, borders=文字, merge=真偽"},{"name":"bg.clear","t":"背景色を消す（塗りつぶしなしに戻す）","a":"range=範囲, col=列, header=真偽, title=真偽"},{"name":"width","t":"列の幅・行の高さを変える","a":"cols=対応, col=列, width=数, rows=対応, auto=列[], all_sheets=真偽=false, auto_rows=真偽=false"},{"name":"cf.add","t":"条件付き書式を付ける","a":"range*=範囲, when*=選択(gt/ge/lt/le/eq/ne/contains/blank/notblank/formula), value=文字, bg=色, color=色, bold=真偽"},{"name":"cf.dup","t":"重複に色を付ける","a":"range*=範囲, bg=色"},{"name":"cf.scale","t":"カラースケールを付ける","a":"range*=範囲, low=色, high=色"},{"name":"cf.clear","t":"条件付き書式を外す","a":"range=範囲"},{"name":"cf.list","t":"条件付き書式を一覧にする","a":"なし"},{"name":"banding.add","t":"交互の色を付ける","a":"range=範囲, theme=選択(gray/blue/green/orange)=gray"},{"name":"banding.remove","t":"交互の色を外す","a":"range=範囲"},{"name":"sheet.gridlines","t":"枠線（グリッド線）を表示・非表示","a":"show=真偽, all_sheets=真偽=false"},{"name":"table.new","t":"表を新しく作る","a":"headers*=配列, title=文字, rows=表, number=列, total=列[], label=文字, tidy=真偽"},{"name":"total","t":"表の下に合計行を足す","a":"cols=列[], label=文字"},{"name":"summary","t":"項目ごとの集計表を作る","a":"by*=列, values*=列[], func=選択(sum/count/avg)=sum, into=文字"},{"name":"pivot.new","t":"ピボットテーブルを作る","a":"rows*=列[], values*=列[], cols=列[], func=選択(sum/count/avg)=sum, into=文字"},{"name":"chart.new","t":"グラフを作る・直す","a":"range=範囲, type=選択(column/bar/line/pie/area/scatter)=column, title=文字, at=範囲, target=文字, edit=真偽"},{"name":"chart.delete","t":"グラフを消す","a":"title=文字"},{"name":"write","t":"セルに値・式を書く","a":"cells=対応, range=範囲, tsv=文字"},{"name":"replace","t":"文字を探して置き換える","a":"find*=文字, with=文字, range=範囲, match_case=真偽, whole=真偽, all_sheets=真偽=false"},{"name":"find","t":"値を探して番地を返す","a":"text*=文字, range=範囲, whole=真偽, all_sheets=真偽"},{"name":"clear.values","t":"範囲の値を消す（書式は残す）","a":"range=範囲, only=選択(all/constants)=all"},{"name":"clear.format","t":"範囲の書式を消す（値は残す）","a":"range*=範囲"},{"name":"clear.all","t":"範囲の値と書式を消す","a":"range*=範囲"},{"name":"copy","t":"範囲を写す","a":"from*=範囲, to*=範囲"},{"name":"copy.values","t":"値だけ貼り付ける・式を値にする","a":"from*=範囲, to=範囲"},{"name":"copy.format","t":"書式だけ貼り付ける","a":"from*=範囲, to*=範囲"},{"name":"fill.series","t":"範囲に連番を埋める","a":"range*=範囲, start=数=1, step=数=1"},{"name":"date.fix","t":"文字で入った日付を本物の日付に直す","a":"col=列, range=範囲"},{"name":"fill.date","t":"日付を下へ埋める","a":"range*=範囲, start=文字, unit=選択(day/week/month/weekday)=day"},{"name":"fill.down","t":"上のセルを下へ写す","a":"range*=範囲"},{"name":"note.set","t":"セルにメモを付ける","a":"range*=範囲, text*=文字"},{"name":"note.clear","t":"セルのメモを消す","a":"range=範囲"},{"name":"link.set","t":"セルや列にリンクを付ける","a":"range=範囲, url=文字, text=文字, col=列, url_col=列"},{"name":"merge.unmerge","t":"結合セルを解除して値を埋める","a":"range=範囲"},{"name":"fill.blank","t":"空白セルを上の値で穴埋めする","a":"range=範囲, col=列"},{"name":"transpose","t":"行と列を入れ替える（転置）","a":"range=範囲, to=範囲, into=文字"},{"name":"number.fix","t":"文字の数字を本物の数値に直す","a":"col=列, range=範囲"},{"name":"link.clear","t":"セルのハイパーリンクを外す","a":"range=範囲, col=列"},{"name":"link.extract","t":"埋め込みリンクのURLを隣列へ抽出","a":"col*=列, name=文字=URL"},{"name":"note.list","t":"セルのメモ一覧を別シートに出す","a":"all_sheets=真偽=false, into=文字=メモ一覧"},{"name":"rows","t":"行・列の挿入・削除・移動","a":"action=選択(insert/delete/move)=delete, rows=行[], cols=列[], at=文字, count=数, from=文字, to=文字"},{"name":"rows.insert","t":"行を挿入する","a":"at*=文字, count=数"},{"name":"rows.delete","t":"行を削除する","a":"rows*=行[]"},{"name":"rows.move","t":"行を移動する","a":"from*=文字, to*=文字, count=数"},{"name":"cols.insert","t":"列を挿入する","a":"at*=列, count=数"},{"name":"cols.delete","t":"列を削除する","a":"cols*=列[]"},{"name":"cols.move","t":"列を移動する","a":"from*=列, to*=列"},{"name":"freeze","t":"見出しを固定する","a":"rows=数=1, cols=数=0"},{"name":"unfreeze","t":"固定を外す","a":"なし"},{"name":"rows.hide","t":"行を隠す","a":"rows*=行[]"},{"name":"rows.show","t":"隠した行を出す","a":"rows=行[]"},{"name":"cols.hide","t":"列を隠す","a":"cols*=列[]"},{"name":"cols.show","t":"隠した列を出す","a":"cols=列[]"},{"name":"group.rows","t":"行をグループ化する","a":"rows*=行[], collapse=真偽"},{"name":"group.cols","t":"列をグループ化する","a":"cols*=列[], collapse=真偽"},{"name":"group.remove","t":"グループ化を外す","a":"rows=行[], cols=列[]"},{"name":"sheet.add","t":"シートを追加する","a":"name=シート, before=シート, rename=対応, move=対応"},{"name":"sheet.rename","t":"シートの名前を変える","a":"name*=シート, to*=文字"},{"name":"sheet.move","t":"シートの並び順を変える","a":"name*=シート, index*=数"},{"name":"sheet.delete","t":"シートを消す","a":"name*=シート"},{"name":"sheet.copy","t":"シートを複製する","a":"name*=シート, as=文字, before=シート"},{"name":"sheet.hide","t":"シートを隠す","a":"name*=シート"},{"name":"sheet.show","t":"隠したシートを出す","a":"name=シート"},{"name":"sheet.color","t":"タブの色を変える","a":"name=シート, color*=色"},{"name":"sheet.merge","t":"複数シートの表を1つのシートに縦結合する","a":"sheets=配列, into=文字=統合, skip_header=真偽=true"},{"name":"sheet.split","t":"列の値ごとにシートを自動分割する","a":"col*=列, prefix=文字"},{"name":"sheet.diff","t":"2つのシートの差分を比較する","a":"from*=シート, to*=シート, into=文字=差分"},{"name":"sheet.toc","t":"全シートの目次シートを作る","a":"into=文字=目次"},{"name":"book.finish","t":"全シートをA1に揃え提出前仕上げ","a":"gridlines=真偽"},{"name":"sheet.sort","t":"シートを名前順に並べ替える","a":"desc=真偽=false"},{"name":"sheet.snapshot","t":"日付つきでシートの控えを複製保存","a":"name=シート, suffix=文字"}];
+var COMBO_MINI_SHELVES = [{"name":"api","t":"棚に無い設定を API で撃つ","a":"requests*=配列, why=文字"},{"name":"tidy","t":"表の見た目を整える","a":"range=範囲"},{"name":"seiri","t":"表のデータを整理する","a":"trim=真偽, halfwidth=真偽, numbers=真偽, dates=真偽, blank_rows=真偽, dedupe=真偽, renumber=列, tidy=真偽"},{"name":"renumber","t":"表の番号の列を振り直す","a":"col*=列, start=数"},{"name":"sort","t":"表を並べ替える","a":"col=列, cols=配列, desc=真偽, filter=真偽, where=対応"},{"name":"filter.where","t":"条件に合う行だけ表示","a":"col*=列, equals=文字, when=選択(eq/ne/contains/gt/ge/lt/le/blank/notblank), value=文字"},{"name":"filter.on","t":"フィルタを付ける","a":"range=範囲"},{"name":"dedupe","t":"重複した行を消す","a":"cols=列[]"},{"name":"split.col","t":"文字を列に分ける","a":"col*=列, by=選択(comma/space/tab/slash/hyphen/custom)=comma, sep=文字, insert=真偽"},{"name":"filter.off","t":"フィルタを外す","a":"なし"},{"name":"filter.delete","t":"条件に合う行を一括削除する","a":"col*=列, equals=文字, when=選択(eq/ne/gt/ge/lt/le/contains/blank/notblank), value=文字"},{"name":"filter.extract","t":"条件に合う行を別シートへ抽出する","a":"col*=列, equals=文字, when=選択(eq/ne/gt/ge/lt/le/contains/blank/notblank), value=文字, into=文字=抽出"},{"name":"audit.check","t":"表のエラー・重複・空欄を診断する","a":"key_col=列"},{"name":"top.n","t":"上位N件・下位N件を抽出する","a":"col*=列, count=数=5, bottom=真偽=false, into=文字=上位抽出"},{"name":"rows.trim","t":"余分な空行・空列を削ってシートを軽くする","a":"keep_rows=数=5, keep_cols=数=2"},{"name":"blank.rows.delete","t":"表の途中の空行を一括削除する","a":"なし"},{"name":"text.clean","t":"セル内の改行・連続空白・不可視文字を掃除する","a":"col=列, range=範囲, newline=文字"},{"name":"zero.pad","t":"コードや番号の先頭を0埋めして桁をそろえる","a":"col=列, range=範囲, digits*=数=5"},{"name":"rows.sample","t":"ランダムにN件を別シートへ抽出する","a":"count*=数=10, into=文字=抽出サンプル"},{"name":"split.rows","t":"セル内の複数値を縦の行へ展開する","a":"col*=列, sep=文字"},{"name":"calc.col","t":"計算の列を足す","a":"name*=文字, expr*=文字, at=列"},{"name":"calc.percent","t":"構成比の列を足す","a":"col*=列, name=文字, at=列"},{"name":"stat.row","t":"平均・最大・最小の行を表の下に足す","a":"stat=選択(average/max/min)=average, cols=列[], label=文字"},{"name":"lookup.add","t":"別の表から列を引いて足す","a":"from_sheet*=文字, val_col*=列, key_col=列, my_key=列, name=文字, at=列"},{"name":"calc.diff","t":"差や増減率の列を足す","a":"col_a*=列, col_b*=列, rate=真偽, name=文字, at=列"},{"name":"calc.running","t":"累計の列を足す","a":"col*=列, name=文字, at=列"},{"name":"calc.rank","t":"順位の列を足す","a":"col*=列, desc=真偽, name=文字, at=列"},{"name":"count.if","t":"条件に合う数を数える・合計する式を入れる","a":"range*=範囲, criteria*=文字, sum_range=範囲, into=範囲"},{"name":"subtotal","t":"区分ごとに小計の行を入れる","a":"key_col*=列, sum_cols=列[]"},{"name":"formula.guard","t":"エラー表示を消す（IFERRORで包む）","a":"col=列, range=範囲, fallback=文字"},{"name":"formula.tovalue","t":"計算式を確定した値に変える","a":"col=列, range=範囲"},{"name":"round","t":"数値を四捨五入・切り捨て・切り上げする","a":"col=列, range=範囲, mode=選択(round/floor/ceil)=round, digits=数=0"},{"name":"date.parts","t":"日付から年・月・曜日・年度の列を足す","a":"col*=列, part*=選択(year/month/day/weekday/quarter/fiscal), name=文字, at=列"},{"name":"text.join","t":"複数の列をつないで新しい列を作る","a":"cols*=列[], sep=文字, name=文字, at=列"},{"name":"text.case","t":"文字列の大文字・小文字・全角・半角をそろえる","a":"col=列, range=範囲, mode*=選択(upper/lower/proper/asc/jis)=upper"},{"name":"text.affix","t":"文字の先頭・末尾に文字を付ける","a":"col=列, range=範囲, prefix=文字, suffix=文字, remove=真偽=false"},{"name":"calc.if","t":"条件分岐（IF式）の判定列を足す","a":"col*=列, when*=選択(ge/gt/le/lt/eq/ne/contains/blank/notblank)=ge, value=文字, then_val=文字=○, else_val=文字=×, name=文字=判定, at=列"},{"name":"date.diff","t":"2つの日付の差（日数・月数・年数）の列を足す","a":"start_col*=列, end_col=列, unit=選択(days/months/years/workdays)=days, name=文字, at=列"},{"name":"unique.list","t":"重複を除いたユニーク一覧を別シートへ出す","a":"col*=列, with_count=真偽=true, into=文字=一覧"},{"name":"crosstab","t":"2項目の縦横クロス集計表を式つきで作る","a":"row_col*=列, col_col*=列, val_col=列, func=選択(sum/count/avg)=count, into=文字=クロス集計"},{"name":"formula.list","t":"シートやブックの数式一覧を別シートに出す","a":"all_sheets=真偽=false, into=文字=数式一覧"},{"name":"date.age","t":"日付から年齢・勤続年数などの列を足す","a":"col*=列, unit=選択(years/months/days)=years, name=文字, at=列"},{"name":"calc.tax","t":"金額列から税込・税抜・消費税額の計算列を足す","a":"col*=列, mode=選択(in/out/tax)=in, rate=数=10, round=選択(floor/round/ceil)=floor, name=文字, at=列"},{"name":"col.compare","t":"表内の2つの列を比較して一致・不一致列を足す","a":"col_a*=列, col_b*=列, match_val=文字=一致, diff_val=文字=不一致, name=文字=比較結果, at=列"},{"name":"validation.list","t":"プルダウンを付ける","a":"range*=範囲, items=配列, from=範囲, strict=真偽=true"},{"name":"validation.number","t":"数だけ入るようにする","a":"range*=範囲, min=数, max=数"},{"name":"validation.date","t":"日付だけ入るようにする","a":"range*=範囲"},{"name":"checkbox","t":"チェックボックスを付ける","a":"range*=範囲"},{"name":"validation.clear","t":"入力規則を外す","a":"range*=範囲"},{"name":"protect.sheet","t":"シートを保護する","a":"name=シート, except=範囲, warn=真偽"},{"name":"protect.range","t":"範囲を保護する","a":"range*=範囲, warn=真偽"},{"name":"protect.remove","t":"保護を外す","a":"range=範囲"},{"name":"name.add","t":"名前付き範囲を作る","a":"name*=文字, range*=範囲"},{"name":"name.delete","t":"名前付き範囲を消す","a":"name*=文字"},{"name":"name.list","t":"名前付き範囲を一覧にする","a":"なし"},{"name":"backup","t":"バックアップのオン・オフを切り替える","a":"on*=真偽"},{"name":"folder","t":"フォルダの作成・移動・保存先を設定する","a":"to*=文字, mode=選択(move/default/create)=move, create=真偽=false"},{"name":"drive.list","t":"ドライブ内のファイル・フォルダ一覧を見る","a":"folder=文字=マイドライブ, query=文字, kind=選択(all/folder/file/sheet/doc)=all, limit=数=30"},{"name":"drive.rename","t":"ファイルやフォルダの名前を変える","a":"name*=文字, item=文字"},{"name":"drive.move","t":"ファイルやフォルダを別のフォルダへ移動する","a":"to*=文字, item=文字, create=真偽=false"},{"name":"drive.trash","t":"不要なファイルやフォルダをゴミ箱に入れる","a":"item=文字"},{"name":"print.setup","t":"シートの印刷設定を保存する","a":"paper=選択(a4/a3/b4/b5/letter)=a4, landscape=真偽=true, fit_width=真偽=true, gridlines=真偽=false, margins=選択(narrow/normal/wide)=narrow"},{"name":"export.pdf","t":"シートをPDFにして保存する","a":"name=文字, folder=文字, paper=選択(a4/a3/b4/b5/letter), landscape=真偽, fit_width=真偽, gridlines=真偽, all_sheets=真偽=false"},{"name":"export.csv","t":"シートをCSVでDriveに保存する","a":"name=文字, folder=文字, bom=真偽=true"},{"name":"drive.share","t":"ファイルやフォルダを共有・リンク取得する","a":"item=文字, email=文字, role=選択(viewer/editor/commenter)=viewer, anyone=真偽=false"},{"name":"protect.list","t":"保護中のシートと範囲を一覧にする","a":"なし"},{"name":"checkbox.toggle","t":"範囲のチェックボックスを全ON・全OFF・反転する","a":"range*=範囲, mode=選択(on/off/invert)=off"},{"name":"export.xlsx","t":"ブックをExcel形式でDriveに保存","a":"name=文字, folder=文字"},{"name":"protect.formulas","t":"シート内の数式セルを自動検出して保護する","a":"warning_only=真偽=true"},{"name":"format","t":"範囲の書式を変える","a":"range=範囲, col=列, header=真偽, title=真偽, bold=真偽, italic=真偽, color=色, bg=色, size=数, font=文字, number_format=文字, align=文字, valign=文字, wrap=真偽, borders=文字, merge=真偽"},{"name":"bg.clear","t":"背景色を消す（塗りつぶしなしに戻す）","a":"range=範囲, col=列, header=真偽, title=真偽"},{"name":"width","t":"列の幅・行の高さを変える","a":"cols=対応, col=列, width=数, rows=対応, auto=列[], all_sheets=真偽=false, auto_rows=真偽=false"},{"name":"cf.add","t":"条件付き書式を付ける","a":"range*=範囲, when*=選択(gt/ge/lt/le/eq/ne/contains/blank/notblank/formula), value=文字, bg=色, color=色, bold=真偽"},{"name":"cf.dup","t":"重複に色を付ける","a":"range*=範囲, bg=色"},{"name":"cf.scale","t":"カラースケールを付ける","a":"range*=範囲, low=色, high=色"},{"name":"cf.clear","t":"条件付き書式を外す","a":"range=範囲"},{"name":"cf.list","t":"条件付き書式を一覧にする","a":"なし"},{"name":"banding.add","t":"交互の色を付ける","a":"range=範囲, theme=選択(gray/blue/green/orange)=gray"},{"name":"banding.remove","t":"交互の色を外す","a":"range=範囲"},{"name":"sheet.gridlines","t":"枠線（グリッド線）を表示・非表示","a":"show=真偽, all_sheets=真偽=false"},{"name":"cf.weekend","t":"日付列の土日行に自動で色を付ける","a":"col=列, sat_bg=色=#E8F0FE, sun_bg=色=#FCE8E6"},{"name":"format.negred","t":"マイナス数値を赤字表示・単位表示に整える","a":"col=列, range=範囲, unit=選択(none/yen/thousand/million)=none, triangle=真偽=false"},{"name":"font.unify","t":"シートや全シートのフォントとサイズを統一する","a":"font=文字=Noto Sans JP, size=数, all_sheets=真偽=false"},{"name":"rows.highlight","t":"条件に合う行の背景色を固定色でハイライトする","a":"col*=列, when=選択(contains/eq/ne/gt/lt/blank/notblank)=contains, value=文字, bg=色=薄黄"},{"name":"table.new","t":"表を新しく作る","a":"headers*=配列, title=文字, rows=表, number=列, total=列[], label=文字, tidy=真偽"},{"name":"total","t":"表の下に合計行を足す","a":"cols=列[], label=文字"},{"name":"summary","t":"項目ごとの集計表を作る","a":"by*=列, values*=列[], func=選択(sum/count/avg)=sum, into=文字"},{"name":"pivot.new","t":"ピボットテーブルを作る","a":"rows*=列[], values*=列[], cols=列[], func=選択(sum/count/avg)=sum, into=文字"},{"name":"chart.new","t":"グラフを作る・直す","a":"range=範囲, type=選択(column/bar/line/pie/area/scatter)=column, title=文字, at=範囲, target=文字, edit=真偽"},{"name":"chart.delete","t":"グラフを消す","a":"title=文字"},{"name":"table.template","t":"定番の業務表テンプレートを一発で作る","a":"kind*=選択(task/budget/customer/schedule/minutes)=task, title=文字"},{"name":"write","t":"セルに値・式を書く","a":"cells=対応, range=範囲, tsv=文字"},{"name":"replace","t":"文字を探して置き換える","a":"find*=文字, with=文字, range=範囲, match_case=真偽, whole=真偽, all_sheets=真偽=false"},{"name":"find","t":"値を探して番地を返す","a":"text*=文字, range=範囲, whole=真偽, all_sheets=真偽"},{"name":"clear.values","t":"範囲の値を消す（書式は残す）","a":"range=範囲, only=選択(all/constants)=all"},{"name":"clear.format","t":"範囲の書式を消す（値は残す）","a":"range*=範囲"},{"name":"clear.all","t":"範囲の値と書式を消す","a":"range*=範囲"},{"name":"copy","t":"範囲を写す","a":"from*=範囲, to*=範囲"},{"name":"copy.values","t":"値だけ貼り付ける・式を値にする","a":"from*=範囲, to=範囲"},{"name":"copy.format","t":"書式だけ貼り付ける","a":"from*=範囲, to*=範囲"},{"name":"fill.series","t":"範囲に連番を埋める","a":"range*=範囲, start=数=1, step=数=1"},{"name":"date.fix","t":"文字で入った日付を本物の日付に直す","a":"col=列, range=範囲"},{"name":"fill.date","t":"日付を下へ埋める","a":"range*=範囲, start=文字, unit=選択(day/week/month/weekday)=day"},{"name":"fill.down","t":"上のセルを下へ写す","a":"range*=範囲"},{"name":"note.set","t":"セルにメモを付ける","a":"range*=範囲, text*=文字"},{"name":"note.clear","t":"セルのメモを消す","a":"range=範囲"},{"name":"link.set","t":"セルや列にリンクを付ける","a":"range=範囲, url=文字, text=文字, col=列, url_col=列"},{"name":"merge.unmerge","t":"結合セルを解除して値を埋める","a":"range=範囲"},{"name":"fill.blank","t":"空白セルを上の値で穴埋めする","a":"range=範囲, col=列"},{"name":"transpose","t":"行と列を入れ替える（転置）","a":"range=範囲, to=範囲, into=文字"},{"name":"number.fix","t":"文字の数字を本物の数値に直す","a":"col=列, range=範囲"},{"name":"link.clear","t":"セルのハイパーリンクを外す","a":"range=範囲, col=列"},{"name":"link.extract","t":"埋め込みリンクのURLを隣列へ抽出","a":"col*=列, name=文字=URL"},{"name":"note.list","t":"セルのメモ一覧を別シートに出す","a":"all_sheets=真偽=false, into=文字=メモ一覧"},{"name":"blank.fill.zero","t":"空欄セルを0や指定文字で一括埋めする","a":"col=列, range=範囲, value=文字=0"},{"name":"text.mask","t":"個人情報や文字を伏せ字にマスキングする","a":"col=列, range=範囲, keep_head=数=1, keep_tail=数=0, mask=文字=*"},{"name":"text.extract","t":"文字からメール・URL・数字・括弧内を抽出する","a":"col*=列, kind*=選択(email/url/number/parens/regex)=number, pattern=文字, name=文字"},{"name":"rows.reverse","t":"表のデータ行を上下反転する（逆順にする）","a":"なし"},{"name":"date.today","t":"セルに今日の日付や現在時刻を入れる","a":"range=範囲, with_time=真偽=false"},{"name":"text.kana","t":"ひらがなとカタカナを一括変換する","a":"col=列, range=範囲, to=選択(kata/hira)=kata"},{"name":"rows","t":"行・列の挿入・削除・移動","a":"action=選択(insert/delete/move)=delete, rows=行[], cols=列[], at=文字, count=数, from=文字, to=文字"},{"name":"rows.insert","t":"行を挿入する","a":"at*=文字, count=数"},{"name":"rows.delete","t":"行を削除する","a":"rows*=行[]"},{"name":"rows.move","t":"行を移動する","a":"from*=文字, to*=文字, count=数"},{"name":"cols.insert","t":"列を挿入する","a":"at*=列, count=数"},{"name":"cols.delete","t":"列を削除する","a":"cols*=列[]"},{"name":"cols.move","t":"列を移動する","a":"from*=列, to*=列"},{"name":"freeze","t":"見出しを固定する","a":"rows=数=1, cols=数=0"},{"name":"unfreeze","t":"固定を外す","a":"なし"},{"name":"rows.hide","t":"行を隠す","a":"rows*=行[]"},{"name":"rows.show","t":"隠した行を出す","a":"rows=行[]"},{"name":"cols.hide","t":"列を隠す","a":"cols*=列[]"},{"name":"cols.show","t":"隠した列を出す","a":"cols=列[]"},{"name":"group.rows","t":"行をグループ化する","a":"rows*=行[], collapse=真偽"},{"name":"group.cols","t":"列をグループ化する","a":"cols*=列[], collapse=真偽"},{"name":"group.remove","t":"グループ化を外す","a":"rows=行[], cols=列[]"},{"name":"sheet.add","t":"シートを追加する","a":"name=シート, before=シート, rename=対応, move=対応"},{"name":"sheet.rename","t":"シートの名前を変える","a":"name*=シート, to*=文字"},{"name":"sheet.move","t":"シートの並び順を変える","a":"name*=シート, index*=数"},{"name":"sheet.delete","t":"シートを消す","a":"name*=シート"},{"name":"sheet.copy","t":"シートを複製する","a":"name*=シート, as=文字, before=シート"},{"name":"sheet.hide","t":"シートを隠す","a":"name*=シート"},{"name":"sheet.show","t":"隠したシートを出す","a":"name=シート"},{"name":"sheet.color","t":"タブの色を変える","a":"name=シート, color*=色"},{"name":"sheet.merge","t":"複数シートの表を1つのシートに縦結合する","a":"sheets=配列, into=文字=統合, skip_header=真偽=true"},{"name":"sheet.split","t":"列の値ごとにシートを自動分割する","a":"col*=列, prefix=文字"},{"name":"sheet.diff","t":"2つのシートの差分を比較する","a":"from*=シート, to*=シート, into=文字=差分"},{"name":"sheet.toc","t":"全シートの目次シートを作る","a":"into=文字=目次"},{"name":"book.finish","t":"全シートをA1に揃え提出前仕上げ","a":"gridlines=真偽"},{"name":"sheet.sort","t":"シートを名前順に並べ替える","a":"desc=真偽=false"},{"name":"sheet.snapshot","t":"日付つきでシートの控えを複製保存","a":"name=シート, suffix=文字"}];
 var COMBO_PROP_TARGET = 'COMBO_TARGET_SS_ID';
 var COMBO_PROP_CONFIG = 'COMBO_CONFIG';
 var COMBO_PROP_FAST_UNDO = 'COMBO_FAST_UNDO';
@@ -34,7 +34,7 @@ exceptionLogging: 'STACKDRIVER',
 runtimeVersion: 'V8',
 dependencies: {
 libraries: [
-{ userSymbol: 'shuquickengine', version: '1', libraryId: engineId, developmentMode: false }
+{ userSymbol: 'shuquickengine', version: '0', libraryId: engineId, developmentMode: true }
 ],
 enabledAdvancedServices: [
 { userSymbol: 'Drive', serviceId: 'drive', version: 'v3' },
@@ -250,31 +250,41 @@ return ScriptApp.getOAuthToken() || '';
 } catch (e) {}
 return '';
 }
-function comboSheetInfos_(ss) {
+function comboSheetInfos_(ss, optActiveSh, optTb, wantAllDims) {
+var activeName = optActiveSh ? optActiveSh.getName() : '';
 return quickVisibleSheets_(ss).map(function (s) {
-return {
-name: s.getName(),
-sheetId: typeof s.getSheetId === 'function' ? s.getSheetId() : 0,
-rows: s.getLastRow(),
-cols: s.getLastColumn()
-};
+var nm = s.getName();
+var sid = typeof s.getSheetId === 'function' ? s.getSheetId() : 0;
+var r = 0, c = 0;
+if (wantAllDims || (activeName && nm === activeName)) {
+if (!wantAllDims && optTb && Array.isArray(optTb.vals)) {
+r = optTb.vals.length;
+c = (optTb.vals[0] && optTb.vals[0].length) || 0;
+} else {
+r = s.getLastRow();
+c = s.getLastColumn();
+}
+}
+return { name: nm, sheetId: sid, rows: r, cols: c };
 });
 }
 function comboInit(req, sheetFns) {
 var t0 = Date.now();
 try {
 req = req || {};
+var allProps = {};
+try { allProps = PropertiesService.getUserProperties().getProperties() || {}; } catch (eP) {}
 var ss = comboOpenSs_(req);
 var selInfo = comboGetSelectionInfo_(ss, req);
 var sh = sheetOf_(ss, selInfo.sheet, '');
-var sheetInfos = comboSheetInfos_(ss);
-var sheets = sheetInfos.map(function (s) { return s.name; });
 var ssId = ss.getId();
 var ssName = ss.getName();
 var tb = findTable_(sh);
 var table = tb ? tableOut_(tb) : null;
 var titleA1 = comboComputeTitleA1_(sh, tb);
 if (table && titleA1) table.title_a1 = titleA1;
+var sheetInfos = comboSheetInfos_(ss, sh, tb, false);
+var sheets = sheetInfos.map(function (s) { return s.name; });
 comboCachePut_(ssId, sh.getName(), table, sheets, tb, ssName, titleA1);
 var token = comboGetOAuthToken_();
 var out = {
@@ -293,11 +303,11 @@ sheetInfos: sheetInfos,
 table: table,
 selection: selInfo.selection,
 scope: comboParseScope_(selInfo.selection),
-config: comboGetConfig(),
-learned: comboGetLearned().learned
+config: comboGetRawConfig_(allProps),
+learned: comboGetLearned(null, allProps).learned
 };
 if (req.includeQuick) {
-out.quick = comboQuickList({ force: !!req.forceQuick, _skipToken: true }, sheetFns);
+out.quick = comboQuickList({ force: !!req.forceQuick, _skipToken: true, _allProps: allProps, _ssId: ssId, wantCodes: !!req.wantCodes, clientStamp: req.clientStamp || '' }, sheetFns);
 }
 if (sheetFns === undefined) {
 try { out.engineScriptId = ScriptApp.getScriptId(); } catch (eSid) {}
@@ -328,14 +338,14 @@ oauthToken: comboGetOAuthToken_()
 var prevSheet = String(req.prevSheet || '').trim();
 if (prevSheet && selInfo.sheet && selInfo.sheet !== prevSheet) {
 var sh = sheetOf_(ss, selInfo.sheet, '');
-var sheetInfos = comboSheetInfos_(ss);
-var sheets = sheetInfos.map(function (s) { return s.name; });
 var ssId = ss.getId();
 var ssName = ss.getName();
 var tb = findTable_(sh);
 var table = tb ? tableOut_(tb) : null;
 var titleA1 = comboComputeTitleA1_(sh, tb);
 if (table && titleA1) table.title_a1 = titleA1;
+var sheetInfos = comboSheetInfos_(ss, sh, tb, false);
+var sheets = sheetInfos.map(function (s) { return s.name; });
 comboCachePut_(ssId, sh.getName(), table, sheets, tb, ssName, titleA1);
 out.sheetChanged = true;
 out.sheetId = typeof sh.getSheetId === 'function' ? sh.getSheetId() : 0;
@@ -392,7 +402,7 @@ req = req || {};
 var ss = comboOpenSs_(req);
 var selInfo = comboGetSelectionInfo_(ss, req);
 var sh = sheetOf_(ss, req.sheet || selInfo.sheet, '');
-var sheetInfos = comboSheetInfos_(ss);
+var sheetInfos = comboSheetInfos_(ss, sh, null, true);
 var sheets = sheetInfos.map(function (s) { return s.name; });
 var ssId = ss.getId();
 var ssName = ss.getName();
@@ -458,23 +468,21 @@ function comboFastUndoKey_(ssId) {
 return COMBO_PROP_FAST_UNDO + '_' + String(ssId || '').slice(0, 60);
 }
 function comboFastUndoLoadRaw_(ssId) {
-var raw = null, fromUser = false, fromProp = false;
+var raw = null;
 try {
 raw = CacheService.getUserCache().get(comboFastUndoKey_(ssId));
-if (raw) fromUser = true;
+if (raw) return { raw: raw, fromUser: true, fromProp: false };
 } catch (eU) {}
-if (!raw) {
 try { raw = CacheService.getScriptCache().get(COMBO_PROP_FAST_UNDO); } catch (eS) {}
-}
 if (!raw) {
 try {
 raw = PropertiesService.getScriptProperties().getProperty(COMBO_PROP_FAST_UNDO);
-if (raw) fromProp = true;
+if (raw) return { raw: raw, fromUser: false, fromProp: true };
 } catch (eP) {}
 }
-return { raw: raw, fromUser: fromUser, fromProp: fromProp };
+return { raw: raw, fromUser: false, fromProp: false };
 }
-function comboFastUndoClear_(ssId, optSs) {
+function comboFastUndoClear_(ssId, optSs, clearLegacy) {
 try {
 var uc = CacheService.getUserCache();
 var k = comboFastUndoKey_(ssId);
@@ -484,8 +492,10 @@ if (prev && prev.indexOf('"sheetcopy"') >= 0) quickDropBackup_(optSs);
 }
 uc.remove(k);
 } catch (eU) {}
+if (clearLegacy === true) {
 try { CacheService.getScriptCache().remove(COMBO_PROP_FAST_UNDO); } catch (eS) {}
 try { PropertiesService.getScriptProperties().deleteProperty(COMBO_PROP_FAST_UNDO); } catch (eP) {}
+}
 }
 function comboQuickClearFastUndo(ssId) {
 var id = String(ssId || '').trim();
@@ -529,7 +539,19 @@ if (c0 < minC) minC = c0;
 if (r1 > maxR) maxR = r1;
 if (c1 > maxC) maxC = c1;
 };
+var resolveCol1 = function (ref) {
+var s = String(ref || '').trim();
+if (!s) return 0;
+if (table && Array.isArray(table.columns)) {
+for (var cci = 0; cci < table.columns.length; cci++) {
+if (table.columns[cci] && table.columns[cci].name === s) return colNum_(table.columns[cci].col);
+}
+}
+if (/^[A-Za-z]{1,3}$/.test(s)) return colNum_(s);
+return 0;
+};
 var hasWidth = false;
+var widthCols = [];
 var needFullSheet = false;
 var formatOnly = true;
 var freezeOnly = true;
@@ -553,7 +575,32 @@ if (op.valign !== undefined) fmtFlags.valigns = true;
 if (op.number_format !== undefined) fmtFlags.numFmts = true;
 if (op.wrap !== undefined) fmtFlags.wraps = true;
 }
-if (op.shelf === 'width') hasWidth = true;
+if (op.shelf === 'width') {
+if (op.all_sheets || op.auto_rows) { comboFastUndoClear_(ssId, optSs); return false; }
+hasWidth = true;
+var wcFound = false;
+if (op.cols && typeof op.cols === 'object') {
+Object.keys(op.cols).forEach(function (ck) {
+var cn = resolveCol1(ck);
+if (cn > 0) { widthCols.push(cn); if (cn < minC) minC = cn; if (cn > maxC) maxC = cn; wcFound = true; }
+});
+}
+if (op.col) {
+var cn1 = resolveCol1(op.col);
+if (cn1 > 0) { widthCols.push(cn1); if (cn1 < minC) minC = cn1; if (cn1 > maxC) maxC = cn1; wcFound = true; }
+}
+if (Array.isArray(op.auto) && op.auto.length) {
+op.auto.forEach(function (ak) {
+var cna = resolveCol1(ak);
+if (cna > 0) { widthCols.push(cna); if (cna < minC) minC = cna; if (cna > maxC) maxC = cna; wcFound = true; }
+});
+}
+if (wcFound) {
+if (1 < minR) minR = 1;
+if (1 > maxR) maxR = 1;
+continue;
+}
+}
 if (op.to) {
 if (String(op.to).indexOf('!') >= 0) { comboFastUndoClear_(ssId, optSs); return false; }
 try { addRange(sh.getRange(op.to)); continue; } catch (eTo) {}
@@ -573,6 +620,14 @@ continue;
 }
 if (op.col && table) {
 try {
+var ciFast = resolveCol1(op.col);
+var dmFast = table.data ? String(table.data).match(/^(\d+)-(\d+)$/) : null;
+if (ciFast > 0 && dmFast) {
+var fRow = parseInt(dmFast[1], 10);
+var eRow = table.total_row ? Number(table.total_row) : parseInt(dmFast[2], 10);
+addRange(sh.getRange(fRow, ciFast, Math.max(1, eRow - fRow + 1), 1));
+continue;
+}
 var tObj = findTable_(sh);
 if (tObj) {
 var ci = colIndexOf_(tObj, op.col);
@@ -668,9 +723,15 @@ snap.frozenC = sh.getFrozenColumns();
 }
 if (hasWidth) {
 var cw = {};
-var wEnd = Math.min(maxC, Math.max(sh.getLastColumn(), maxC));
-for (var wc = minC; wc <= wEnd; wc++) {
+if (widthCols.length) {
+for (var wi = 0; wi < widthCols.length; wi++) {
+var wcol = widthCols[wi];
+if (wcol >= 1 && cw[wcol] === undefined) cw[wcol] = sh.getColumnWidth(wcol);
+}
+} else {
+for (var wc = minC; wc <= maxC; wc++) {
 cw[wc] = sh.getColumnWidth(wc);
+}
 }
 snap.colWidths = cw;
 }
@@ -694,10 +755,10 @@ comboFastUndoClear_(ssId, optSs);
 return false;
 }
 }
-function comboFastUndoRestore_(ss, optRaw) {
+function comboFastUndoRestore_(ss, optRaw, optFromUser) {
 var t0 = Date.now();
 var ssId = ss.getId();
-var loaded = optRaw ? { raw: optRaw } : comboFastUndoLoadRaw_(ssId);
+var loaded = optRaw ? { raw: optRaw, fromUser: optFromUser === true } : comboFastUndoLoadRaw_(ssId);
 var raw = loaded.raw;
 if (!raw) {
 return { ok: false, error: '戻せる高速控えがありません' };
@@ -710,7 +771,7 @@ var unz = Utilities.ungzip(Utilities.newBlob(Utilities.base64Decode(snap.__gz), 
 snap = JSON.parse(unz);
 }
 } catch (e) {
-comboFastUndoClear_(ssId);
+comboFastUndoClear_(ssId, null, !loaded.fromUser);
 return { ok: false, error: '高速控えのデータが壊れていました' };
 }
 if (!snap || snap.ssId !== ssId) {
@@ -750,7 +811,7 @@ Object.keys(snap.colWidths).forEach(function (k) {
 sh.setColumnWidth(parseInt(k, 10), snap.colWidths[k]);
 });
 }
-comboFastUndoClear_(ssId);
+comboFastUndoClear_(ssId, null, !loaded.fromUser);
 if (!snap.partial) {
 comboCacheInvalidate_(ssId, snap.sheetName);
 }
@@ -878,7 +939,7 @@ fullRes.gasMs = Date.now() - t0;
 return fullRes;
 }
 var sh = sheetOf_(ss, curSheet, '');
-var needTitleA1 = ops.some(function (o) { return o && o.shelf === 'format' && o.title === true; });
+var needTitleA1 = ops.some(function (o) { return o && (o.shelf === 'format' || o.shelf === 'bg.clear') && o.title === true; });
 var hasFrontMeta = !!(req.targetName && req.sheets && req.table !== undefined);
 var hasFrontTitle = !needTitleA1 || !!(req.table && req.table.title_a1);
 var cached = (req._cached !== undefined)
@@ -890,7 +951,7 @@ var sheets = req.sheets || (cached && cached.sheets) || null;
 var keepsShape = comboKeepsShape_(ops);
 var titleA1 = (table && table.title_a1) || (cached && cached.titleA1) || '';
 var resolvedOps = ops.map(function (op) {
-if (!op || op.shelf !== 'format') return op;
+if (!op || (op.shelf !== 'format' && op.shelf !== 'bg.clear')) return op;
 if (op.title === true && titleA1) {
 var bandA1 = titleA1;
 if (op.merge === undefined && titleA1.indexOf(':') < 0 && table && table.last_col) {
@@ -997,6 +1058,9 @@ out.text = comboFormatDoText_(out, false);
 out.gasMs = Date.now() - t0;
 return out;
 } catch (err) {
+if ((ctx.opNo || 0) > 1 && fastSaved) {
+try { comboFastUndoRestore_(ss); } catch (eRb) {}
+}
 var errOut = {
 ok: false,
 error: String(err && err.message || err),
@@ -1020,9 +1084,13 @@ _TBL_CACHE = null;
 }
 }
 var COMBO_PROP_LEARNED = 'COMBO_LEARNED';
-function comboGetLearned(req) {
+function comboGetLearned(req, optAllProps) {
+if (req && req.reset) return { ok: true, learned: {} };
 var map = {};
-try { map = JSON.parse(PropertiesService.getUserProperties().getProperty(COMBO_PROP_LEARNED) || '{}') || {}; } catch (e) { map = {}; }
+try {
+var raw = optAllProps ? optAllProps[COMBO_PROP_LEARNED] : PropertiesService.getUserProperties().getProperty(COMBO_PROP_LEARNED);
+map = JSON.parse(raw || '{}') || {};
+} catch (e) { map = {}; }
 return { ok: true, learned: map };
 }
 function comboLearn(req) {
@@ -1202,7 +1270,7 @@ var ssId = ss.getId();
 if (!req.to) {
 var loaded = comboFastUndoLoadRaw_(ssId);
 if (loaded.raw) {
-var fastRes = comboFastUndoRestore_(ss, loaded.raw);
+var fastRes = comboFastUndoRestore_(ss, loaded.raw, loaded.fromUser);
 if (fastRes.ok || String(fastRes.error || '').indexOf('現在のスプレッドシート') < 0) {
 fastRes.gasMs = Date.now() - t0;
 return fastRes;
@@ -1260,10 +1328,10 @@ return { ok: true, sheet: sh.getName(), range: a1, gasMs: Date.now() - t0 };
 return { ok: false, error: String(err && err.message || err), gasMs: Date.now() - t0 };
 }
 }
-function comboGetRawConfig_() {
+function comboGetRawConfig_(optAllProps) {
 var def = { backupDefault: false, defaultTab: 'auto' };
 try {
-var raw = PropertiesService.getUserProperties().getProperty(COMBO_PROP_CONFIG);
+var raw = optAllProps ? optAllProps[COMBO_PROP_CONFIG] : PropertiesService.getUserProperties().getProperty(COMBO_PROP_CONFIG);
 if (!raw) return def;
 var parsed = JSON.parse(raw);
 if (parsed && typeof parsed === 'object') {
@@ -1302,7 +1370,7 @@ return comboSetTestTarget((req && (req.targetId || req.ssId)) || '');
 };
 }
 var QUICK_MY_TITLE = 'GASクイック マイマクロ';
-var QUICK_BUILD = '30019530ff';
+var QUICK_BUILD = '80e061ecca';
 var QUICK_DRAFT_KEY = 'QUICK_DRAFT';
 function comboQuickBuild() {
 return { ok: true, build: QUICK_BUILD, oauthToken: comboGetOAuthToken_() };
@@ -1317,25 +1385,26 @@ return { ok: true };
 return { ok: false, error: String(e && e.message || e) };
 }
 }
-function quickOrderKey_(kind) {
+function quickOrderKey_(kind, optSsId) {
 if (kind === 'sheet') {
-var id = '';
-try { id = SpreadsheetApp.getActive().getId(); } catch (e) {}
+var id = optSsId || '';
+if (!id) { try { id = SpreadsheetApp.getActive().getId(); } catch (e) {} }
 return 'QUICK_ORDER_sheet_' + id;
 }
 return 'QUICK_ORDER_' + (kind === 'my' ? 'my' : 'shelf');
 }
-function quickGetOrders_() {
-var props = PropertiesService.getUserProperties(), out = {};
+function quickGetOrders_(optAllProps, optSsId) {
+var props = optAllProps || (function () { try { return PropertiesService.getUserProperties().getProperties() || {}; } catch (e) { return {}; } })();
+var out = {};
 ['sheet', 'my', 'shelf'].forEach(function (k) {
-try { out[k] = JSON.parse(props.getProperty(quickOrderKey_(k)) || '[]'); } catch (e) { out[k] = []; }
+try { out[k] = JSON.parse(props[quickOrderKey_(k, optSsId)] || '[]'); } catch (e) { out[k] = []; }
 });
 return out;
 }
 var QUICK_PINS_KEY = 'QUICK_PINS';
-function quickGetPins_() {
+function quickGetPins_(optAllProps) {
 try {
-var raw = PropertiesService.getUserProperties().getProperty(QUICK_PINS_KEY);
+var raw = optAllProps ? optAllProps[QUICK_PINS_KEY] : PropertiesService.getUserProperties().getProperty(QUICK_PINS_KEY);
 var parsed = raw ? JSON.parse(raw) : {};
 return (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) ? parsed : {};
 } catch (e) { return {}; }
@@ -1372,7 +1441,7 @@ if (d) c.remove(QUICK_DRAFT_KEY);
 return d || '';
 } catch (e) { return ''; }
 }
-var QUICK_LIB_FNS = ["ArgError", "Blocked", "a1_", "actDo_", "actUndo_", "activeDriveList_", "activeFiles_", "activeFolders_", "apiColor_", "apiDefaultSheet_", "apiDig_", "apiGrid_", "apiScan_", "apiSheetId_", "apiSheetNames_", "apiWalk_", "backupDoc_", "backupSheetsLite_", "backupSheets_", "batchRetry_", "bkBook_", "bkLap_", "bkTabName_", "byId_", "call_", "capList_", "captureSide_", "chg_", "clearBody_", "colIndexOf_", "colLetter_", "colNum_", "colRuns_", "colWidths_", "comboCacheGet_", "comboCacheInvalidate_", "comboCachePut_", "comboCall", "comboComputeTitleA1_", "comboDecodeCellVal_", "comboEncodeCellVal_", "comboFastUndoClear_", "comboFastUndoKey_", "comboFastUndoLoadRaw_", "comboFastUndoRestore_", "comboFastUndoSave_", "comboFind", "comboFormatDoText_", "comboFormatLookText_", "comboFormatOpsShort_", "comboGetConfig", "comboGetLearned", "comboGetOAuthToken_", "comboGetRawConfig_", "comboGetSelectionInfo_", "comboGotoRange", "comboInit", "comboKeepsShape_", "comboLearn", "comboLook", "comboMenuUndo", "comboOpenSs_", "comboParseScope_", "comboPing", "comboPollSelection", "comboQuickAddFn", "comboQuickAfter", "comboQuickBuild", "comboQuickClearFastUndo", "comboQuickDeleteFn", "comboQuickGetFn", "comboQuickImport", "comboQuickList", "comboQuickMake", "comboQuickNewBook", "comboQuickReopen", "comboQuickRun", "comboQuickSaveFn", "comboQuickSaveOrder", "comboQuickSavePins", "comboQuickSaveSteps", "comboQuickSnap", "comboRenderUnfired_", "comboRunAsk", "comboRunOps", "comboSaveConfig", "comboSetTestTarget", "comboSheetInfos_", "comboTblCacheKey_", "comboUndo", "copyBody_", "countFolderChildren_", "createComboSidebarHtml", "dataRange_", "deleteRowRuns_", "digest_", "discardBackup_", "docBkIds_", "docBkSlotDoc_", "docStructure_", "errReport_", "errScanNeeded_", "errScan_", "extractDriveId_", "filterChanged_", "filterSpanOf_", "findTable_", "fingerDoc_", "fingerOnly_", "fingerSheet_", "folderLabel_", "getJson_", "gridA1_", "guardDelete_", "guardOverwrite_", "guardWide_", "headerNames_", "hexColor_", "hiddenRuns_", "isAncestorFolder_", "isBlank_", "isNoCol_", "isNoop_", "isNumberCol_", "json_", "lap_", "ledgerBrief_", "ledgerSave_", "ledger_", "liteTouch_", "loadSide_", "lookSide_", "matchRowCond_", "mimeLabel_", "msOut_", "needTable_", "need_", "normJson_", "note_", "numRuns_", "onOpen", "openTarget_", "packDim_", "packRects_", "packSide_", "parseDateText_", "pickSlot_", "props_", "pruneTabs_", "q_", "qs_", "quickDrive_", "quickDropBackup_", "quickFindFnSpan_", "quickFindHelperRefs_", "quickFnBodyMeta_", "quickFormatMyErr_", "quickGetOrders_", "quickGetPins_", "quickInsertTop_", "quickMyContent_", "quickMyFind_", "quickMyInvalidate_", "quickMyListCached_", "quickMySourceCached_", "quickMySource_", "quickMyStamp_", "quickMyUrl_", "quickOrderKey_", "quickParseFns_", "quickRestoreSheetCopy_", "quickSheetFnsHere_", "quickSkip_", "quickSplitSteps_", "quickTakeDraft_", "quickUndoNote_", "quickVisibleSheets_", "resetNew_", "resolveDriveItem_", "resolveFolder_", "restoreAll_", "restoreChartApp_", "restoreDoc_", "restoreFilter_", "restoreSheet_", "restoreSide_", "rgb_", "runDo_", "sameFinger_", "sameTable_", "saveSide_", "setJson_", "sheetCtx_", "sheetOf_", "shiftFormula_", "showConnectorJsonDialog", "showGasComboSidebar", "sideFields_", "sideItems_", "stripId_", "stripSide_", "summarizeOps_", "tableOfSheet_", "tableOut_", "tgt_", "tidyColSpec_", "tidyNumText_", "tidyRangeLegacy_", "tidyRange_", "titleRange_", "touchedSheets_", "touchesItem_", "validationLabel_", "wideRange_", "wideRowCount_", "wlen_", "wrapDriveObj_"];
+var QUICK_LIB_FNS = ["ArgError", "Blocked", "a1_", "actDo_", "actUndo_", "activeDriveList_", "activeFiles_", "activeFolders_", "apiColor_", "apiDefaultSheet_", "apiDig_", "apiGrid_", "apiScan_", "apiSheetId_", "apiSheetNames_", "apiWalk_", "backupDoc_", "backupSheetsLite_", "backupSheets_", "batchRetry_", "bkBook_", "bkLap_", "bkTabName_", "byId_", "call_", "capList_", "captureSide_", "chg_", "clearBody_", "colIndexOf_", "colLetter_", "colNum_", "colRuns_", "colWidths_", "comboCacheGet_", "comboCacheInvalidate_", "comboCachePut_", "comboCall", "comboComputeTitleA1_", "comboDecodeCellVal_", "comboEncodeCellVal_", "comboFastUndoClear_", "comboFastUndoKey_", "comboFastUndoLoadRaw_", "comboFastUndoRestore_", "comboFastUndoSave_", "comboFind", "comboFormatDoText_", "comboFormatLookText_", "comboFormatOpsShort_", "comboGetConfig", "comboGetLearned", "comboGetOAuthToken_", "comboGetRawConfig_", "comboGetSelectionInfo_", "comboGotoRange", "comboInit", "comboKeepsShape_", "comboLearn", "comboLook", "comboMenuUndo", "comboOpenSs_", "comboParseScope_", "comboPing", "comboPollSelection", "comboQuickAddFn", "comboQuickAfter", "comboQuickBuild", "comboQuickClearFastUndo", "comboQuickDeleteFn", "comboQuickGetFn", "comboQuickImport", "comboQuickList", "comboQuickMake", "comboQuickNewBook", "comboQuickReopen", "comboQuickRun", "comboQuickSaveFn", "comboQuickSaveOrder", "comboQuickSavePins", "comboQuickSaveSteps", "comboQuickSnap", "comboRenderUnfired_", "comboRunAsk", "comboRunOps", "comboSaveConfig", "comboSetTestTarget", "comboSheetInfos_", "comboTblCacheKey_", "comboUndo", "copyBody_", "copyHeaderStyle_", "countFolderChildren_", "createComboSidebarHtml", "dataRange_", "deleteRowRuns_", "digest_", "discardBackup_", "docBkIds_", "docBkSlotDoc_", "docStructure_", "errReport_", "errScanNeeded_", "errScan_", "extractDriveId_", "filterChanged_", "filterSpanOf_", "findTable_", "fingerDoc_", "fingerOnly_", "fingerSheet_", "folderLabel_", "getJson_", "gridA1_", "guardDelete_", "guardOverwrite_", "guardWide_", "headerNames_", "hexColor_", "hiddenRuns_", "isAncestorFolder_", "isBlank_", "isNoCol_", "isNoop_", "isNumberCol_", "json_", "lap_", "ledgerBrief_", "ledgerSave_", "ledger_", "liteTouch_", "loadSide_", "lookSide_", "matchRowCond_", "mimeLabel_", "msOut_", "needTable_", "need_", "normJson_", "note_", "numRuns_", "onOpen", "openTarget_", "packDim_", "packRects_", "packSide_", "parseDateText_", "pickSlot_", "props_", "pruneTabs_", "q_", "qs_", "quickDrive_", "quickDropBackup_", "quickFindFnSpan_", "quickFindHelperRefs_", "quickFnBodyMeta_", "quickFormatMyErr_", "quickGetOrders_", "quickGetPins_", "quickInsertTop_", "quickMyCachePut_", "quickMyContent_", "quickMyFind_", "quickMyInvalidate_", "quickMyListCached_", "quickMySourceCached_", "quickMySource_", "quickMyStamp_", "quickMyUrl_", "quickOrderKey_", "quickParseFns_", "quickRestoreSheetCopy_", "quickSheetFnsHere_", "quickSkip_", "quickSplitSteps_", "quickTakeDraft_", "quickUndoNote_", "quickVisibleSheets_", "resetNew_", "resolveColName_", "resolveDriveItem_", "resolveFolder_", "restoreAll_", "restoreChartApp_", "restoreDoc_", "restoreFilter_", "restoreSheet_", "restoreSide_", "rgb_", "runDo_", "sameFinger_", "sameTable_", "saveSide_", "setJson_", "sheetCtx_", "sheetOf_", "shiftFormula_", "showConnectorJsonDialog", "showGasComboSidebar", "sideFields_", "sideItems_", "stripId_", "stripSide_", "summarizeOps_", "tableOfSheet_", "tableOut_", "tgt_", "tidyColSpec_", "tidyNumText_", "tidyRangeLegacy_", "tidyRange_", "titleRange_", "toRuns_", "touchedSheets_", "touchesItem_", "validationLabel_", "wideRange_", "wideRowCount_", "wlen_", "wrapDriveObj_"];
 function quickSkip_(k) {
 return /_$/.test(k) || /^(combo|__gm|onOpen$|onEdit$|onInstall$|onSelectionChange$|onChange$|onFormSubmit$|doGet$|doPost$|showGasComboSidebar$|createComboSidebarHtml$)/.test(k);
 }
@@ -1449,14 +1518,28 @@ return out;
 }
 var QUICK_SCRIPT_JSON = 'application/vnd.google-apps.script+json';
 var QUICK_MY_ID_KEY = 'QUICK_MY_ID';
-function quickMyFind_(wantMeta) {
+function quickMyFind_(wantMeta, optAllProps, optForce) {
+var cache = CacheService.getUserCache();
+if (!optForce) {
+try {
+var mRaw = cache.get('QUICK_MY_META');
+if (mRaw) {
+var m = JSON.parse(mRaw);
+if (m && m.id && m.checkedAt && (Date.now() - m.checkedAt < 60000)) {
+return wantMeta ? { id: m.id, stamp: m.stamp || '' } : m.id;
+}
+}
+} catch (eC) {}
+}
 var props = PropertiesService.getUserProperties();
-var known = props.getProperty(QUICK_MY_ID_KEY);
+var known = optAllProps ? (optAllProps[QUICK_MY_ID_KEY] || '') : props.getProperty(QUICK_MY_ID_KEY);
 if (known) {
 try {
 var f = DriveApp.getFileById(known);
 if (!f.isTrashed() && f.getName() === QUICK_MY_TITLE) {
-return wantMeta ? { id: known, stamp: String(f.getLastUpdated().getTime()) } : known;
+var st = String(f.getLastUpdated().getTime());
+try { cache.put('QUICK_MY_META', JSON.stringify({ id: known, stamp: st, checkedAt: Date.now() }), 300); } catch (ePut1) {}
+return wantMeta ? { id: known, stamp: st } : known;
 }
 } catch (e) {}
 props.deleteProperty(QUICK_MY_ID_KEY);
@@ -1465,9 +1548,12 @@ var q = DriveApp.searchFiles("title = '" + QUICK_MY_TITLE + "' and mimeType = 'a
 if (q.hasNext()) {
 var nf = q.next();
 var id = nf.getId();
+var st2 = String(nf.getLastUpdated().getTime());
 props.setProperty(QUICK_MY_ID_KEY, id);
-return wantMeta ? { id: id, stamp: String(nf.getLastUpdated().getTime()) } : id;
+try { cache.put('QUICK_MY_META', JSON.stringify({ id: id, stamp: st2, checkedAt: Date.now() }), 300); } catch (ePut2) {}
+return wantMeta ? { id: id, stamp: st2 } : id;
 }
+try { cache.remove('QUICK_MY_META'); } catch (eRm) {}
 return wantMeta ? { id: '', stamp: '' } : '';
 }
 function quickMyStamp_(id) {
@@ -1479,7 +1565,33 @@ try {
 var cache = CacheService.getUserCache();
 cache.remove('QUICK_MY_LIST_' + id);
 cache.remove('QUICK_MY_SRC_' + id);
+cache.remove('QUICK_MY_META');
 } catch (e) {}
+}
+function quickMyCachePut_(id, src, optStamp) {
+if (!id) return '';
+var stamp = optStamp || quickMyStamp_(id) || String(Date.now());
+try {
+var cache = CacheService.getUserCache();
+var nowTs = Date.now();
+var srcStr = String(src || '');
+var payload = JSON.stringify({ stamp: stamp, cachedAt: nowTs, src: srcStr });
+if (payload.length > 50000) {
+var gz = Utilities.base64Encode(Utilities.gzip(Utilities.newBlob(srcStr, 'text/plain')).getBytes());
+payload = JSON.stringify({ stamp: stamp, cachedAt: nowTs, __gz: gz });
+}
+if (payload.length < 95000) {
+cache.put('QUICK_MY_SRC_' + id, payload, 21600);
+} else {
+cache.remove('QUICK_MY_SRC_' + id);
+}
+var list = quickParseFns_(srcStr);
+cache.put('QUICK_MY_LIST_' + id, JSON.stringify({ v: 3, stamp: stamp, list: list }), 21600);
+cache.put('QUICK_MY_META', JSON.stringify({ id: id, stamp: stamp, checkedAt: nowTs }), 300);
+} catch (e) {
+quickMyInvalidate_(id);
+}
+return stamp;
 }
 function quickMySourceCached_(id, optStamp, fastMode) {
 var cache = CacheService.getUserCache(), key = 'QUICK_MY_SRC_' + id;
@@ -1610,6 +1722,10 @@ function comboQuickList(req, sheetFns) {
 var t0 = Date.now();
 req = req || {};
 if (!sheetFns) sheetFns = quickSheetFnsHere_();
+var allProps = req._allProps;
+if (!allProps) {
+try { allProps = PropertiesService.getUserProperties().getProperties() || {}; } catch (eP) { allProps = {}; }
+}
 var res = { ok: true, sheet: (sheetFns || []).map(function (f) {
 if (f.head && (!f.desc || !Array.isArray(f.steps) || f.noBackup === undefined)) {
 var hm = quickFnBodyMeta_(f.head);
@@ -1621,13 +1737,32 @@ if (hm.noBackup) f.noBackup = true;
 return { name: f.name, desc: f.desc || '', words: Array.isArray(f.words) ? f.words : [], steps: Array.isArray(f.steps) ? f.steps : [], noBackup: !!f.noBackup };
 }), my: [], myId: '', myUrl: '', myStamp: '',
 oauthToken: req._skipToken ? '' : comboGetOAuthToken_(), build: QUICK_BUILD, draft: quickTakeDraft_(),
-order: quickGetOrders_(), pins: quickGetPins_() };
+order: quickGetOrders_(allProps, req._ssId || ''), pins: quickGetPins_(allProps) };
 try {
-var meta = quickMyFind_(true);
+var meta = quickMyFind_(true, allProps, !!req.force);
 if (meta && meta.id) {
-if (req.force) quickMyInvalidate_(meta.id);
+if (req.force) {
+try {
+var ucF = CacheService.getUserCache();
+ucF.remove('QUICK_MY_LIST_' + meta.id);
+ucF.remove('QUICK_MY_SRC_' + meta.id);
+} catch (eInv) {}
+}
 res.myId = meta.id; res.myUrl = quickMyUrl_(meta.id); res.myStamp = meta.stamp || '';
 res.my = quickMyListCached_(meta.id, meta.stamp || undefined);
+if (req.wantCodes && meta.stamp && meta.stamp !== String(req.clientStamp || '')) {
+try {
+var srcAll = quickMySourceCached_(meta.id, meta.stamp || undefined, true);
+if (srcAll && srcAll.length < 60000) {
+var codes = {};
+for (var j = 0; j < res.my.length; j++) {
+var fnSp = quickFindFnSpan_(srcAll, res.my[j].name);
+if (fnSp) codes[res.my[j].name] = srcAll.slice(fnSp.start, fnSp.end);
+}
+res.myCodes = codes;
+}
+} catch (eCode) {}
+}
 }
 } catch (e) {
 res.myError = String(e && e.message || e);
@@ -1724,9 +1859,9 @@ if (ln > 2) lineHint = '（マイマクロ ' + (ln - 2) + ' 行目付近）';
 } catch (e) {}
 return name + ' でエラー' + lineHint + ': ' + msg;
 }
-function comboQuickAfter() {
+function comboQuickAfter(optSs) {
 try {
-var ss = SpreadsheetApp.getActive();
+var ss = optSs || SpreadsheetApp.getActive();
 comboCacheInvalidate_(ss.getId(), ss.getActiveSheet().getName());
 } catch (e) {}
 }
@@ -1752,7 +1887,7 @@ if (ssS) { comboFastUndoClear_(ssS.getId(), ssS); }
 else { comboQuickClearFastUndo(); }
 }
 var rs = f();
-comboQuickAfter();
+comboQuickAfter(ssS);
 return { ok: true, snapped: snappedS, text: name + ' を実行しました' + (rs !== undefined && rs !== null && rs !== '' && typeof rs.then !== 'function' ? '（' + String(rs).slice(0, 200) + '）' : '') + quickUndoNote_(snappedS, backupOn, noBkS), gasMs: Date.now() - t0 };
 } catch (eS) {
 return { ok: false, error: name + ' でエラー: ' + String(eS && eS.message || eS), gasMs: Date.now() - t0 };
@@ -1760,15 +1895,17 @@ return { ok: false, error: name + ' でエラー: ' + String(eS && eS.message ||
 }
 try {
 var reqId = String(req.myId || '').trim();
-var meta = reqId ? { id: reqId, stamp: quickMyStamp_(reqId) } : quickMyFind_(true);
-if (!meta || !meta.id || !meta.stamp) {
+var reqStamp = String(req.myStamp || '').trim();
+var meta = reqId ? { id: reqId, stamp: reqStamp || quickMyStamp_(reqId) } : quickMyFind_(true);
+if (!meta || !meta.id) {
 meta = quickMyFind_(true);
 }
 if (!meta || !meta.id) return { ok: false, error: 'マイマクロがまだありません。一覧の「マイマクロを作る」を押してください' };
 var id = meta.id;
-var src = quickMySourceCached_(id, meta.stamp);
-var parsed = quickParseFns_(src);
-var hit = parsed.filter(function (f) { return f.name === name; })[0];
+var src = quickMySourceCached_(id, meta.stamp || undefined, true);
+var listM = quickMyListCached_(id, meta.stamp || undefined);
+var hit = listM.filter(function (f) { return f.name === name; })[0];
+if (!hit) hit = quickParseFns_(src).filter(function (f) { return f.name === name; })[0];
 if (!hit) return { ok: false, error: 'マイマクロに「' + name + '」が見つかりません（一覧を更新してください）' };
 var mod;
 try {
@@ -1787,7 +1924,7 @@ if (ssM) { comboFastUndoClear_(ssM.getId(), ssM); }
 else { comboQuickClearFastUndo(); }
 }
 var r = mod[name]();
-comboQuickAfter();
+comboQuickAfter(ssM);
 return { ok: true, snapped: snapped, myStamp: meta.stamp, text: name + ' を実行しました' + (r !== undefined && r !== null && r !== '' && typeof r.then !== 'function' ? '（' + String(r).slice(0, 200) + '）' : '') + quickUndoNote_(snapped, backupOn, noBkM), gasMs: Date.now() - t0 };
 } catch (e) {
 return { ok: false, error: quickFormatMyErr_(name, e, false), gasMs: Date.now() - t0 };
@@ -1795,7 +1932,8 @@ return { ok: false, error: quickFormatMyErr_(name, e, false), gasMs: Date.now() 
 }
 function comboQuickMake(req) {
 try {
-var id = quickMyFind_();
+req = req || {};
+var id = quickMyFind_(false, null, !!req.force);
 if (id) return { ok: true, myId: id, myUrl: quickMyUrl_(id), created: false, text: 'マイマクロはもうあります' };
 var guide = [
 '// GASクイック マイマクロ',
@@ -1840,7 +1978,8 @@ JSON.stringify({ name: QUICK_MY_TITLE, mimeType: 'application/vnd.google-apps.sc
 '\r\n--' + b + '\r\nContent-Type: ' + QUICK_SCRIPT_JSON + '\r\n\r\n' + JSON.stringify(content) + '\r\n--' + b + '--';
 var made = JSON.parse(quickDrive_('post', 'https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart', body, 'multipart/related; boundary=' + b));
 try { PropertiesService.getUserProperties().setProperty(QUICK_MY_ID_KEY, made.id); } catch (eP) {}
-return { ok: true, myId: made.id, myUrl: quickMyUrl_(made.id), created: true, text: 'マイマクロを作りました' };
+var newStamp = quickMyCachePut_(made.id, guide);
+return { ok: true, myId: made.id, myUrl: quickMyUrl_(made.id), myStamp: newStamp, created: true, text: 'マイマクロを作りました' };
 } catch (e) {
 return { ok: false, error: 'マイマクロを作れませんでした: ' + String(e && e.message || e) };
 }
@@ -1896,12 +2035,12 @@ try { sheetName = SpreadsheetApp.getActive().getName(); } catch (e2) {}
 file.source = quickInsertTop_(file.source, '// ' + sheetName + ' から取り込み（' +
 Utilities.formatDate(new Date(), 'Asia/Tokyo', 'yyyy/MM/dd') + '）\n' + String(src).replace(/\s*$/, ''));
 quickDrive_('patch', 'https://www.googleapis.com/upload/drive/v3/files/' + made.myId + '?uploadType=media', JSON.stringify(content), QUICK_SCRIPT_JSON);
-quickMyInvalidate_(made.myId);
+var newStamp = quickMyCachePut_(made.myId, quickMySource_(content));
 var deps = quickFindHelperRefs_(src, name, all);
 var note = deps.length
 ? '（注意: 部品 ' + deps.slice(0, 5).join('・') + (deps.length > 5 ? ' ほか ' + (deps.length - 5) + ' 件' : '') + ' を呼んでいます。必要なら一緒にマイマクロへ写してください）'
 : '（どのシートでも使えます）';
-return { ok: true, myId: made.myId, myUrl: made.myUrl, text: name + ' をマイマクロに入れました' + note };
+return { ok: true, myId: made.myId, myUrl: made.myUrl, myStamp: newStamp, text: name + ' をマイマクロに入れました' + note };
 } catch (e) {
 return { ok: false, error: name + ' を写せませんでした: ' + String(e && e.message || e) };
 }
@@ -1951,8 +2090,8 @@ var file = (content.files || []).filter(function (f) { return f.type === 'server
 if (!file) return { ok: false, error: 'マイマクロのコードファイルが見つかりません' };
 file.source = quickInsertTop_(file.source, block);
 quickDrive_('patch', 'https://www.googleapis.com/upload/drive/v3/files/' + made.myId + '?uploadType=media', JSON.stringify(content), QUICK_SCRIPT_JSON);
-quickMyInvalidate_(made.myId);
-return { ok: true, name: safeName, myId: made.myId, myUrl: made.myUrl, text: '⚡ 手順マクロ「' + safeName + '」をマイマクロに保存しました' };
+var newStamp = quickMyCachePut_(made.myId, quickMySource_(content));
+return { ok: true, name: safeName, myId: made.myId, myUrl: made.myUrl, myStamp: newStamp, text: '⚡ 手順マクロ「' + safeName + '」をマイマクロに保存しました' };
 } catch (e) {
 return { ok: false, error: '手順マクロを保存できませんでした: ' + String(e && e.message || e) };
 }
@@ -1993,35 +2132,86 @@ var start = defStart;
 while (start > 0) {
 var prevNl = src.lastIndexOf('\n', start - 2);
 var lineStart = prevNl < 0 ? 0 : prevNl + 1;
-var prevLine = src.slice(lineStart, start - 1);
+var prevLine = src.slice(lineStart, start - 1).replace(/\r$/, '');
 if (/^\s*\/\//.test(prevLine)) {
 start = lineStart;
 } else {
 break;
 }
 }
+var isArrow = /=>\s*$/.test(m[0]);
 var i = defStart, n = src.length, depth = 0, opened = false;
-var inStr = '', inLineCom = false, inBlkCom = false;
+var inStr = '', inLineCom = false, inBlkCom = false, inRegex = false, inRegexClass = false;
+var lastSig = '';
+var lastWord = '';
+var canStartRegex = function () {
+if (!lastSig) return true;
+if ('=(,[!&|?:;{}~+-*%^<>'.indexOf(lastSig) >= 0) return true;
+return /^(?:return|throw|case|in|of|typeof|void|delete|new|else|do|yield|await)$/.test(lastWord);
+};
+if (isArrow) {
+var arrowBody = defStart + m[0].length;
+while (arrowBody < n && /\s/.test(src[arrowBody])) arrowBody++;
+if (arrowBody < n && src[arrowBody] !== '{') {
+var pDepth = 0, bDepth = 0;
+for (var k = arrowBody; k < n; k++) {
+var c2 = src[k], nx2 = k + 1 < n ? src[k + 1] : '';
+if (inLineCom) { if (c2 === '\n') { inLineCom = false; if (pDepth === 0 && bDepth === 0) return { start: start, end: k }; } continue; }
+if (inBlkCom) { if (c2 === '*' && nx2 === '/') { inBlkCom = false; k++; } continue; }
+if (inStr) { if (c2 === '\\') { k++; continue; } if (c2 === inStr) inStr = ''; continue; }
+if (c2 === '/' && nx2 === '/') { inLineCom = true; k++; continue; }
+if (c2 === '/' && nx2 === '*') { inBlkCom = true; k++; continue; }
+if (c2 === "'" || c2 === '"' || c2 === '`') { inStr = c2; continue; }
+if (c2 === '(') pDepth++;
+else if (c2 === ')') pDepth = Math.max(0, pDepth - 1);
+else if (c2 === '[') bDepth++;
+else if (c2 === ']') bDepth = Math.max(0, bDepth - 1);
+else if (pDepth === 0 && bDepth === 0 && (c2 === ';' || c2 === '\n')) {
+return { start: start, end: c2 === ';' ? k + 1 : k };
+}
+}
+return { start: start, end: n };
+}
+}
 for (; i < n; i++) {
 var ch = src[i], nx = i + 1 < n ? src[i + 1] : '';
 if (inLineCom) { if (ch === '\n') inLineCom = false; continue; }
 if (inBlkCom) { if (ch === '*' && nx === '/') { inBlkCom = false; i++; } continue; }
+if (inRegex) {
+if (ch === '\\') { i++; continue; }
+if (ch === '[') { inRegexClass = true; continue; }
+if (ch === ']') { inRegexClass = false; continue; }
+if (ch === '/' && !inRegexClass) { inRegex = false; lastSig = ')'; lastWord = ''; continue; }
+if (ch === '\n') { inRegex = false; inRegexClass = false; }
+continue;
+}
 if (inStr) {
 if (ch === '\\') { i++; continue; }
-if (ch === inStr) inStr = '';
+if (ch === inStr) { inStr = ''; lastSig = ')'; lastWord = ''; }
 continue;
 }
 if (ch === '/' && nx === '/') { inLineCom = true; i++; continue; }
 if (ch === '/' && nx === '*') { inBlkCom = true; i++; continue; }
 if (ch === "'" || ch === '"' || ch === '`') { inStr = ch; continue; }
-if (ch === '{') { depth++; opened = true; }
-else if (ch === '}') {
+if (ch === '/' && canStartRegex()) { inRegex = true; inRegexClass = false; continue; }
+if (ch === '{') { depth++; opened = true; lastSig = '{'; lastWord = ''; continue; }
+if (ch === '}') {
 depth--;
+lastSig = '}'; lastWord = '';
 if (opened && depth === 0) {
 var end = i + 1;
 if (src[end] === ';') end++;
 return { start: start, end: end };
 }
+continue;
+}
+if (!/\s/.test(ch)) {
+if (/[\w$]/.test(ch)) {
+lastWord = /[\w$]/.test(lastSig) ? (lastWord + ch) : ch;
+} else {
+lastWord = '';
+}
+lastSig = ch;
 }
 }
 return null;
@@ -2031,17 +2221,50 @@ req = req || {};
 var name = String(req.name || '').trim();
 if (!name) return { ok: false, error: '関数名が指定されていません' };
 try {
-var id = quickMyFind_();
+var reqId = String(req.myId || '').trim();
+var reqStamp = String(req.myStamp || '').trim();
+var id = reqId || quickMyFind_();
 if (!id) return { ok: false, error: 'マイマクロが見つかりません' };
+var src = '';
+var stamp = reqStamp;
+try {
+src = quickMySourceCached_(id, stamp || undefined, true);
+} catch (eCache) {
+src = '';
+}
+var sp = src ? quickFindFnSpan_(src, name) : null;
+if (!sp) {
+var meta = quickMyFind_(true);
+if (meta && meta.id) {
+id = meta.id;
+stamp = meta.stamp || '';
+}
 var content = quickMyContent_(id);
-var files = (content.files || []).filter(function (f) { return f.type === 'server_js'; });
-for (var i = 0; i < files.length; i++) {
-var sp = quickFindFnSpan_(files[i].source, name);
-if (sp) {
-return { ok: true, name: name, fileName: files[i].name, code: files[i].source.slice(sp.start, sp.end), myUrl: quickMyUrl_(id) };
+src = quickMySource_(content);
+stamp = quickMyCachePut_(id, src, stamp || undefined);
+sp = quickFindFnSpan_(src, name);
 }
-}
+if (!sp) {
 return { ok: false, error: 'マイマクロ内に「' + name + '」が見つかりませんでした' };
+}
+var res = {
+ok: true,
+name: name,
+code: src.slice(sp.start, sp.end),
+myId: id,
+myStamp: stamp || '',
+myUrl: quickMyUrl_(id)
+};
+if (req.includeAll && src.length < 90000) {
+var codes = {};
+var fns = quickParseFns_(src);
+for (var j = 0; j < fns.length; j++) {
+var fnSp = quickFindFnSpan_(src, fns[j].name);
+if (fnSp) codes[fns[j].name] = src.slice(fnSp.start, fnSp.end);
+}
+res.codes = codes;
+}
+return res;
 } catch (e) {
 return { ok: false, error: 'コードを読めませんでした: ' + String(e && e.message || e) };
 }
@@ -2057,18 +2280,30 @@ new Function(code);
 } catch (eSyn) {
 return { ok: false, error: '構文エラーがあります: ' + String(eSyn && eSyn.message || eSyn) };
 }
+var parsedNew = quickParseFns_(code);
+if (!parsedNew.length) {
+return { ok: false, error: '関数定義（function 名前() { ... }）が見つかりません' };
+}
 try {
-var id = quickMyFind_();
+var id = String(req.myId || '').trim() || quickMyFind_();
 if (!id) return { ok: false, error: 'マイマクロが見つかりません' };
 var content = quickMyContent_(id);
 var files = (content.files || []).filter(function (f) { return f.type === 'server_js'; });
 for (var i = 0; i < files.length; i++) {
 var sp = quickFindFnSpan_(files[i].source, name);
 if (sp) {
+var allOther = quickMySource_(content);
+var existing = {};
+quickParseFns_(allOther).forEach(function (f) { if (f.name !== name) existing[f.name] = true; });
+var dup = parsedNew.filter(function (f) { return existing[f.name]; }).map(function (f) { return f.name; });
+if (dup.length) {
+return { ok: false, error: '同じ名前「' + dup.join('・') + '」がすでにあります（別の名前にしてください）' };
+}
 files[i].source = files[i].source.slice(0, sp.start) + code + files[i].source.slice(sp.end);
 quickDrive_('patch', 'https://www.googleapis.com/upload/drive/v3/files/' + id + '?uploadType=media', JSON.stringify(content), QUICK_SCRIPT_JSON);
-quickMyInvalidate_(id);
-return { ok: true, name: name, text: '「' + name + '」を保存しました' };
+var newStamp = quickMyCachePut_(id, quickMySource_(content));
+var newName = parsedNew[0].name || name;
+return { ok: true, name: name, newName: newName, myStamp: newStamp, text: '「' + newName + '」を保存しました' };
 }
 }
 return { ok: false, error: 'マイマクロ内に「' + name + '」が見つかりませんでした' };
@@ -2104,9 +2339,9 @@ var file = (content.files || []).filter(function (f) { return f.type === 'server
 if (!file) return { ok: false, error: 'マイマクロのコードファイルが見つかりません' };
 file.source = quickInsertTop_(file.source, code);
 quickDrive_('patch', 'https://www.googleapis.com/upload/drive/v3/files/' + made.myId + '?uploadType=media', JSON.stringify(content), QUICK_SCRIPT_JSON);
-quickMyInvalidate_(made.myId);
+var newStamp = quickMyCachePut_(made.myId, quickMySource_(content));
 var names = parsed.map(function (f) { return f.name; });
-return { ok: true, names: names, myId: made.myId, myUrl: made.myUrl, text: '「' + names.join('・') + '」をマイマクロに追加しました' };
+return { ok: true, names: names, myId: made.myId, myUrl: made.myUrl, myStamp: newStamp, text: '「' + names.join('・') + '」をマイマクロに追加しました' };
 } catch (e) {
 return { ok: false, error: '追加できませんでした: ' + String(e && e.message || e) };
 }
@@ -2116,7 +2351,7 @@ req = req || {};
 var name = String(req.name || '').trim();
 if (!name) return { ok: false, error: '関数名が指定されていません' };
 try {
-var id = quickMyFind_();
+var id = String(req.myId || '').trim() || quickMyFind_();
 if (!id) return { ok: false, error: 'マイマクロが見つかりません' };
 var content = quickMyContent_(id);
 var files = (content.files || []).filter(function (f) { return f.type === 'server_js'; });
@@ -2127,8 +2362,8 @@ var before = files[i].source.slice(0, sp.start).replace(/\n+$/, '');
 var after = files[i].source.slice(sp.end).replace(/^\n+/, '');
 files[i].source = (before && after) ? (before + '\n\n' + after) : (before || after) + '\n';
 quickDrive_('patch', 'https://www.googleapis.com/upload/drive/v3/files/' + id + '?uploadType=media', JSON.stringify(content), QUICK_SCRIPT_JSON);
-quickMyInvalidate_(id);
-return { ok: true, name: name, text: '「' + name + '」をマイマクロから削除しました' };
+var newStamp = quickMyCachePut_(id, quickMySource_(content));
+return { ok: true, name: name, myStamp: newStamp, text: '「' + name + '」をマイマクロから削除しました' };
 }
 }
 return { ok: false, error: 'マイマクロ内に「' + name + '」が見つかりませんでした' };
