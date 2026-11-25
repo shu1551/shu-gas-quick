@@ -129,11 +129,11 @@ function comboMenuUndo() {
 // ---------------------------------------------------------------- 対象スプレッドシート・選択範囲
 
 /**
- * ヘッドレス API テスト用にターゲットスプレッドシート ID を ScriptProperties へ保存する。
+ * ヘッドレス API テスト用にターゲットスプレッドシート ID を人ごとの置き場（UserProperties）へ保存する（同じ大元を使う別の人に書き換えさせない）。
  * @param {string} ssId スプレッドシート ID
  */
 function comboSetTestTarget(ssId) {
-  var p = PropertiesService.getScriptProperties();
+  var p = PropertiesService.getUserProperties();
   var val = String(ssId || '').trim();
   if (val) {
     p.setProperty(COMBO_PROP_TARGET, val);
@@ -161,7 +161,7 @@ function comboOpenSs_(req) {
   }
   var propId = '';
   try {
-    propId = PropertiesService.getScriptProperties().getProperty(COMBO_PROP_TARGET) || '';
+    propId = PropertiesService.getUserProperties().getProperty(COMBO_PROP_TARGET) || '';
   } catch (e2) {}
   var id = reqId || propId || DEFAULT_TARGET_SS_ID || '';
   if (id) {
