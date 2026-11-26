@@ -1659,6 +1659,38 @@ function comboQuickSaveOrder(req) {
   }
 }
 
+// シートごとのマクロ非表示一覧キー
+function quickHiddenKey_(optSsId) {
+  var id = optSsId || '';
+  if (!id) { try { id = SpreadsheetApp.getActive().getId(); } catch (e) {} }
+  return 'QUICK_HIDDEN_sheet_' + id;
+}
+
+function quickGetHidden_(optAllProps, optSsId) {
+  try {
+    var key = quickHiddenKey_(optSsId);
+    var raw = optAllProps ? optAllProps[key] : PropertiesService.getUserProperties().getProperty(key);
+    var parsed = raw ? JSON.parse(raw) : {};
+    return (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) ? parsed : {};
+  } catch (e) { return {}; }
+}
+
+/** シートのマクロの非表示状態をシートごとに保存する。 */
+function comboQuickSaveHidden(req) {
+  req = req || {};
+  var raw = (req.hidden && typeof req.hidden === 'object' && !Array.isArray(req.hidden)) ? req.hidden : {};
+  var clean = {}, keys = Object.keys(raw).slice(0, 400);
+  for (var i = 0; i < keys.length; i++) {
+    if (raw[keys[i]]) clean[String(keys[i])] = 1;
+  }
+  try {
+    PropertiesService.getUserProperties().setProperty(quickHiddenKey_(req.ssId || ''), JSON.stringify(clean));
+    return { ok: true, hidden: clean };
+  } catch (e) {
+    return { ok: false, error: String(e && e.message || e) };
+  }
+}
+
 function quickTakeDraft_() {
   try {
     var c = CacheService.getUserCache(), d = c.get(QUICK_DRAFT_KEY);
@@ -1995,7 +2027,8 @@ function comboQuickList(req, sheetFns) {
     return { name: f.name, desc: f.desc || '', words: Array.isArray(f.words) ? f.words : [], steps: Array.isArray(f.steps) ? f.steps : [], noBackup: !!f.noBackup };
   }), my: [], myId: '', myUrl: '', myStamp: '',
     oauthToken: req._skipToken ? '' : comboGetOAuthToken_(), build: QUICK_BUILD, draft: quickTakeDraft_(),
-    order: quickGetOrders_(allProps, req._ssId || ''), pins: quickGetPins_(allProps) };
+    order: quickGetOrders_(allProps, req._ssId || ''), pins: quickGetPins_(allProps),
+    hiddenSheet: quickGetHidden_(allProps, req._ssId || '') };
   try {
     var meta = quickMyFind_(true, allProps, !!req.force);
     if (meta && meta.id) {

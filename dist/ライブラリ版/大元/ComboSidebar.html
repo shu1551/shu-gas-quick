@@ -435,6 +435,9 @@
   .quick-move button { font-size: 10px; line-height: 1; padding: 1px 4px; border: 1px solid var(--border); border-radius: 2px; background: #fff; cursor: pointer; }
   .quick-move button:disabled { opacity: .35; cursor: default; }
   .quick-move button.is-pinned { color: #b45309; border-color: #f59e0b; background: #fffbeb; }
+  .quick-move button.is-hide-btn { color: #64748b; }
+  .quick-item.is-hidden { opacity: .55; }
+  .quick-hidden-pill { flex-shrink: 0; font-size: 9.5px; padding: 0 4px; border-radius: 8px; background: #e2e8f0; color: #475569; }
   .quick-pin-mark { flex-shrink: 0; font-size: 11px; color: #d97706; }
   .quick-item { display: flex; align-items: baseline; gap: 5px; white-space: nowrap; user-select: none; -webkit-user-select: none; }
   .quick-label { overflow: hidden; text-overflow: ellipsis; min-width: 0; }
@@ -2906,7 +2909,7 @@ module.exports = ComboPlanner;
   var state = {
     activeTab: "auto",
     quick: { sheet: [], my: [], myId: "", myUrl: "", myStamp: "", items: [], sel: -1, loaded: false, importMode: false,
-             filter: "all", cat: "all", recentSort: "time", pins: {}, usage: {}, collapsedCats: {}, order: { sheet: [], my: [], shelf: [] }, codeCache: { stamp: "", map: {} } },
+             filter: "all", cat: "all", recentSort: "time", pins: {}, hiddenSheet: {}, showHiddenSheet: false, usage: {}, collapsedCats: {}, order: { sheet: [], my: [], shelf: [] }, codeCache: { stamp: "", map: {} } },
     busy: false,
     target: { id: "", name: "", kind: "sheet", url: "", sheet: "" },
     sheets: [],
@@ -5036,7 +5039,7 @@ module.exports = ComboPlanner;
 
   // ===== GASクイック: 直したら自分で開き直す =====
   // 組み立てのときに quick.py がこの操作窓の版の印を埋める。大元の印と違えば、新しい操作窓に入れ替える
-  var QUICK_SIDEBAR_BUILD = "acec2a7df8";
+  var QUICK_SIDEBAR_BUILD = "88f2730bf2";
   var quickBuildAt = 0;
   function quickCheckBuild(force) {
     if (!QUICK_SIDEBAR_BUILD || !hasGasBridge()) return;
@@ -5166,6 +5169,31 @@ module.exports = ComboPlanner;
       els.quickCatBar.appendChild(rFrag);
       return;
     }
+    if (state.quick.filter === "sheet") {
+      var hCnt = quickHiddenSheetCount();
+      if (hCnt === 0 && !state.quick.showHiddenSheet) {
+        els.quickCatBar.style.display = "none";
+        return;
+      }
+      els.quickCatBar.style.display = "";
+      var sFrag = document.createDocumentFragment();
+      var hb = document.createElement("button");
+      hb.type = "button";
+      hb.className = "quick-cat-btn" + (state.quick.showHiddenSheet ? " active" : "");
+      hb.textContent = state.quick.showHiddenSheet
+        ? ("非表示を隠す (" + hCnt + ")")
+        : ("非表示も表示 (" + hCnt + ")");
+      hb.addEventListener("click", function() {
+        state.quick.showHiddenSheet = !state.quick.showHiddenSheet;
+        state.quick.sel = -1;
+        renderQuickCatBar();
+        renderQuickList();
+      });
+      sFrag.appendChild(hb);
+      els.quickCatBar.innerHTML = "";
+      els.quickCatBar.appendChild(sFrag);
+      return;
+    }
     if (state.quick.filter !== "shelf") {
       els.quickCatBar.style.display = "none";
       return;
@@ -5208,9 +5236,12 @@ module.exports = ComboPlanner;
     }).map(function(x) { return x.it; });
   }
 
-  function quickAllItems() {
+  function quickAllItems(includeHidden) {
     var q = state.quick, sheet = [], my = [];
-    (q.sheet || []).forEach(function(f) { sheet.push({ src: "sheet", name: f.name, label: f.name, words: f.words || [], desc: f.desc || "", steps: Array.isArray(f.steps) ? f.steps : [] }); });
+    (q.sheet || []).forEach(function(f) {
+      if (!includeHidden && q.hiddenSheet && q.hiddenSheet[f.name]) return;
+      sheet.push({ src: "sheet", name: f.name, label: f.name, words: f.words || [], desc: f.desc || "", steps: Array.isArray(f.steps) ? f.steps : [] });
+    });
     (q.my || []).forEach(function(f) { my.push({ src: "my", name: f.name, label: f.name, words: f.words || [], desc: f.desc || "", steps: Array.isArray(f.steps) ? f.steps : [] }); });
     return quickOrdered(sheet, q.order.sheet).concat(quickOrdered(my, q.order.my), quickOrdered(quickShelfItems(), q.order.shelf));
   }
@@ -5273,10 +5304,50 @@ module.exports = ComboPlanner;
     }
   }
 
+  function quickIsHidden(it) { return !!(it && it.src === "sheet" && state.quick.hiddenSheet && state.quick.hiddenSheet[it.name]); }
+  function quickHiddenSheetCount() {
+    var hm = state.quick.hiddenSheet || {};
+    var cnt = 0;
+    (state.quick.sheet || []).forEach(function(f) { if (hm[f.name]) cnt++; });
+    return cnt;
+  }
+  var quickHideSaveTimer = null;
+  function quickToggleHide(it) {
+    if (!it || it.src !== "sheet") return;
+    if (!state.quick.hiddenSheet) state.quick.hiddenSheet = {};
+    var hiding = !state.quick.hiddenSheet[it.name];
+    if (hiding) state.quick.hiddenSheet[it.name] = 1;
+    else delete state.quick.hiddenSheet[it.name];
+    if (quickHiddenSheetCount() === 0) state.quick.showHiddenSheet = false;
+    state.quick.sel = -1;
+    renderQuickCatBar();
+    renderQuickList();
+    els.quickNote.textContent = hiding
+      ? ("「" + it.name + "」を非表示にしました（「シート」タブからいつでも戻せます）")
+      : ("「" + it.name + "」を表示に戻しました");
+    if (hasGasBridge()) {
+      clearTimeout(quickHideSaveTimer);
+      quickHideSaveTimer = setTimeout(function() {
+        callGas("comboQuickSaveHidden", { hidden: state.quick.hiddenSheet, ssId: (state.target && state.target.id) || "" }, function() {}, function() {});
+      }, 400);
+    }
+  }
+
   function quickMoveButtons(idx) {
     var items = state.quick.items || [], it = items[idx];
     var box = document.createElement("span");
     box.className = "quick-move";
+    if (it && it.src === "sheet") {
+      var hideBtn = document.createElement("button");
+      hideBtn.type = "button";
+      var hidden = quickIsHidden(it);
+      hideBtn.className = "is-hide-btn";
+      hideBtn.textContent = hidden ? "戻す" : "隠す";
+      hideBtn.title = hidden ? "一覧に表示を戻す" : "一覧から非表示にする（コードは消えません）";
+      hideBtn.addEventListener("click", function(e) { e.stopPropagation(); quickToggleHide(it); });
+      hideBtn.addEventListener("dblclick", function(e) { e.stopPropagation(); });
+      box.appendChild(hideBtn);
+    }
     var pinBtn = document.createElement("button");
     pinBtn.type = "button";
     var pinned = quickIsPinned(it);
@@ -5401,7 +5472,7 @@ module.exports = ComboPlanner;
     var q = state.quick;
     var f = q.filter || "all";
     var usage = q.usage || {};
-    var all = quickAllItems().filter(function(it) {
+    var all = quickAllItems(f === "sheet" && !!q.showHiddenSheet).filter(function(it) {
       if (f === "all") return true;
       if (f === "pin") return quickIsPinned(it);
       if (f === "recent") return !!(usage[quickUsageKey(it)] && usage[quickUsageKey(it)].t);
@@ -5446,11 +5517,18 @@ module.exports = ComboPlanner;
 
   function quickMakeRow(it, idx, showCatPill) {
     var row = document.createElement("div");
-    row.className = "hist-item quick-item" + (state.quick.sel === idx ? " selected" : "");
+    var isHidden = quickIsHidden(it);
+    row.className = "hist-item quick-item" + (state.quick.sel === idx ? " selected" : "") + (isHidden ? " is-hidden" : "");
     var tag = document.createElement("span");
     tag.className = "quick-tag t-" + it.src;
     tag.textContent = QUICK_TAG[it.src];
     row.appendChild(tag);
+    if (isHidden) {
+      var hPill = document.createElement("span");
+      hPill.className = "quick-hidden-pill";
+      hPill.textContent = "非表示";
+      row.appendChild(hPill);
+    }
     if (showCatPill && it.src === "shelf" && it.cat) {
       var pill = document.createElement("span");
       pill.className = "quick-cat-pill";
@@ -5530,6 +5608,7 @@ module.exports = ComboPlanner;
       empty.className = "log-empty";
       if (!q.loaded) empty.textContent = "読込中…";
       else if (f === "recent") empty.textContent = txt ? "該当する最近の実行がありません" : "まだ実行履歴がありません（シート・マイ・棚を実行するとここに並びます）";
+      else if (f === "sheet" && !txt && quickHiddenSheetCount() > 0) empty.textContent = "シートのマクロはすべて非表示です（上のボタンから戻せます）";
       else empty.textContent = "当たるマクロがありません（実行で頼みとして撃ちます）";
       frag.appendChild(empty);
       q.sel = -1;
@@ -5755,6 +5834,9 @@ module.exports = ComboPlanner;
     q.loaded = true;
     q._fetchedOnce = true;
     q.sheet = res.sheet || [];
+    if (res.hiddenSheet && typeof res.hiddenSheet === "object" && !Array.isArray(res.hiddenSheet)) {
+      q.hiddenSheet = res.hiddenSheet;
+    }
     if (res.order) {
       q.order = {
         sheet: res.order.sheet || [],
